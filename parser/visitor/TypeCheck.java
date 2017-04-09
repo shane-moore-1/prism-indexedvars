@@ -115,6 +115,13 @@ public class TypeCheck extends ASTTraverse
 		}
 	}
 
+	// ADDED BY SHANE, but not completed yet
+	@Override
+	public void visitPost(DeclarationIndexedSet e) throws PrismLangException
+	{
+		throw new PrismLangException("TypeCheck.visitPost(DeclarationIndexedSet) not yet implemented");
+	}
+	
 	public void visitPost(Command e) throws PrismLangException
 	{
 		if (!(e.getGuard().getType() instanceof TypeBool)) {
