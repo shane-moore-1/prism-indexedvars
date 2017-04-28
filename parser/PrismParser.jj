@@ -708,9 +708,11 @@ Declaration Declaration() :				// ALTERED BY SHANE to allow Indexed Sets.
 		( { begin = getToken(1); } // SHANE WONDERS IF parameter MAY NEED TO BE CHANGED (compared to the above block's version)
 		  name = Identifier() <LBRACKET> size = Expression(false,false) <RBRACKET> <COLON> declType = DeclarationVarType()
 			{ 
-			    // NOTE: For arrays, the declType just obtained is the type for the elements. The actual Declaration's type will be an IndexedSet
-			    // And during ModulesFile.tidyUp, a visitor will need to convert these Declarations into individual variable declarations with names that include square brackets.
-			    decl = new Declaration(name, new DeclarationIndexedSet(declType,size)); 
+			    // NOTE: For arrays, the declType just obtained is the type for the elements. 
+			    // The actual Declaration's type will be an IndexedSet. And during ModulesFile.tidyUp, 
+			    // a visitor will need to convert these Declarations into individual variable declarations 
+			    // with names that include square brackets (and which each are distinct numbers).
+			    decl = new Declaration(name, new DeclTypeIndexedSet(declType,size)); 
 			}	
 		// The terminating Semicolon:
 		<SEMICOLON> )

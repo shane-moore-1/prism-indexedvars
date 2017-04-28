@@ -188,7 +188,7 @@ public class SemanticCheck extends ASTTraverse			// USED by the 'parser.ast.ASTE
 			throw new PrismLangException("Integer range upper bound \"" + e.getLow() + "\" is not constant", e.getLow());
 		}
 	}
-
+	// SHANE does not think this is used - it was in the downloaded source code bundle.
 	public void visitPost(DeclarationArray e) throws PrismLangException
 	{
 		if (e.getLow() != null && !e.getLow().isConstant()) {
@@ -200,7 +200,7 @@ public class SemanticCheck extends ASTTraverse			// USED by the 'parser.ast.ASTE
 	}
 
 	/** Ensure that the size given in a declaration of an IndexedSet is something that is (evaluates to a) constant. */
-	public void visitPost(DeclarationIndexedSet e) throws PrismLangException		// ADDED BY SHANE
+	public void visitPost(DeclTypeIndexedSet e) throws PrismLangException		// ADDED BY SHANE
 	{
 		if (e.getSize() != null && !e.getSize().isConstant())
 			throw new PrismLangException("Size of indexed set \"" + e.getSize() + "\" should be something constant",e.getSize());

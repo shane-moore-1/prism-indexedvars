@@ -41,12 +41,16 @@ public class Declaration extends ASTElement
 	protected DeclarationType declType;
 	// Initial value - null if none specified
 	protected Expression start;
+	
+	// Whether this declaration is part of the realisation of an indexed-set (true), or standalone non-indexed (false)
+	protected boolean isPartOfIndexedVar;
 		
 	public Declaration(String name, DeclarationType declType)
 	{
 		setName(name);
 		setDeclType(declType);
 		setStart(null);
+		isPartOfIndexedVar = false;
 	}
 	
 	// Set methods
@@ -77,6 +81,10 @@ public class Declaration extends ASTElement
 		return name;
 	}
 
+	/**
+	 * Determine the Data Type that the variable declared by this Declaration will be of.
+	 * @return The DeclarationType subclass.
+	 */
 	public DeclarationType getDeclType()
 	{
 		return declType;
@@ -115,6 +123,21 @@ public class Declaration extends ASTElement
 		return start != null;
 	}
 
+	/** Method to determine whether this Declaration is part of realisation of an indexed set.
+	 * @return true if it is, false otherwise.
+	 */
+	 
+	public boolean getIsPartOfIndexedVar()
+	{
+		return isPartOfIndexedVar;
+	}
+	
+	/** Method to make this Declaration note that it is part of realisation of an indexed set. */
+	public void setIsPartOfIndexedVar()
+	{
+		isPartOfIndexedVar = true;
+	}
+	
 	// Methods required for ASTElement:
 	
 	/**

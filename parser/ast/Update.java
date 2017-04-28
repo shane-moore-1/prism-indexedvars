@@ -34,20 +34,41 @@ import parser.visitor.*;
 import prism.PrismLangException;
 
 /**
- * Class to store a single update, i.e. a mapping from variables to expressions. 
- * e.g. (s'=1)&amp;(x'=x+1)
+ * Class to store a single update command, which consists one or more update-elements,
+ * each of which specifies a variable identifier whose value is to be updated according
+ * to some expressions.
+ * For example:  (s'=1) &amp; (x'=x+1) consists of two update-elements, the first which would 
+ * update the 's' variable to value 1, and the second which would cause the 'x' variable to be incremented.
  */
 public class Update extends ASTElement
 {
+	class ElementOfUpdate {
+		String var;						// The NAME only of a variable requiring update (its ExpressionIdent is below...) 
+		// SHANE NOTES: The name of the variable which is to be updated, in the case of accessing an indexed
+		// set, will not be known during FindAllValues, because it needs to be determined at Step-Time. (Run-Time, based on the state).
+		Expression expr;			// The expression that specifies what run-time calculation to evaluate to find the new value for var.
+		Type varType;					// The type that the var being updated is declared to be (and what updateExpr should evaluate to)
+		ExpressionIdent varIdent;		// The ExpressionIdent object that this UpdateElement is regarding (its NAME was the above 'var').
+										// This is to just to provide positional info.
+		Integer index;					// The index in the model to which it belongs - set before any steps executed..
+				// the above Integer is CURRENTLY set during FindAllVars.visitPost(Update e); it is position in the ModulesFile list of variables.
+	}
+	
+	
 	// Lists of variable/expression pairs (and types)
-	private ArrayList<String> vars;
-	private ArrayList<Expression> exprs;
-	private ArrayList<Type> types;
+	//private ArrayList<String> vars;				// vars[i] will be the NAME of a variable requiring update 
+	//private ArrayList<Expression> exprs;		// exprs[i] will be the way to calculate the new value for vars[i] to be assigned when update() is called.
+	//private ArrayList<Type> types;				// types[i] is the type that the variable at pos i expects.
 	// We also store an ExpressionIdent to match each variable.
-	// This is to just to provide positional info.
-	private ArrayList<ExpressionIdent> varIdents;
-	// The indices of each variable in the model to which it belongs
-	private ArrayList<Integer> indices;
+	// This is to just to provide positional info. (Originally; but SHANE may need to rely on it for further things)
+	//private ArrayList<ExpressionIdent> varIdents;  //The ExpressionIdent objects, for which the vars[i] has the name only.
+													// For ExpressionIndexedSetAccess This should contain the means of knowing which index to alter.   
+	// The indices of each variable in the model to which it belongs - set before any steps executed.
+	//private ArrayList<Integer> indices;			// CURRENTLY set during FindAllVars.visitPost(Update e); it is position in the ModulesFile list of variables.
+
+	// These elements will all be effected during the update() method.
+	private ArrayList<ElementOfUpdate> elements;	
+
 	// Parent Updates object
 	private Updates parent;
 
@@ -56,11 +77,13 @@ public class Update extends ASTElement
 	 */
 	public Update()
 	{
-		vars = new ArrayList<String>();
+		elements = new ArrayList<ElementOfUpdate>();
+/*		vars = new ArrayList<String>();
 		exprs = new ArrayList<Expression>();
 		types = new ArrayList<Type>();
 		varIdents = new ArrayList<ExpressionIdent>();
 		indices = new ArrayList<Integer>();
+*/
 	}
 
 	// Set methods
@@ -72,32 +95,54 @@ public class Update extends ASTElement
 	 */
 	public void addElement(ExpressionIdent v, Expression e)
 	{
-		vars.add(v.getName());
-		exprs.add(e);
-		types.add(null); // Type currently unknown
-		varIdents.add(v);
-		indices.add(-1); // Index currently unknown
+		ElementOfUpdate ue = new ElementOfUpdate();
+		ue.varIdent = v;			// The variable to be updated.
+		ue.var = v.getName();			// Just its name
+		ue.expr = e;				// The expression saying how to calculate the new value for it.
+		ue.varType = null;			// The type is currently unknown.
+		ue.index = -1;				// Index is currently unknown. Set by the FindAllVars.visitPost(Update e)
+
+		elements.add(ue);		// Store in memory for this Update.
 	}
 
+	/**
+	 * Change the Identifier that this update will update, for the specified element of the update.
+	 * @param i - update element's position within the update command
+	 * @param v - the Identifier to change
+	 */
 	public void setVar(int i, ExpressionIdent v)
 	{
-		vars.set(i, v.getName());
-		varIdents.set(i, v);
+		ElementOfUpdate ue = elements.get(i);
+		ue.var = v.getName();
+		ue.varIdent = v;
 	}
 
+	/**
+	 * Change the expression specifying how to calculate the updated value for the specified element
+	 * @param i - update element's position within the update command
+	 * @param e - the new way of calculating the resultant value to assign
+	 */
 	public void setExpression(int i, Expression e)
 	{
-		exprs.set(i, e);
+		ElementOfUpdate ue = elements.get(i);
+		ue.expr = e;
 	}
 
+	/**
+	 * Change the type noted for an update element.
+	 * @param i - update element's position within the update command
+	 * @param t - the type of value needed for assigning to the relevant variable.
+	 */
 	public void setType(int i, Type t)
 	{
-		types.set(i, t);
+		ElementOfUpdate ue = elements.get(i);
+		ue.varType = t;
 	}
 
 	public void setVarIndex(int i, int index)
 	{
-		indices.set(i, index);
+		ElementOfUpdate ue = elements.get(i);
+		ue.index = index;
 	}
 
 	public void setParent(Updates u)
@@ -109,32 +154,43 @@ public class Update extends ASTElement
 
 	public int getNumElements()
 	{
-		return vars.size();
+		return elements.size();
 	}
 
+	/** Get the name (only) of an identifier (the variable) that is to be mutated by this update.
+	 *  If the identifier is actually within an indexed set, however, there is CURRENT A PROBLEM
+	 *  BECAUSE IT NEEDS TO KNOW EXACTLY WHICH ONE!! 
+	 * @param i The index of the update element for which to find out the name.
+	 * @return
+	 */
 	public String getVar(int i)
 	{
-		return vars.get(i);
+		if (getType(i) instanceof TypeIndexedSet)
+		{
+			return null;
+		} 
+		else
+		return elements.get(i).var;
 	}
 
 	public Expression getExpression(int i)
 	{
-		return exprs.get(i);
+		return elements.get(i).expr;
 	}
 
 	public Type getType(int i)
 	{
-		return types.get(i);
+		return elements.get(i).varType;
 	}
 
 	public ExpressionIdent getVarIdent(int i)
 	{
-		return varIdents.get(i);
+		return elements.get(i).varIdent;
 	}
 
 	public int getVarIndex(int i)
 	{
-		return indices.get(i);
+		return elements.get(i).index;
 	}
 
 	public Updates getParent()
@@ -154,7 +210,7 @@ public class Update extends ASTElement
 		int i, n;
 		Values res;
 		res = new Values(oldValues);
-		n = exprs.size();
+		n = elements.size();
 		for (i = 0; i < n; i++) {
 			res.setValue(getVar(i), getExpression(i).evaluate(constantValues, oldValues));
 		}
@@ -172,7 +228,7 @@ public class Update extends ASTElement
 	public void update(Values constantValues, Values oldValues, Values newValues) throws PrismLangException
 	{
 		int i, n;
-		n = exprs.size();
+		n = elements.size();
 		for (i = 0; i < n; i++) {
 			newValues.setValue(getVar(i), getExpression(i).evaluate(constantValues, oldValues));
 		}
@@ -189,7 +245,7 @@ public class Update extends ASTElement
 		int i, n;
 		State res;
 		res = new State(oldState);
-		n = exprs.size();
+		n = elements.size();
 		for (i = 0; i < n; i++) {
 			res.setValue(getVarIndex(i), getExpression(i).evaluate(oldState));
 		}
@@ -204,12 +260,40 @@ public class Update extends ASTElement
 	 * @param oldState Variable values in current state
 	 * @param newState State object to apply changes to
 	 */
+	// MODIFIED BY SHANE to do run-time evaluation of index-access expressions for indexed sets.
 	public void update(State oldState, State newState) throws PrismLangException
 	{
-		int i, n;
-		n = exprs.size();
+		int i, n, indexOfVarToUpdate;
+		
+		n = elements.size();
 		for (i = 0; i < n; i++) {
-			newState.setValue(getVarIndex(i), getExpression(i).evaluate(oldState));
+			if (getType(i) instanceof TypeIndexedSet)
+			{
+				// we cannot rely on getVarIndex(i), because that would be the IndexedSet itself.
+				// so perform runtime evaluation of the expression specified in the sourcecode modules file.
+				ExpressionIndexedSetAccess eisa = (ExpressionIndexedSetAccess) getVarIdent(i); // HMM? Should it be getVarIndex instead? (Says me after 2 weeks away from the code, while it was unfinished before the break)
+				Object evaluatedIndex = eisa.getIndexExpression().evaluate(oldState);
+				if (evaluatedIndex instanceof Integer)
+				{
+					// Construct the hoped-for name of the specific variable to be updated.
+					String varNameToUpdate = eisa.getName() + "[" + evaluatedIndex + "]";
+					// Check it exists. If it doesn't, then it is either mis-use of IndexedSet notation
+					// or else it is outside the bounds of the declared number of elements.
+					indexOfVarToUpdate = parent.getParent().getParent().getParent().getVarIndex(varNameToUpdate);
+					
+					if (indexOfVarToUpdate == -1)		// It wasn't found as a valid variable, index was obviously wrong.
+						throw new PrismLangException("Attempt to access undefined element of IndexedSet: " + varNameToUpdate, getExpression(i));
+				}
+				else
+					throw new PrismLangException("Attempt to access IndexedSet using non-integer index value: " + evaluatedIndex, getExpression(i));
+			}
+			else {
+				// Update of an non-indexed variable:  
+				indexOfVarToUpdate = i;
+			}
+			
+			// Evaluate the RH expression part, based on the 'old' state, and assign this to the target variable.
+			newState.setValue(getVarIndex(indexOfVarToUpdate), getExpression(i).evaluate(oldState));
 		}
 	}
 
@@ -229,7 +313,7 @@ public class Update extends ASTElement
 	public void updatePartially(State oldState, State newState, int[] varMap) throws PrismLangException
 	{
 		int i, j, n;
-		n = exprs.size();
+		n = elements.size();
 		for (i = 0; i < n; i++) {
 			j = varMap[getVarIndex(i)];
 			if (j != -1) {
@@ -248,7 +332,7 @@ public class Update extends ASTElement
 		int i, n, valNew;
 		State res;
 		res = new State(oldState);
-		n = exprs.size();
+		n = elements.size();
 		for (i = 0; i < n; i++) {
 			valNew = varList.encodeToInt(i, getExpression(i).evaluate(oldState));
 			if (valNew < varList.getLow(i) || valNew > varList.getHigh(i))
@@ -275,13 +359,13 @@ public class Update extends ASTElement
 		int i, n;
 		String s = "";
 
-		n = exprs.size();
+		n = elements.size();
 		// normal case
 		if (n > 0) {
 			for (i = 0; i < n - 1; i++) {
-				s = s + "(" + vars.get(i) + "'=" + exprs.get(i) + ") & ";
+				s = s + "(" + getVar(i) + "'=" + getExpression(i) + ") & ";
 			}
-			s = s + "(" + vars.get(n - 1) + "'=" + exprs.get(n - 1) + ")";
+			s = s + "(" + getVar(n - 1) + "'=" + getExpression(n - 1) + ")";
 		}
 		// special (empty) case
 		else {

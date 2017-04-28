@@ -76,6 +76,12 @@ public class Module extends ASTElement
 		decls.add(d);
 	}
 	
+	// ADDED BY SHANE - to allow IndexedSet declarations to be replaced by declarations of each index.
+	public void removeDeclaration(Declaration d)
+	{
+		decls.remove(d);
+	}
+	
 	public void setDeclaration(int i, Declaration d)
 	{
 		decls.set(i, d);

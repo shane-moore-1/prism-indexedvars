@@ -44,7 +44,7 @@ public interface ASTVisitor
 	public Object visit(DeclarationArray e) throws PrismLangException;
 	public Object visit(DeclarationClock e) throws PrismLangException;
 	public Object visit(DeclarationIntUnbounded e) throws PrismLangException;
-public Object visit(DeclarationIndexedSet e) throws PrismLangException;		// ADDED by SHANE
+public Object visit(DeclTypeIndexedSet e) throws PrismLangException;		// ADDED by SHANE
 	public Object visit(Module e) throws PrismLangException;
 	public Object visit(Command e) throws PrismLangException;
 	public Object visit(Updates e) throws PrismLangException;

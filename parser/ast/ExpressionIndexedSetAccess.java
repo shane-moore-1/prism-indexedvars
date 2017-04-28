@@ -7,7 +7,7 @@ import prism.PrismLangException;
 /**
  * Represents an indexed identifier (i.e. an array, being accessed by an index) used as an expression, e.g. an element position of an Indexed Set is being given as the thing containing a value to be assigned during an Update (to another variable) 
  * It extends ExpressionIdent because it is meant to arise only in places where ExpressionIdent things would generally appear. 
- *
+ * It can occur both as a target of an update, or as an element in an expression (such as one specifying the way to calculate the value to be assigned to the target) 
  */
 public class ExpressionIndexedSetAccess extends ExpressionIdent {	
 																	
@@ -78,10 +78,12 @@ public class ExpressionIndexedSetAccess extends ExpressionIdent {
 		return false;
 	}
 	
-	/** COPIED CODE FROM ExpressionIdent - BUT NOTE it is not meant to be called in that other class either...
-	 * Evaluate this expression, return result.
+	/**
+	 * Evaluate this expression, return result 
+	 * - which will mean the value of the specified index within the named indexed set (if correctly specified)
 	 * Note: assumes that type checking has been done already.
 	 */
+	// Copied from ExpressionVar, which is what ExpressionIdent usually get converted to, by FindAllVars
 	@Override
 	public Object evaluate(EvaluateContext ec) throws PrismLangException
 	{

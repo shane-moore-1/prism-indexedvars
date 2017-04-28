@@ -307,6 +307,19 @@ public abstract class ASTElement
 		return evaluatePartially(new EvaluateContextValues(constantValues, null));
 	}
 
+	
+	/**
+	 * The purpose of this method is to cause the Visitor that converts DeclarationIndexedSet
+	 * objects, into individual declarations of the individual elements of the indexed set.
+	 * ADDED BY SHANE. Not Sure if would be better to move into ModulesFile instead of here?
+	 * NOTE: Would probably not cope with 'renaming'.
+	 * TO-DO: fix to allow renaming of indexed-sets  
+	 */
+	public void convertIndexedDeclarations(ConstantList consts, ModulesFile moduleFile)
+	{
+		ConvertIndexedSetDeclarations visitor = new ConvertIndexedSetDeclarations(consts);
+	}
+
 	/**
 	 * Find all references to variables, replace any identifier objects with variable objects,
 	 * check variables exist and store their index (as defined by the containing ModuleFile).

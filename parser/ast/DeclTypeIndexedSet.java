@@ -41,14 +41,14 @@ import prism.PrismLangException;
  * @author Shane Moore
  *
  */
-public class DeclarationIndexedSet extends DeclarationType
+public class DeclTypeIndexedSet extends DeclarationType
 {
 	// Size of array, in terms of the uppermost index position (assuming we always start at position 1).
 	protected Expression size;
 	// Type used for the elements of this Indexed Set (i.e. an Array, by a different name!)
 	protected DeclarationType elementsType;
 
-	public DeclarationIndexedSet(DeclarationType elementsType, Expression size)
+	public DeclTypeIndexedSet(DeclarationType elementsType, Expression size)
 	{
 		this.size = size;
 		this.elementsType = elementsType;
@@ -110,7 +110,7 @@ public class DeclarationIndexedSet extends DeclarationType
 	public ASTElement deepCopy()
 	{
 		Expression sizeCopied = (size == null) ? null : size.deepCopy();
-		DeclarationIndexedSet ret = new DeclarationIndexedSet(elementsType,sizeCopied);
+		DeclTypeIndexedSet ret = new DeclTypeIndexedSet(elementsType,sizeCopied);
 		ret.setPosition(this);
 		return ret;
 	}

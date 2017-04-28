@@ -184,7 +184,7 @@ public class VarList
 			high = 1;
 			start = decl.getStartOrDefault().evaluateInt(constantValues);
 		}
-		else if (declType instanceof DeclarationIndexedSet) {
+		else if (declType instanceof DeclTypeIndexedSet) {
 			throw new PrismLangException("Indexed Set variables not fully implemented yet.");
 			
 		}

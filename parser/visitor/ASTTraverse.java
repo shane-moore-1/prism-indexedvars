@@ -179,8 +179,8 @@ public class ASTTraverse implements ASTVisitor
 	public void visitPost(DeclarationArray e) throws PrismLangException { defaultVisitPost(e); }
 	// ----------------------------------------------------------------------------------- 
 // ADDED BY SHANE - But based on the nearby DeclarationXXX things. However, may be incorrect, because I don't really know the purpose of these.
-	public void visitPre(DeclarationIndexedSet e) throws PrismLangException { defaultVisitPre(e); }
-	public Object visit(DeclarationIndexedSet e) throws PrismLangException
+	public void visitPre(DeclTypeIndexedSet e) throws PrismLangException { defaultVisitPre(e); }
+	public Object visit(DeclTypeIndexedSet e) throws PrismLangException
 	{
 		visitPre(e);
 		if (e.getSize() != null) e.getSize().accept(this);
@@ -188,7 +188,7 @@ public class ASTTraverse implements ASTVisitor
 		visitPost(e);
 		return null;
 	}
-	public void visitPost(DeclarationIndexedSet e) throws PrismLangException { defaultVisitPost(e); }
+	public void visitPost(DeclTypeIndexedSet e) throws PrismLangException { defaultVisitPost(e); }
 // END ADDED BY SHANE
 	// -----------------------------------------------------------------------------------
 	public void visitPre(DeclarationClock e) throws PrismLangException { defaultVisitPre(e); }

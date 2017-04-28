@@ -61,7 +61,7 @@ public class ModulesFile extends ASTElement
 	private String[] moduleNames;
 	// List of synchronising actions
 	private Vector<String> synchs;
-	// Lists of variable info (declaration, name, type)
+	// Lists of variable info (declaration, name, type) - it includes BOTH globals AND module-specific local ones.
 	private Vector<Declaration> varDecls;
 	private Vector<String> varNames;
 	private Vector<Type> varTypes;
@@ -117,6 +117,10 @@ public class ModulesFile extends ASTElement
 		modelType = t;
 	}
 
+	/**
+	 * Add a declaration as a global for this ModulesFile (as opposed to a declaration for one of its modules)
+	 * @param d The ModulesFile-level (global) declaration.
+	 */			// Called from the PrismParser.jj file, and also in deepCopy();
 	public void addGlobal(Declaration d)
 	{
 		globals.add(d);
@@ -604,13 +608,14 @@ public class ModulesFile extends ASTElement
 
 		// Call INSERTED BY SHANE
 		// Find all declarations of indexed sets, and convert them to individual declarations of the element type.
-		// Must be done before checkVarNames
-//		convertIndexedDeclarations();
+		// Must be done before checkVarNames (so that variables don't re-use the name of the indexed set)
+	convertIndexedDeclarations(constantList,this);		// This will prevent semantic check of Declarations of Indexed Sets
 		
 		// Check variable names, etc.
 		checkVarNames();
-		// Find all instances of variables, replace identifiers with variables.
-		// Also check variables valid, store indices, etc.
+		// Find all instances of use of variables (including indexed ones), 
+		// Also replace any remaining identifiers with variables.	(Shane thinks: identifier DECLs with vars.)
+		// Also check variables valid, store indices into Updates, etc.
 		findAllVars(varNames, varTypes);
 
 		// Find all instances of property refs
@@ -874,6 +879,7 @@ public class ModulesFile extends ASTElement
 		}
 	}
 
+	
 	/**
 	 * Check "system...endsystem" constructs, if present.
 	 */
