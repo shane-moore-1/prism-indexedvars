@@ -1925,7 +1925,7 @@ public class Modules2MTBDD
 		for (i = 0; i < n; i++) {
 		
 			// get variable
-			s = c.getVar(i);
+			s = c.getVar(i);			//TODO: (SHANE) Check whether this copes with IndexedSet variables. 
 			v = varList.getIndex(s);
 			if (v == -1) {
 				throw new PrismLangException("Unknown variable \"" + s + "\" in update", c.getVarIdent(i));

@@ -186,6 +186,9 @@ public class Modules2PTA extends PrismComponent
 		double prob, probSum;
 
 		// Determine PC variable and clock variables in module
+			// NOTE: Due to the convertModuleToPCForm method having been called already, 
+			// This means that the 0th declaration in the module, will be a DeclarationInt, whose meaning
+			// is that it is the PC.
 		pc = module.getDeclaration(0).getName();
 		pcMax = ((DeclarationInt) module.getDeclaration(0).getDeclType()).getHigh().evaluateInt();
 		numVars = module.getNumDeclarations();
@@ -640,7 +643,7 @@ public class Modules2PTA extends PrismComponent
 		moduleNew.setInvariant(invarNew);
 
 		// Add variables to module
-		// (one for PC, then all original non-PC variables)
+		// (First one for PC, then all original non-PC variables)
 		declNew = new Declaration(pc, new DeclarationInt(Expression.Int(0), Expression.Int(states.size() - 1)));
 		moduleNew.addDeclaration(declNew);
 		for (Declaration d : module.getDeclarations()) {

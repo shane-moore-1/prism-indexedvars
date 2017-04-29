@@ -71,7 +71,7 @@ public class FindAllVars extends ASTTraverseModify
 		int i, j, n;
 		String s;
 		
-		boolean sawAnIndexedSet = false;
+		boolean sawAnIndexedSet = false;		// May not need, now. - shane
 		
 		// For each element of update
 		n = e.getNumElements();

@@ -158,8 +158,9 @@ public class Update extends ASTElement
 	}
 
 	/** Get the name (only) of an identifier (the variable) that is to be mutated by this update.
-	 *  If the identifier is actually within an indexed set, however, there is CURRENT A PROBLEM
-	 *  BECAUSE IT NEEDS TO KNOW EXACTLY WHICH ONE!! 
+	 *  For non-indexed set variables, this is just the name of the variable.
+	 *  If the identifier is actually an element within an indexed set, however, then there is 
+	 *  CURRENTLY A PROBLEM BECAUSE IT NEEDS TO KNOW EXACTLY WHICH ONE!! 
 	 * @param i The index of the update element for which to find out the name.
 	 * @return
 	 */
@@ -188,6 +189,11 @@ public class Update extends ASTElement
 		return elements.get(i).varIdent;
 	}
 
+	/**
+	 * Returns the index in the owning module's list of variables (which contains globals and all modules' variables)
+	 * @param i Specifies which element of this Update, whose target variable is desired to be found.
+	 * @return
+	 */
 	public int getVarIndex(int i)
 	{
 		return elements.get(i).index;
