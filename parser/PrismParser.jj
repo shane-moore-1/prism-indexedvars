@@ -315,6 +315,7 @@ public class PrismParser
 			String exMsg = "Syntax error";
 			if (msg != null && msg.length() > 0)
 				exMsg += ": " + msg;
+e.printStackTrace();	//SHANE ADDED
 			return new PrismLangException(exMsg);
 		}
 		// Use current/next token to find location of error
@@ -332,6 +333,7 @@ public class PrismParser
 			String exMsg = "Syntax error";
 			if (msg != null && msg.length() > 0 && msg.length() < 20)
 				exMsg += ": " + msg;
+e.printStackTrace();	//SHANE ADDED
 			return new PrismLangException(exMsg, tmp);
 		}
 	}
@@ -391,7 +393,7 @@ TOKEN :
 |	< F:				"F" >
 |	< GLOBAL:			"global" >
 |	< G:				"G" >
-|	< INDEXEDSET:		"indexed" >				// Added by Shane
+//|	< INDEXEDSET:		"indexed" >				// Added by Shane
 |	< INIT:				"init" >
 |	< INVARIANT:		"invariant" >
 |	< I:				"I" >
@@ -462,9 +464,10 @@ TOKEN :
 |	< REG_INT:			(["1"-"9"](["0"-"9"])*)|("0") >
 |	< REG_DOUBLE:		(["0"-"9"])*(".")?(["0"-"9"])+(["e","E"](["-","+"])?(["0"-"9"])+)? >
 // DISABLED by Shane, because he altered where it was being used
-|	< REG_IDENTPRIME:	["_","a"-"z","A"-"Z"](["_","a"-"z","A"-"Z","0"-"9"])*"'" >
+//|	< REG_IDENTPRIME:	["_","a"-"z","A"-"Z"](["_","a"-"z","A"-"Z","0"-"9"])*"'" >
 |	< REG_IDENT:		["_","a"-"z","A"-"Z"](["_","a"-"z","A"-"Z","0"-"9"])* >
-//Added by Shane, but then removed.|   < REG_INDEXED_IDENT_PRIME:	["_","a"-"z","A"-"Z"](["_","a"-"z","A"-"Z","0"-"9"])*"["(["1"-"9"](["0"-"9"])*)"]""'" >
+//Added by Shane, but then removed. It matches a sequence up to a open square bracket.
+//|	< REG_INDEXED_IDENT_PRIME_BEG:	["_","a"-"z","A"-"Z"](["_","a"-"z","A"-"Z","0"-"9"])*"[" >
 //because don't think it is needed now.|   < REG_INDEXED_IDENT:	["_","a"-"z","A"-"Z"](["_","a"-"z","A"-"Z","0"-"9"])*"["(["1"-"9"](["0"-"9"])*)"]" >
 |	< PREPROC:			"#"(~["#"])*"#" >
 	// Special catch-all token for lexical errors
@@ -691,24 +694,60 @@ Declaration Declaration() :				// ALTERED BY SHANE to allow Indexed Sets.
 	Expression size;
 }
 {
-	{ begin = getToken(1); }
+	{ begin = getToken(1); /*About to get identifier*/ }
+	name = Identifier()
+
 	(
-		name = Identifier()
+ decl = NormalDecl(name)
+ | decl = IndSetDecl(name) 
+)
+
+	// The terminating Semicolon:
+	<SEMICOLON>  {/*Should be after IndexedSet's SemiColon */}
+	// In both/all cases:
+	{ /* Return the parsed declaration... */
+		 decl.setPosition(begin, getToken(0)); return decl; }
+}
+
+Declaration NormalDecl(String name) : 
+{
+	Declaration decl;
+	DeclarationType declType;
+	Expression init = null;
+	Token begin = null;
+	Expression size;
+}
+{
+//	(
+		
 		// NON-ARRAY DECLARATION: Name, colon, type, and optionally an init value, finally always a semicolon
-		(  <COLON> declType = DeclarationVarType()
-			{ decl = new Declaration(name, declType); }
-		// Optional inital value
-		( <INIT> init = Expression(false, false) { decl.setStart(init); } )?
-		// Terminating ;
-		<SEMICOLON> )
-	
-	|
-		// Added by SHANE
+		(
+			<COLON> declType = DeclarationVarType()
+			{ decl = new Declaration(name, declType); /*Non-Indexed Decl*/ }
+			// Optional inital value
+			( <INIT> init = Expression(false, false) { decl.setStart(init); } )?
+			// Terminating ;
+//			<SEMICOLON>
+		)
+//	)
+	{ return decl; }
+}
+
+Declaration IndSetDecl(String name) :
+{
+	Declaration decl;
+	DeclarationType declType;
+	Expression init = null;
+	Token begin = null;
+	Expression size;
+}
+{
 		// INDEXED-SET (Array) DECLARATION: Name, open square bracket, count, close square bracket colon type, and Never an INIT afterwards, but always finally Semicolon
 		//  NOTE:  You could always alter this definition (or give a third option) to allow an INIT followed by curly-braces with list of values in it. Not today though! For now, the individual elements will all initialise to 0.
 
-		( //{ begin = getToken(1); } // SHANE WONDERS IF parameter NEEDED TO BE CHANGED (but now it is common and BEFORE the above block's version)
-		  <INDEXEDSET><LBRACKET> size = Expression(false,false) <RBRACKET> <COLON> declType = DeclarationVarType()
+		(	
+			//{ begin = getToken(1); } // SHANE WONDERS IF parameter NEEDED TO BE CHANGED (but now it is common and BEFORE the above block's version)
+			<LBRACKET> size = Expression(false,false) <RBRACKET> <COLON> declType = DeclarationVarType()
 			{ 
 			    // NOTE: For arrays, the declType just obtained is the type for the elements. 
 			    // The actual Declaration's type will be an IndexedSet. And during ModulesFile.tidyUp, 
@@ -716,13 +755,59 @@ Declaration Declaration() :				// ALTERED BY SHANE to allow Indexed Sets.
 			    // with names that include square brackets (and which each are distinct numbers).
 			    decl = new Declaration(name, new DeclTypeIndexedSet(declType,size)); 
 			}	
-		// The terminating Semicolon:
-		<SEMICOLON> )
+		)
+	{ return decl; }
+}
+	
+
+Declaration Declaration2() :				// ALTERED BY SHANE to allow Indexed Sets.
+{
+	Declaration decl;
+	String name = null;
+	DeclarationType declType;
+	Expression init = null;
+	Token begin = null;
+	Expression size;
+}
+{
+//	(
+		{ begin = getToken(1); }
+		name = Identifier()
 
 		
-	)	
-	// In both/all cases:
-	{ decl.setPosition(begin, getToken(0)); return decl; }
+		// NON-ARRAY DECLARATION: Name, colon, type, and optionally an init value, finally always a semicolon
+		(
+			<COLON> declType = DeclarationVarType()
+			{ decl = new Declaration(name, declType); /*Non-Indexed Decl*/ }
+			// Optional inital value
+			( <INIT> init = Expression(false, false) { decl.setStart(init); } )?
+			// Terminating ;
+			<SEMICOLON>
+			{ /*Something now omitted by SHANE used to be here*/} 
+		)
+	
+		| (
+		// Added by SHANE
+		// INDEXED-SET (Array) DECLARATION: Name, open square bracket, count, close square bracket colon type, and Never an INIT afterwards, but always finally Semicolon
+		//  NOTE:  You could always alter this definition (or give a third option) to allow an INIT followed by curly-braces with list of values in it. Not today though! For now, the individual elements will all initialise to 0.
+
+		
+			//{ begin = getToken(1); } // SHANE WONDERS IF parameter NEEDED TO BE CHANGED (but now it is common and BEFORE the above block's version)
+			<LBRACKET> size = Expression(false,false) <RBRACKET> <COLON> declType = DeclarationVarType()
+			{ 
+			    // NOTE: For arrays, the declType just obtained is the type for the elements. 
+			    // The actual Declaration's type will be an IndexedSet. And during ModulesFile.tidyUp, 
+			    // a visitor will need to convert these Declarations into individual variable declarations 
+			    // with names that include square brackets (and which each are distinct numbers).
+			    decl = new Declaration(name, new DeclTypeIndexedSet(declType,size)); 
+			}	
+			// The terminating Semicolon:
+			<SEMICOLON>  {/*Should be after IndexedSet's SemiColon */}
+		) | "6donkey" {getToken(0); /*KungFu*/} | "5panda" { getToken(0); /*Meatballs*/}
+
+		
+//	)	
+	{ return null;	/* INVALID PORDUCTION - SHOULD NOT HAVE BEEN PARSED!! */ }
 }
 
 // Type part of a declaration
@@ -768,7 +853,8 @@ Module Module() :
 }
 {
 	begin = <MODULE> name = IdentifierExpression() { module = new Module(name.getName()); }
-	( var = Declaration() { module.addDeclaration(var); } )*
+	( var = Declaration() {		System.out.println("Matched a Declaration: " + var);
+	 module.addDeclaration(var); } )*
 	( <INVARIANT> invar = Expression(false, false) <ENDINVARIANT> { module.setInvariant(invar); } )?
 	( comm = Command() { module.addCommand(comm); } )*
 	<ENDMODULE>
@@ -1386,9 +1472,11 @@ Expression ExpressionFuncOrIdent(boolean prop, boolean pathprop) :
 	s = Identifier() { ret = new ExpressionIdent(s); begin = getToken(0); }
 	// If it is followed by ROUND brackets, it's a function; or if there is square brackets, it is an attempt to access an IndexedSet.
 	(
-	   ( <LPARENTH> { ret = new ExpressionFunc(s); } ExpressionFuncArgs(prop, pathprop, (ExpressionFunc)ret) <RPARENTH> )
-	   |
-	   ( <LBRACKET> { ret = new ExpressionIndexedSetAccess(s); } ExpressionIndexedSetAccArgs(prop, pathprop, (ExpressionIndexedSetAccess)ret) <RBRACKET> )
+//	   (
+		 <LPARENTH> { ret = new ExpressionFunc(s); } ExpressionFuncArgs(prop, pathprop, (ExpressionFunc)ret) <RPARENTH> 
+//	   )
+//	   |
+//	   ( <LBRACKET> { ret = new ExpressionIndexedSetAccess(s); } ExpressionIndexedSetAccArgs(prop, pathprop, (ExpressionIndexedSetAccess)ret) <RBRACKET> )
 	)?
 	{ ret.setPosition(begin, getToken(0)); return ret; }
 }
@@ -1810,7 +1898,15 @@ String Identifier() :
 {
 }
 {
-	<REG_IDENT> { return getToken(0).image; }
+/*	<REG_INDEXED_IDENT_PRIME_BEG> {
+		System.out.println("Match INDEXED_IDENT_PRIME_BEG: " + getToken(0).image);
+		return getToken(0).image;
+	}
+	|
+*/
+	<REG_IDENT> { 
+			/*SHANE INSERTED LINE*/ System.out.println("Matched identifier: " + getToken(0).image); 
+	return getToken(0).image; }
 }
 
 // Identifier (returns ExpressionIdent, storing position info)
@@ -1846,17 +1942,18 @@ ExpressionIdent IdentifierPrime() :
 	Token begin = null;
 }
 {
-/*	{ begin = getToken(0); }
+	{ begin = getToken(0); }
 	<REG_IDENT>					// We always expect the name of the Identifier (whether it seems to be accessing a indexed set, or not)
 	{
 		identName = getToken(0).image;				// whatever was matched as the identifier's name.
+System.out.println("A possible primed Identifier was found: " + identName);
 		ret = new ExpressionIdent(identName);
 		ret.setPosition(token);
 //		ret.setEndColumn(ret.getEndColumn() - 1);		// SHANE is unsure if this is correct now: is the minus-one needed still? Assuming not.
 														// And would some different value be needed in the case of accessing an indexed set?
 	}
-	(			// But if it does appear to access an indexed set, here we identify the expression specifying which index is being accessed 
-	  <LBRACKET> 
+				// But if it does appear to access an indexed set, here we identify the expression specifying which index is being accessed 
+(	  <LBRACKET> 
 	  {
 	  	 ret = new ExpressionIndexedSetAccess(identName);		// Instead of ExpressionIdent, because it is more complex. 
 	  	 ret.setPosition(token);							// Copied from above; is it needed?
@@ -1867,16 +1964,20 @@ ExpressionIdent IdentifierPrime() :
 		// should make a wholly different class for the following, but for now am putting 'falses' ...
       } 
 	  ExpressionIndexedSetAccArgs(false, false, (ExpressionIndexedSetAccess)ret) <RBRACKET>	
-	)
+) ?	
+
+
 	<PRIME>						// There must always be a prime after the identifier, or IdentifierPrime won't arise during parsing
 	{
        ret.setPosition(begin, getToken(0));
+System.out.println("A primed Identifier was found: " + ret);
        return ret; 
 	}
 	
 	
-/* ORIGINAL WHOLE CODE before IndexedSets were added by Shane: (which had no declarations before any pattern matching)
-*/	<REG_IDENTPRIME>					// Alternatively, If it seems to be a non-indexed identifier
+// ORIGINAL WHOLE CODE before IndexedSets were added by Shane: (which had no declarations before any pattern matching)
+
+/*	<REG_IDENTPRIME>					// Alternatively, If it seems to be a non-indexed identifier
 	{
 		// Remove prime (because it is part of what was matched), create new ident and return
 		String s = getToken(0).image;
@@ -1886,6 +1987,20 @@ ExpressionIdent IdentifierPrime() :
 		expr.setEndColumn(expr.getEndColumn() - 1);
 		return expr;
 	}
+*/
+
+
+/* The remaining code is garbage - it was never ever useful, nor needed. 
+	|
+	( 
+	<REG_INDEXED_IDENT_PRIME_BEG>
+	{
+System.out.println("FOUND TOKEN: " + token + " (REG_INDEXED_IDENT_PRIME_BEG)");
+		ExpressionIdent expr2 = new ExpressionIdent("SHANE");
+		expr2.setPosition(token);
+		//expr2.setEndColumn(expr.getEndColumn() - 1);
+		return expr2;
+	} <RBRACKET> )
 //*/	
 
 }
