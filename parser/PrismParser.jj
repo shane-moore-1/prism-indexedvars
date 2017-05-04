@@ -688,10 +688,10 @@ Declaration Declaration() :				// ALTERED BY SHANE to allow Indexed Sets.
 {
 	Declaration decl;
 	String name = null;
-	DeclarationType declType;
-	Expression init = null;
+//	DeclarationType declType;
+//	Expression init = null;
 	Token begin = null;
-	Expression size;
+//	Expression size;
 }
 {
 	{ begin = getToken(1); /*About to get identifier*/ }
@@ -754,6 +754,8 @@ Declaration IndSetDecl(String name) :
 			    // a visitor will need to convert these Declarations into individual variable declarations 
 			    // with names that include square brackets (and which each are distinct numbers).
 			    decl = new Declaration(name, new DeclTypeIndexedSet(declType,size)); 
+System.out.println("Indexed Set has type: " + declType + "!!");
+System.out.println("The Declaration itself is \'" + decl + "\'");
 			}	
 		)
 	{ return decl; }
@@ -1472,11 +1474,11 @@ Expression ExpressionFuncOrIdent(boolean prop, boolean pathprop) :
 	s = Identifier() { ret = new ExpressionIdent(s); begin = getToken(0); }
 	// If it is followed by ROUND brackets, it's a function; or if there is square brackets, it is an attempt to access an IndexedSet.
 	(
-//	   (
+	   (
 		 <LPARENTH> { ret = new ExpressionFunc(s); } ExpressionFuncArgs(prop, pathprop, (ExpressionFunc)ret) <RPARENTH> 
-//	   )
-//	   |
-//	   ( <LBRACKET> { ret = new ExpressionIndexedSetAccess(s); } ExpressionIndexedSetAccArgs(prop, pathprop, (ExpressionIndexedSetAccess)ret) <RBRACKET> )
+	   )
+	   |
+	   ( <LBRACKET> { ret = new ExpressionIndexedSetAccess(s); } ExpressionIndexedSetAccArgs(prop, pathprop, (ExpressionIndexedSetAccess)ret) <RBRACKET> )
 	)?
 	{ ret.setPosition(begin, getToken(0)); return ret; }
 }
@@ -1905,7 +1907,7 @@ String Identifier() :
 	|
 */
 	<REG_IDENT> { 
-			/*SHANE INSERTED LINE*/ System.out.println("Matched identifier: " + getToken(0).image); 
+//			/*SHANE INSERTED LINE*/ System.out.println("Matched identifier: " + getToken(0).image); 
 	return getToken(0).image; }
 }
 
@@ -1946,7 +1948,7 @@ ExpressionIdent IdentifierPrime() :
 	<REG_IDENT>					// We always expect the name of the Identifier (whether it seems to be accessing a indexed set, or not)
 	{
 		identName = getToken(0).image;				// whatever was matched as the identifier's name.
-System.out.println("A possible primed Identifier was found: " + identName);
+//System.out.println("A possible primed Identifier was found: " + identName);
 		ret = new ExpressionIdent(identName);
 		ret.setPosition(token);
 //		ret.setEndColumn(ret.getEndColumn() - 1);		// SHANE is unsure if this is correct now: is the minus-one needed still? Assuming not.
@@ -1970,7 +1972,7 @@ System.out.println("A possible primed Identifier was found: " + identName);
 	<PRIME>						// There must always be a prime after the identifier, or IdentifierPrime won't arise during parsing
 	{
        ret.setPosition(begin, getToken(0));
-System.out.println("A primed Identifier was found: " + ret);
+//System.out.println("A primed Identifier was found: " + ret);
        return ret; 
 	}
 	
