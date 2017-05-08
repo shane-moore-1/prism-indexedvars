@@ -42,6 +42,8 @@ import prism.PrismLangException;
  */
 public class Update extends ASTElement
 {
+public static boolean DEBUG_MSG = false;
+	public	// SHANE feels it should eventually be private
 	class ElementOfUpdate {
 		String var;						// The NAME only of a variable requiring update (its ExpressionIdent is below...) 
 		// SHANE NOTES: The name of the variable which is to be updated, in the case of accessing an indexed
@@ -52,6 +54,11 @@ public class Update extends ASTElement
 										// This is to just to provide positional info.
 		Integer index;					// The index in the model to which it belongs - set before any steps executed..
 				// the above Integer is CURRENTLY set during FindAllVars.visitPost(Update e); it is position in the ModulesFile list of variables.
+
+		public String toString()
+		{
+			return varIdent.toString() + " [type = " +varType + ", expr = " + expr + ", index = " + index + "]";
+		}
 	}
 	
 	
@@ -103,6 +110,7 @@ public class Update extends ASTElement
 		ue.index = -1;				// Index is currently unknown. Set by the FindAllVars.visitPost(Update e)
 
 		elements.add(ue);		// Store in memory for this Update.
+System.out.println("Added update element for varIdent: " + v + " classtype: " + v.getClass().getName() +"\n  to be set to result of calculating: " + e);
 	}
 
 	/**
@@ -135,6 +143,8 @@ public class Update extends ASTElement
 	 */
 	public void setType(int i, Type t)
 	{
+//Exception e = new Exception(); e.printStackTrace(System.out);
+System.out.println("in Update.setType(int,Type) for \'" + this.toString() + "\', with i=" + i + " and type: " + t);
 		ElementOfUpdate ue = elements.get(i);
 		ue.varType = t;
 	}
@@ -157,6 +167,14 @@ public class Update extends ASTElement
 		return elements.size();
 	}
 
+	public ElementOfUpdate getElement(int i)		//SHANE added, should probably hide again
+	{
+		if (i >= 0 && i < elements.size())
+			return elements.get(i);
+		else
+			return null;
+	}
+
 	/** Get the name (only) of an identifier (the variable) that is to be mutated by this update.
 	 *  For non-indexed set variables, this is just the name of the variable.
 	 *  If the identifier is actually an element within an indexed set, however, then there is 
@@ -166,8 +184,10 @@ public class Update extends ASTElement
 	 */
 	public String getVar(int i)
 	{
-		if (getType(i) instanceof TypeIndexedSet)
+		if (getTypeForElement(i) instanceof TypeIndexedSet)
 		{
+System.out.println("in getVar() for " + elements.get(i).var + " / " + elements.get(i).varIdent + " - what to return for getType?");
+System.out.println("The current getType is: " + getTypeForElement(i) + ", but returning null");
 			return null;
 		} 
 		else
@@ -179,7 +199,7 @@ public class Update extends ASTElement
 		return elements.get(i).expr;
 	}
 
-	public Type getType(int i)
+	public Type getTypeForElement(int i)
 	{
 		return elements.get(i).varType;
 	}
@@ -273,7 +293,7 @@ public class Update extends ASTElement
 		
 		n = elements.size();
 		for (i = 0; i < n; i++) {
-			if (getType(i) instanceof TypeIndexedSet)
+			if (getTypeForElement(i) instanceof TypeIndexedSet)
 			{
 				// we cannot rely on getVarIndex(i), because that would be the IndexedSet itself.
 				// so perform runtime evaluation of the expression specified in the sourcecode modules file.
@@ -354,7 +374,11 @@ public class Update extends ASTElement
 	 */
 	public Object accept(ASTVisitor v) throws PrismLangException
 	{
+if (DEBUG_MSG) System.out.println("\n\nin Update.accept(), for \'" + toString() + "\', about to call " + v.getClass().getName() +".visit(Update)...");
+//Object o = v.visit(this);
 		return v.visit(this);
+//if (DEBUG_MSG) System.out.println("in Update.accept(), for \'" + toString() + "\', returned from call of " + v.getClass().getName() +".visit(Update)...");
+//return o;
 	}
 
 	/**
@@ -364,12 +388,12 @@ public class Update extends ASTElement
 	{
 		int i, n;
 		String s = "";
-
 		n = elements.size();
 		// normal case
 		if (n > 0) {
 			for (i = 0; i < n - 1; i++) {
-				s = s + "(" + getVar(i) + "'=" + getExpression(i) + ") & ";
+// ORIG:			s = s + "(" + getVar(i) + "'=" + getExpression(i) + ") & ";
+/*SHANE*/				s = s + "(" + getVarIdent(i) + "'=" + getExpression(i) + ") & ";
 			}
 			s = s + "(" + getVar(n - 1) + "'=" + getExpression(n - 1) + ")";
 		}
@@ -391,7 +415,7 @@ public class Update extends ASTElement
 		n = getNumElements();
 		for (i = 0; i < n; i++) {
 			ret.addElement((ExpressionIdent) getVarIdent(i).deepCopy(), getExpression(i).deepCopy());
-			ret.setType(i, getType(i));
+			ret.setType(i, getTypeForElement(i));
 			ret.setVarIndex(i, getVarIndex(i));
 		}
 		ret.setPosition(this);

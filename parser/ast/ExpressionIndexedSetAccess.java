@@ -11,7 +11,7 @@ import prism.PrismLangException;
  */
 public class ExpressionIndexedSetAccess extends ExpressionIdent {	
 																	
-	String name;
+//	String name; <<-- inherited, no need to redeclare;
 	Expression indexExpression;			// The expression which specifies (evaluates to) an index
 	
 	// Constructors
@@ -39,6 +39,8 @@ public class ExpressionIndexedSetAccess extends ExpressionIdent {
 	
 	public void setName(String n)
 	{
+Exception e = new Exception("CALLED ExpressionIndexedSetAccess.setName with parameter " + n + "(name was " + name + " when called)");
+e.printStackTrace(System.out);
 		name = n;
 	}
 
@@ -51,7 +53,7 @@ public class ExpressionIndexedSetAccess extends ExpressionIdent {
 	
 	public String getName()
 	{
-		return name;
+		return name;// + "[" + indexExpression + "]";
 	}
 
 	public Expression getIndexExpression()
@@ -90,7 +92,7 @@ public class ExpressionIndexedSetAccess extends ExpressionIdent {
 		// This should never be called (that is, the version in ExpressionIdent, from where this was copied.)
 		// The ExpressionIdent should have been converted to an ExpressionVar (by parser.visitor.FindAllVars.visit(ExprIdent) )
 		// or ExpressionConstant (by parser.visitor.FindAllConstants)/...
-		throw new PrismLangException("Could not evaluate indexed identifier", this);
+		throw new PrismLangException("Could not evaluate indexed identifier - not implemented yet", this);
 		
 		// THE ABOVE should probably be replaced; unless we NEVER want to evaluate this type of object (because perhaps it is meant to be converted by a visitor)
 	}
@@ -110,6 +112,7 @@ public class ExpressionIndexedSetAccess extends ExpressionIdent {
 	@Override
 	public Object accept(ASTVisitor v) throws PrismLangException
 	{
+System.out.println("In ExprIndSetAcc.accept(Visitor [" + v.getClass().getName()+"]) - about to call v.visit() for this visitor.");
 		return v.visit(this);
 	}
 	
@@ -119,7 +122,7 @@ public class ExpressionIndexedSetAccess extends ExpressionIdent {
 	@Override
 	public String toString()
 	{
-		return name + "[]";
+		return name + "[" + indexExpression + "]";
 	}
 
 	/**

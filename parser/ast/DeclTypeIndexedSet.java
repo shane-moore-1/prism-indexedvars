@@ -109,6 +109,9 @@ public class DeclTypeIndexedSet extends DeclarationType
 	@Override
 	public ASTElement deepCopy()
 	{
+Exception e = new Exception();
+System.out.println("In DeclTypeIndexedSet.deepCopy, stack is: ");
+e.printStackTrace();
 		Expression sizeCopied = (size == null) ? null : size.deepCopy();
 		DeclTypeIndexedSet ret = new DeclTypeIndexedSet(elementsType,sizeCopied);
 		ret.setPosition(this);

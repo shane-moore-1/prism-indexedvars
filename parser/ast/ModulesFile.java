@@ -57,6 +57,7 @@ public class ModulesFile extends ASTElement
 	private Vector<String> formulaIdents;
 	private Vector<String> constantIdents;
 	private Vector<String> varIdents; // TODO: don't need?
+	private Set<String> indexedSetNames;		// Used during SemanticCheck
 	// List of all module names
 	private String[] moduleNames;
 	// List of synchronising actions
@@ -91,6 +92,7 @@ public class ModulesFile extends ASTElement
 		varDecls = new Vector<Declaration>();
 		varNames = new Vector<String>();
 		varTypes = new Vector<Type>();
+		indexedSetNames = new HashSet<String>();
 		undefinedConstantValues = null;
 		constantValues = null;
 	}
@@ -129,6 +131,15 @@ public class ModulesFile extends ASTElement
 	public void setGlobal(int i, Declaration d)
 	{
 		globals.set(i, d);
+	}
+
+	// ADDED BY SHANE - should probably also write a "delete" one?
+	/**
+	 * Notes the name of an indexed-set. The string should not contain any brackets.
+	 */
+	public void addIndexedSetName(String nameOfIS)
+	{
+		indexedSetNames.add(nameOfIS);
 	}
 
 	public void addModule(Module m)
@@ -563,6 +574,22 @@ public class ModulesFile extends ASTElement
 	}
 
 	/**
+	 * Check whether the supplied string (should not contain brackets) is the name of an indexed set
+	 * defined for the current ModulesFile, in the global context (as opposed to within a contained Module).
+	 * @param s The name to check to see whether it is the name of an indexed set If it contains an open square-bracket,
+	 *	    then only characters prior to that bracket are considered.
+	 */
+	public boolean isGlobalIndexedSetVar(String s)
+	{
+		if (s.contains("["))
+		{
+			s = s.substring(0,s.indexOf("["));
+System.out.println("ModulesFile:576 - truncated is: " + s);
+		}
+		return indexedSetNames.contains(s);
+	}
+
+	/**
 	 * Method to "tidy up" after parsing (must be called)
 	 * (do some checks and extract some information)
 	 */
@@ -586,57 +613,79 @@ public class ModulesFile extends ASTElement
 		// (e.g. with variables) because this relies on module renaming which in turn
 		// must be done after formula expansion. Then, check for any cyclic
 		// dependencies in the formula list and then expand all formulas.
+System.out.println("\nAbout to call findAllFormulas()\n");
 		findAllFormulas(formulaList);
+System.out.println("\nAbout to call findCycles()\n");
 		formulaList.findCycles();
+System.out.println("\nAbout to call expandFormulas()\n");
 		expandFormulas(formulaList);
 		// Perform module renaming
+System.out.println("\nAbout to call sortRenamings()\n");
 		sortRenamings();
 
 		// Check label identifiers
+System.out.println("\nAbout to call checkLabelIdents()\n");
 		checkLabelIdents();
 
 		// Check module names
+System.out.println("\nAbout to call checkModuleNames()\n");
 		checkModuleNames();
 
 		// Check constant identifiers
+System.out.println("\nAbout to call checkConstantIdents()\n");
 		checkConstantIdents();
 		// Find all instances of constants
 		// (i.e. locate identifiers which are constants)
+System.out.println("\nAbout to call findAllConstants()\n");
 		findAllConstants(constantList);
 		// Check constants for cyclic dependencies
+System.out.println("\nAbout to call constantList.findCycles()\n");
 		constantList.findCycles();
 
 		// Call INSERTED BY SHANE
 		// Find all declarations of indexed sets, and convert them to individual declarations of the element type.
 		// Must be done before checkVarNames (so that variables don't re-use the name of the indexed set)
-	convertIndexedDeclarations(constantList,this);		// This will prevent semantic check of Declarations of Indexed Sets
+System.out.println("\nAbout to call convertIndexedDeclarations***()\n");
+	convertIndexedDeclarations(constantList,this);	
 		
 		// Check variable names, etc.
+System.out.println("\nAbout to call checkVarNames()\n");
 		checkVarNames();
 		// Find all instances of use of variables (including indexed ones), 
 		// Also replace any remaining identifiers with variables.	(Shane thinks: identifier DECLs with vars.)
 		// Also check variables valid, store indices into Updates, etc.
+Update.DEBUG_MSG = true;
+System.out.println("\nAbout to call findAllVars()\n");
 		findAllVars(varNames, varTypes);
+Update.DEBUG_MSG = false;
 
 		// Find all instances of property refs
+System.out.println("\nAbout to call findAllPropRefs()\n");
 		findAllPropRefs(this, null);
 		
 		// Check reward structure names
+System.out.println("\nAbout to call checkRewardsStructNames()\n");
 		checkRewardStructNames();
 
 		// Check "system...endsystem" constructs
+System.out.println("\nAbout to call checkSystemDefns()\n");
 		checkSystemDefns();
 		
 		// Get synchronising action names
 		// (NB: Do this *after* checking for cycles in system defns above)
+System.out.println("\nAbout to call getSynchNames()\n");
 		getSynchNames();
 		// Then identify/check any references to action names
+System.out.println("\nAbout to call findAllActions()\n");
 		findAllActions(synchs);
 
 		// Various semantic checks 
+System.out.println("\nAbout to call semanticCheck()\n");
 		semanticCheck(this);
 		// Type checking
+System.out.println("\nAbout to call typeCheck()\n");
 		typeCheck();
+System.out.println("\nBasically completed the tidyUp() method");
 		
 		// If there are no undefined constants, set up values for constants
 		// (to avoid need for a later call to setUndefinedConstants).

@@ -49,6 +49,7 @@ public abstract class ASTElement
 
 	public void setType(Type t)
 	{
+System.out.println("setType as defined in ASTElement has been called for " + this + ", specifying type: " + ( (t == null) ? "null" : t.getClass().getName()) );
 		type = t;
 	}
 
@@ -314,10 +315,12 @@ public abstract class ASTElement
 	 * ADDED BY SHANE. Not Sure if would be better to move into ModulesFile instead of here?
 	 * NOTE: Would probably not cope with 'renaming'.
 	 * TO-DO: fix to allow renaming of indexed-sets  
+	 * @returns an ASTElement that has possibly been modified by the recursive process
 	 */
-	public void convertIndexedDeclarations(ConstantList consts, ModulesFile moduleFile)
+	public ASTElement convertIndexedDeclarations(ConstantList consts, ModulesFile moduleFile) throws PrismLangException
 	{
 		ConvertIndexedSetDeclarations visitor = new ConvertIndexedSetDeclarations(consts);
+		return (ASTElement) accept(visitor);
 	}
 
 	/**

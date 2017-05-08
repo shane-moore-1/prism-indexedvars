@@ -286,9 +286,9 @@ public class SemanticCheck extends ASTTraverse			// USED by the 'parser.ast.ASTE
 		for (i = 0; i < n; i++) {
 			// Check that the update is allowed to modify this variable
 			var = e.getVar(i);
-			isLocal = m.isLocalVariable(var);
-			isGlobal = isLocal ? false : mf.isGlobalVariable(var);
-			if (!isLocal && !isGlobal) {
+			isLocal = m.isLocalVariable(var) || m.isLocalIndexedSetVar(var);
+			isGlobal = isLocal ? false : (mf.isGlobalVariable(var) || mf.isGlobalIndexedSetVar(var));
+			if (!isLocal  && !isGlobal ) {
 				s = "Module \"" + m.getName() + "\" is not allowed to modify variable \"" + var + "\"";
 				throw new PrismLangException(s, e.getVarIdent(i));
 			}

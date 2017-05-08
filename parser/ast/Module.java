@@ -38,6 +38,8 @@ public class Module extends ASTElement
 	private ExpressionIdent nameASTElement;
 	// Local variables
 	private ArrayList<Declaration> decls;
+	//  names of indexed-sets that exist in this module
+	private Set<String> indexedSetNames;		
 	// Commands
 	private ArrayList<Command> commands;
 	// Invariant (PTA models only; optional)
@@ -54,6 +56,7 @@ public class Module extends ASTElement
 		name = n;
 		decls = new ArrayList<Declaration>();
 		commands = new ArrayList<Command>();
+		indexedSetNames = new HashSet<String>();
 		invariant = null;
 		parent = null;
 		baseModule = null;
@@ -82,6 +85,16 @@ public class Module extends ASTElement
 		decls.remove(d);
 	}
 	
+	// ADDED BY SHANE - should probably also write a "delete" one?
+	/**
+	 * Notes the name of an indexed-set. The string should not contain any brackets.
+	 */
+	public void addIndexedSetName(String nameOfIS)
+	{
+System.out.println("Adding " + nameOfIS + " to set of indexed-set names, in module " + name);
+		indexedSetNames.add(nameOfIS);
+	}
+
 	public void setDeclaration(int i, Declaration d)
 	{
 		decls.set(i, d);
@@ -232,6 +245,23 @@ public class Module extends ASTElement
 			if (getDeclaration(i).getName().equals(s)) return true;
 		}
 		return false;
+	}
+
+	/**
+	 * Check whether the supplied string (should not contain brackets) is the name of an indexed set
+	 * defined for the current Module.
+	 * @param s The name to check to see whether it is the name of an indexed set If it contains an open square-bracket,
+	 *	    then only characters prior to that bracket are considered.
+	 */
+	public boolean isLocalIndexedSetVar(String s)
+	{
+		if (s.contains("["))
+		{
+			s = s.substring(0,s.indexOf("["));
+System.out.println("Module:255 - truncated is: \'" + s +"\'");
+System.out.println("contains() : " + indexedSetNames.contains(s) + " size is " + indexedSetNames.size());
+		}
+		return indexedSetNames.contains(s);
 	}
 
 	// Methods required for ASTElement:

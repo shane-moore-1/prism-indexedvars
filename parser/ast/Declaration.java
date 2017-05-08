@@ -66,6 +66,9 @@ public class Declaration extends ASTElement
 		// The type stored for a Declaration/DeclarationType object
 		// is static - it is not computed during type checking.
 		// (But we re-use the existing "type" field for this purpose)
+System.out.println("DEALING WITH: " + name + " in the AS Tree. trying to set declType to be " + declType);
+System.out.flush();
+System.out.println("Its 'type' is : " + declType.getType());
 		setType(declType.getType());
 	}	
 

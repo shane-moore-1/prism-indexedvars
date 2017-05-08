@@ -154,6 +154,7 @@ public class ASTTraverseModify implements ASTVisitor
 	public Object visit(Declaration e) throws PrismLangException
 	{
 		visitPre(e);
+System.out.println("ASTTM.visit(Dec), for " + e ); System.out.flush();
 		if (e.getDeclType() != null) e.setDeclType((DeclarationType)e.getDeclType().accept(this));
 		if (e.getStart() != null) e.setStart((Expression)e.getStart().accept(this));
 		visitPost(e);
@@ -197,11 +198,12 @@ public class ASTTraverseModify implements ASTVisitor
 		public void visitPre(DeclTypeIndexedSet e) throws PrismLangException { defaultVisitPre(e); }
 		public Object visit(DeclTypeIndexedSet e) throws PrismLangException
 		{
+System.out.println("ASTTM.visit(DTIS), for " + e ); System.out.flush();
 			visitPre(e);
 			if (e.getSize() != null) e.setSize((Expression)e.getSize().accept(this));
 			if (e.getElementsType() != null) e.setElementsType((DeclarationType)e.getElementsType().accept(this));
 			visitPost(e);
-			return null;
+			return e;
 		}
 		public void visitPost(DeclTypeIndexedSet e) throws PrismLangException { defaultVisitPost(e); }
 	// END ADDED BY SHANE
@@ -231,12 +233,16 @@ public class ASTTraverseModify implements ASTVisitor
 		int i, n;
 		n = e.getNumDeclarations();
 		for (i = 0; i < n; i++) {
+System.out.println("ASTTM.visit(MOD) for " + e.getName() + ". declNum: " + i + " (" + e.getDeclaration(i) +")"); System.out.flush();
 			if (e.getDeclaration(i) != null) e.setDeclaration(i, (Declaration)(e.getDeclaration(i).accept(this)));
 		}
-		if (e.getInvariant() != null)
+		if (e.getInvariant() != null) {
+System.out.println("ASTTM.visit(MOD) for " + e.getName() + ". invariant: " + i + " (" + e.getInvariant() +")"); System.out.flush();
 			e.setInvariant((Expression)(e.getInvariant().accept(this)));
+		}
 		n = e.getNumCommands();
 		for (i = 0; i < n; i++) {
+System.out.println("ASTTM.visit(MOD) for " + e.getName() + ". cmdNum: " + i + " (" + e.getCommand(i) +")"); System.out.flush();
 			if (e.getCommand(i) != null) e.setCommand(i, (Command)(e.getCommand(i).accept(this)));
 		}
 		visitPost(e);
@@ -277,7 +283,10 @@ public class ASTTraverseModify implements ASTVisitor
 		int i, n;
 		n = e.getNumElements();
 		for (i = 0; i < n; i++) {
+System.out.println("ASTTM.visit(Update) for " + e + ". Considering exprNum: " + i + " (" + e.getExpression(i) +")"); System.out.flush();
+
 			if (e.getExpression(i) != null) e.setExpression(i, (Expression)(e.getExpression(i).accept(this)));
+System.out.println("ASTTM.visit(Update) for " + e + ". exprNum " + i + " is now: (" + e.getExpression(i) +")"); System.out.flush();
 		}
 		visitPost(e);
 		return e;
@@ -465,8 +474,11 @@ public class ASTTraverseModify implements ASTVisitor
 	public void visitPre(ExpressionIdent e) throws PrismLangException { defaultVisitPre(e); }
 	public Object visit(ExpressionIdent e) throws PrismLangException
 	{
+System.out.println("ASTTM.visit(ExprIdent), for " + e + " - before visitPre()"); System.out.flush();
 		visitPre(e);
+System.out.println("ASTTM.visit(ExprIdent), for " + e + " - after visitPre() but before visitPost()"); System.out.flush();
 		visitPost(e);
+System.out.println("ASTTM.visit(ExprIdent), for " + e + " - after visitPost() - returning..."); System.out.flush();
 		return e;
 	}
 	public void visitPost(ExpressionIdent e) throws PrismLangException { defaultVisitPost(e); }
@@ -600,10 +612,14 @@ public class ASTTraverseModify implements ASTVisitor
 		public void visitPre(ExpressionIndexedSetAccess e) throws PrismLangException { defaultVisitPre(e); }
 		public Object visit(ExpressionIndexedSetAccess e) throws PrismLangException
 		{
+System.out.println("ASTTM.visit(ExprIndSetAcc), for " + e + " - before visitPre()"); System.out.flush();
 			visitPre(e);
+System.out.println("ASTTM.visit(ExprIndSetAcc), for " + e + " - after visitPre(), considering calling accept() on indexExpr"); System.out.flush();
 			if (e.getIndexExpression() != null) e.getIndexExpression().accept(this);
+System.out.println("ASTTM.visit(ExprIndSetAcc), for " + e + " - after accept(), before visitPost()"); System.out.flush();
 			visitPost(e);
-			return null;
+System.out.println("ASTTM.visit(ExprIndSetAcc), for " + e + " - after vistPost()"); System.out.flush();
+			return e;
 		}
 		public void visitPost(ExpressionIndexedSetAccess e) throws PrismLangException { defaultVisitPost(e); }
 // END of ADDED BY SHANE

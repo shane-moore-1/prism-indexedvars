@@ -95,6 +95,7 @@ public class ConvertIndexedSetDeclarations extends ASTTraverseModify {
 					Declaration d = new Declaration(indexedSetName + "[" + i + "]", elementsType);
 					d.setIsPartOfIndexedVar();
 					currentModule.addDeclaration(d);
+					currentModule.addIndexedSetName(indexedSetName);	// Needed for SemanticCheck visitor
 				}
 				// delete e ?
 			}
@@ -105,6 +106,7 @@ public class ConvertIndexedSetDeclarations extends ASTTraverseModify {
 					Declaration d = new Declaration(indexedSetName + "[" + i + "]", elementsType);
 					d.setIsPartOfIndexedVar();
 					currentModuleFile.addGlobal(d);
+					currentModuleFile.addIndexedSetName(indexedSetName);	// Needed for SemanticCheck visitor
 				}
 				// delete e ?
 			}
