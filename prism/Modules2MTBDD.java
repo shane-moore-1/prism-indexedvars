@@ -1440,8 +1440,10 @@ public class Modules2MTBDD
 		// translate guard/updates for each command of the module
 		for (l = 0; l < numCommands; l++) {
 			command = module.getCommand(l);
+System.out.println("in translateModule(), considering command " + l + ": " + command);
 			// check if command matches requested synch
 			match = false;
+System.out.println("Comparing to see if it is synchronised as :" + synch);
 			if (synch == "") {
 				if (command.getSynch() == "") match = true;
 			}
@@ -1450,12 +1452,14 @@ public class Modules2MTBDD
 			}
 			// if so translate
 			if (match) {
+System.out.println("It matches, so... going to translate Guard: " + command.getGuard());
 				// translate guard
 				guardDDs[l] = translateExpression(command.getGuard());
 				JDD.Ref(range);
 				guardDDs[l] = JDD.Apply(JDD.TIMES, guardDDs[l], range);
 				// check for false guard
 				if (guardDDs[l].equals(JDD.ZERO)) {
+System.out.println("it equals JDD.ZERO");
 					// display a warning (unless guard is "false", in which case was probably intentional
 					if (!Expression.isFalse(command.getGuard())) {
 						String s = "Guard for command " + (l+1) + " of module \"" + module.getName() + "\" is never satisfied.";
@@ -1467,10 +1471,14 @@ public class Modules2MTBDD
 					//rewDDs[l] = JDD.Constant(0);
 				}
 				else {
+
+System.out.println("it doesn't equal JDD.ZERO - so, calling translateUpdates...");
 					// translate updates and do some checks on probs/rates
 					upDDs[l] = translateUpdates(m, l, command.getUpdates(), (command.getSynch()=="")?false:true, guardDDs[l]);
+System.out.println("Finished call to translateUpdates.");
 					JDD.Ref(guardDDs[l]);
 					upDDs[l] = JDD.Apply(JDD.TIMES, upDDs[l], guardDDs[l]);
+System.out.println("upDDs["+l+"] is " + upDDs[l] + ", and guardDDs["+l+"] is " + guardDDs[l]);
 					// are all probs/rates non-negative?
 					dmin = JDD.FindMin(upDDs[l]);
 					if (dmin < 0) {
@@ -1482,16 +1490,23 @@ public class Modules2MTBDD
 					}
 					// only do remaining checks if 'doprobchecks' flag is set
 					if (prism.getDoProbChecks()) {
+System.out.println("Checking Probability for upDDs["+l+"] being: " + upDDs[l].getValue());
 						// sum probs/rates in updates
 						JDD.Ref(upDDs[l]);
+System.out.println("called JDD.Ref(upDDs["+l+"])");
 						tmp = JDD.SumAbstract(upDDs[l], moduleDDColVars[m]);
+System.out.println("tmp is now: " + tmp.getValue());
 						tmp = JDD.SumAbstract(tmp, globalDDColVars);
+System.out.println("tmp is now: " + tmp.getValue());
 						// put 1s in for sums which are not covered by this guard
 						JDD.Ref(guardDDs[l]);
+System.out.println("called JDD.Ref(guardDDs["+l+"])");
 						tmp = JDD.ITE(guardDDs[l], tmp, JDD.Constant(1));
+System.out.println("tmp is now: " + tmp.getValue());
 						// compute min/max sums
 						dmin = JDD.FindMin(tmp);
 						dmax = JDD.FindMax(tmp);
+System.out.println("dmin is: " + dmin + ", dmax is: " + dmax + ", prism.getSumRoundOff() is " +prism.getSumRoundOff());
 						// check sums for NaNs (note how to check if x=NaN i.e. x!=x)
 						if (dmin != dmin || dmax != dmax) {
 							JDD.Deref(tmp);
@@ -1504,6 +1519,7 @@ public class Modules2MTBDD
 						// check min sums - 1 (ish) for dtmcs/mdps, 0 for ctmcs
 						if (modelType != ModelType.CTMC && dmin < 1-prism.getSumRoundOff()) {
 							JDD.Deref(tmp);
+System.out.println("About to display ERROR, after calling JDD.Deref(tmp) for which tmp is currently: " + tmp.getValue());
 							String s = "Probabilities in command " + (l+1) + " of module \"" + module.getName() + "\" sum to less than one";
 							s += " (e.g. " + dmin + ") for some states. ";
 							s += "Perhaps some of the updates give out-of-range values. ";
@@ -1553,6 +1569,7 @@ public class Modules2MTBDD
 			}
 			// otherwise use 0
 			else {
+System.out.println("In the ELSE block around 1574 of Modules2MTBDD");
 				guardDDs[l] = JDD.Constant(0);
 				upDDs[l] = JDD.Constant(0);
 				//rewDDs[l] = JDD.Constant(0);
@@ -1913,7 +1930,7 @@ public class Modules2MTBDD
 	{
 		int i, j, n, v, l, h;
 		String s;
-		JDDNode dd, tmp1, tmp2, cl;
+		JDDNode dd, tmp1, tmp2, indAccTmp, cl;
 		
 		// clear varsUsed flag array to indicate no vars used yet
 		for (i = 0; i < numVars; i++) {	
@@ -1923,9 +1940,33 @@ public class Modules2MTBDD
 		dd = JDD.Constant(1);
 		n = c.getNumElements();
 		for (i = 0; i < n; i++) {
-		
+System.out.println("in translateUpdate() [Modules2MTBDD.java:1929] - for synch val \'"+synch+"\", value of i is: " + i + ", means we are considering: " + c.getVarIdent(i) );
+		   if (c.getVarIdent(i).isIndexedVariable() )
+		   {
+System.out.println("It is an indexed-set access");
 			// get variable
-			s = c.getVar(i);			//TODO: (SHANE) Check whether this copes with IndexedSet variables. 
+			s = c.getVar(i);		// This will be the name of indexed set (without index expression)
+
+			Expression accExpr = ((ExpressionIndexedSetAccess) c.getVarIdent(i)).getIndexExpression();
+
+			// Evaluate the expression to find the definite index to retrieve
+Exception e = new Exception("METHOD INCOMPLETE");
+e.printStackTrace(System.out);	int indexToUse = 0;
+
+System.out.println("Calling translateExpression for: "+accExpr);
+			indAccTmp = translateExpression(accExpr);
+			indexToUse = (int) indAccTmp.getValue();	// It gives as a double, we need an int.
+			if (indexToUse < 0)
+				throw new PrismLangException("Invalid index given in indexed-set access attempt",accExpr);
+
+
+			// construct the name of the definitive variable to be accessed
+			s = c.getVar(i) + "[" + indexToUse + "]";
+System.out.println("Back in translateUpdate after translating the index-access expression.");
+System.out.println("It appears that " + accExpr + " evaluates to " + indexToUse + ", thus will use: " + s);
+System.out.println("BUT is that the true run-time JIT value, or the initial value?");
+
+/*		// FROM HERE TO END OF BLOCK is identical to the original code (now in the next block, the else block)
 			v = varList.getIndex(s);
 			if (v == -1) {
 				throw new PrismLangException("Unknown variable \"" + s + "\" in update", c.getVarIdent(i));
@@ -1960,7 +2001,61 @@ public class Modules2MTBDD
 			cl = JDD.Apply(JDD.TIMES, cl, varColRangeDDs[v]);
 			JDD.Ref(range);
 			cl = JDD.Apply(JDD.TIMES, cl, range);
+*/
+		   } else {
+System.out.println("It is a normal variable");
+			// get variable
+			s = c.getVar(i);
+		   }
+
+System.out.println("Line 1999 (Common part)");
+
+			v = varList.getIndex(s);
+System.out.println("For " + s + ", V will be " + v);
+			if (v == -1) {
+				throw new PrismLangException("Unknown variable \"" + s + "\" in update", c.getVarIdent(i));
+			}
+			varsUsed[v] = true;
+			// check if the variable to be modified is valid
+			// (i.e. belongs to this module or is global)
+			if (varList.getModule(v) != -1 && varList.getModule(v) != m) {
+				throw new PrismLangException("Cannot modify variable \""+s+"\" from module \""+moduleNames[m]+"\"", c.getVarIdent(i));
+			}
+			// print out a warning if this update is in a command with a synchronising
+			// action AND it modifies a global variable
+			if (varList.getModule(v) == -1 && synch) {
+				throw new PrismLangException("Synchronous command cannot modify global variable", c.getVarIdent(i));
+			}
+			// get some info on the variable
+			l = varList.getLow(v);
+			h = varList.getHigh(v);
+			// create dd
+			tmp1 = JDD.Constant(0);
+			for (j = l; j <= h; j++) {
+				tmp1 = JDD.SetVectorElement(tmp1, varDDColVars[v], j-l, j);
+			}
+System.out.println("Going to call translateExpression for: " + c.getExpression(i));
+			tmp2 = translateExpression(c.getExpression(i));
+System.out.println("Finished call of translateExpression for: " + c.getExpression(i));
+System.out.println("tmp2 is " + tmp2.getValue());
+			JDD.Ref(guard);
+			tmp2 = JDD.Apply(JDD.TIMES, tmp2, guard);
+System.out.println("and tmp2 is updated to now be " + tmp2.getValue());
+			cl = JDD.Apply(JDD.EQUALS, tmp1, tmp2);
+System.out.println("cl is " + cl.getValue());
+			JDD.Ref(guard);
+			cl = JDD.Apply(JDD.TIMES, cl, guard);
+System.out.println("cl is updated to now be " + cl.getValue());
+			// filter out bits not in range
+			JDD.Ref(varColRangeDDs[v]);
+			cl = JDD.Apply(JDD.TIMES, cl, varColRangeDDs[v]);
+System.out.println("cl is updated to now be " + cl.getValue());
+			JDD.Ref(range);
+			cl = JDD.Apply(JDD.TIMES, cl, range);
+System.out.println("cl is updated to now be " + cl.getValue());
 			dd = JDD.Apply(JDD.TIMES, dd, cl);
+System.out.println("dd is: " + dd.getValue());
+System.out.println("End of iteration " + i);
 		}
 		// if a variable from this module or a global variable
 		// does not appear in this update assume it does not change value

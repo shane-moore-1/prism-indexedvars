@@ -44,20 +44,25 @@ e.printStackTrace(System.out);
 		name = n;
 	}
 
-	public void setIndexExpression(Expression indexExpr)
-	{
-		this.indexExpression = indexExpr;
-	}
-
 	// Get methods
 	
+	/** Returns the name of the IndexedSet that this is going to access an element of. You can't know which element without
+	    evaluating the indexExpression, which can only happen at run time. */
 	public String getName()
 	{
-		return name;// + "[" + indexExpression + "]";
+		return name;	// Don't include these: + "[" + indexExpression + "]";
+	}
+
+	public void setIndexExpression(Expression indexExpr)
+	{
+System.out.println("For object: " + hashCode() + " the index expression has been set to: " + indexExpr);
+Exception e = new Exception(""); e.printStackTrace(System.out);
+		this.indexExpression = indexExpr;
 	}
 
 	public Expression getIndexExpression()
 	{
+System.out.println("Retrieving IndexExpression for object " + hashCode());
 		return indexExpression;
 	}
 	
@@ -80,6 +85,13 @@ e.printStackTrace(System.out);
 		return false;
 	}
 	
+	/** Returns true, because this type of expression of an identifier, is for accessing an indexed variable. */
+	@Override
+	public boolean isIndexedVariable()
+	{
+		return true;
+	}
+
 	/**
 	 * Evaluate this expression, return result 
 	 * - which will mean the value of the specified index within the named indexed set (if correctly specified)

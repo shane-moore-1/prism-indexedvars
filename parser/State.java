@@ -92,12 +92,15 @@ public class State implements Comparable<State>
 			varValues[i] = null;
 		}
 		for (i = 0; i < n; i++) {
+System.out.println("in State constructor: Attempting to find VarIndex of: v.getName(i) for i=" + i +" which is " + v.getName(i)); System.out.flush();
 			j = mf.getVarIndex(v.getName(i));
 			if (j == -1) {
-				throw new PrismLangException("Unknown variable " + v.getName(i) + " in state");
+//				throw new PrismLangException("Unknown variable " + v.getName(i) + " in state");
+				(new PrismLangException("Unknown variable " + v.getName(i) + " in state")).printStackTrace(System.out);
 			}
 			if (varValues[i] != null) {
-				throw new PrismLangException("Duplicated variable " + v.getName(i) + " in state");
+//				throw new PrismLangException("Duplicated variable " + v.getName(i) + " in state");
+				(new PrismLangException("Duplicated variable " + v.getName(i) + " in state")).printStackTrace(System.out);
 			}
 			varValues[i] = v.getValue(i);
 		}

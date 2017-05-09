@@ -237,7 +237,12 @@ public class StateModelChecker implements ModelChecker
 		else if (expr instanceof ExpressionFunc) {
 			res = checkExpressionFunc((ExpressionFunc) expr);
 		}
-		// Identifiers
+		// Identifier for accessing an indexed set
+		else if (expr instanceof ExpressionIndexedSetAccess)		// ADDED BY SHANE
+		{
+			res = checkExpressionIndSetAcc((ExpressionIndexedSetAccess) expr);
+		}
+		// Identifiers (non-indexed)
 		else if (expr instanceof ExpressionIdent) {
 			// Should never happen
 			throw new PrismException("Unknown identifier \"" + ((ExpressionIdent) expr).getName() + "\"");
@@ -946,7 +951,44 @@ public class StateModelChecker implements ModelChecker
 		return new StateValuesMTBDD(dd, model);
 	}
 
-	// Check label
+	protected StateValues checkExpressionIndSetAcc(ExpressionIndexedSetAccess expr) throws PrismException
+	{
+		String s;
+		int v, l, h, i;
+		JDDNode dd;
+
+		int evaluatedIndexPos = 0;
+
+		// Evaluate the index expression:
+		Exception e = new Exception("NEED TO EVALUATE ExprIndSetAcc " + expr.hashCode() + ", its INDEX-ACCESS EXPRESSION is: " + expr.getIndexExpression() );
+		e.printStackTrace(System.out);
+
+		StateValues intermediate = checkExpression(expr.getIndexExpression());
+		System.out.println("RESULT StateValues is : "+ intermediate);
+
+		// evaluatedIndexPos = ...
+
+		// Do a range check of calculated index?
+
+
+		// Assemble the name of the variable in the model to retrieve.
+		s = expr.getName() + "[" + evaluatedIndexPos + "]";
+		// get the variable's index
+		v = varList.getIndex(s);
+		if (v == -1) {
+			throw new PrismException("Unknown variable \"" + s + "\"");
+		}
+		// get some info on the variable
+		l = varList.getLow(v);
+		h = varList.getHigh(v);
+		// create dd
+		dd = JDD.Constant(0);
+		for (i = l; i <= h; i++) {
+			dd = JDD.SetVectorElement(dd, varDDRowVars[v], i - l, i);
+		}
+
+		return new StateValuesMTBDD(dd, model);
+	}// Check label
 
 	protected StateValues checkExpressionLabel(ExpressionLabel expr) throws PrismException
 	{

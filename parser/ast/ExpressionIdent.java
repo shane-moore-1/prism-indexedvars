@@ -81,7 +81,14 @@ public class ExpressionIdent extends Expression
 		// Don't know - err on the side of caution
 		return false;
 	}
-	
+
+	/** Returns whether the variable is actually one which has to include an index to access it in the State/Values tables. */
+	public boolean isIndexedVariable()
+	{
+		// Unless specifically overriden, by the ExpressionIndexedSetAccess, this should return false;
+		return false;
+	}
+
 	/**
 	 * Evaluate this expression, return result.
 	 * Note: assumes that type checking has been done already.

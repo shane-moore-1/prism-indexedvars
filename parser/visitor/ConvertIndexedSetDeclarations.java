@@ -57,6 +57,8 @@ public class ConvertIndexedSetDeclarations extends ASTTraverseModify {
 	/** If a Declaration is encountered, and it is for a variable whose type is an Indexed Set, then
 	 * this method will insert into the ModulesFile, or the Module, in which the declaration occurs,
 	 * a set of declarations for some number of individual variables of the element type.
+	 * @return for Indexed Set declarations, it returns the Declaration of the first element; otherwise it returns the
+	 * unaltered Declaration (of a non-indexed set type).
 	 */
 	// May be wrong on how it does the following:
 	// - Perhaps should delete the incoming node (because keeping it may cause issues in other things called by tidyUp, like checkVarNames).
@@ -69,6 +71,7 @@ public class ConvertIndexedSetDeclarations extends ASTTraverseModify {
 	{
 		// SHANE WAS WONDERING WHETHER I SHOULD SIMPLY ALTER THE Module.addDeclaration() method to do this straight out!
 		// but then on later reflection, he thinks no - otherwise it may need to be done both in a global and in a local context.
+		Declaration returnVal = e;		// We would return the same node, unless it was the Declaration of an indexed set.
 		
 		// See if the Type of this Declaration, is DeclTypeIndexedSet
 		if (e.getDeclType() instanceof DeclTypeIndexedSet)
@@ -93,27 +96,35 @@ public class ConvertIndexedSetDeclarations extends ASTTraverseModify {
 				for (int i = 0; i < count; i++)
 				{
 					Declaration d = new Declaration(indexedSetName + "[" + i + "]", elementsType);
+					if (i == 0) returnVal = d;		// to replace original Declaration
 					d.setIsPartOfIndexedVar();
 					currentModule.addDeclaration(d);
 					currentModule.addIndexedSetName(indexedSetName);	// Needed for SemanticCheck visitor
 				}
-				// delete e ?
+
+				// delete e so that the State class and the VarList class do not try to create/access it.
+				currentModule.removeDeclaration(e);
 			}
 			else if (currentModuleFile != null) {						
 				// Using that count, we will now create that many declarations at the global level:	
 				for (int i = 0; i < count; i++)
 				{
 					Declaration d = new Declaration(indexedSetName + "[" + i + "]", elementsType);
+					if (i == 0) returnVal = d;		// to replace original Declaration
 					d.setIsPartOfIndexedVar();
 					currentModuleFile.addGlobal(d);
 					currentModuleFile.addIndexedSetName(indexedSetName);	// Needed for SemanticCheck visitor
 				}
-				// delete e ?
+
+				// delete e so that the State class and the VarList class do not try to create/access it.
+				currentModuleFile.removeGlobal(e);
 			}
 			else
 				throw new PrismLangException("Apparently found a declaration for an IndexedSet, but not whilst in an ModulesFile, nor a Module");
+
+System.out.println("returnVal is : " + returnVal);
 		}
 
-		return e;
+		return returnVal;
 	}
 }

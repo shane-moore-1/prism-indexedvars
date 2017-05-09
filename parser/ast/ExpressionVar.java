@@ -42,8 +42,8 @@ public class ExpressionVar extends Expression
 	
 	public ExpressionVar(String n, Type t)
 	{
-		setType(t);
 		name = n;
+		setType(t);
 		index = -1;
 	}
 			

@@ -39,6 +39,8 @@ import prism.PrismLangException;
  */
 public class FindAllVars extends ASTTraverseModify
 {
+	public static boolean DEBUG = true;
+
 	private Vector<String> varIdents;
 	private Vector<Type> varTypes;
 	
@@ -85,7 +87,7 @@ public class FindAllVars extends ASTTraverseModify
 			if (targetOfUpdate instanceof ExpressionIndexedSetAccess)
 			{
 				ExpressionIndexedSetAccess detail = (ExpressionIndexedSetAccess) targetOfUpdate;
-System.out.println("Dealing with indexed-set access for: " + e.getVarIdent(i));
+System.out.println("\nDealing with indexed-set access for: " + e.getVarIdent(i));
 				// Consider the Access part's validity - is it an int value.
 				Expression indexExp = detail.getIndexExpression();
 
@@ -102,7 +104,9 @@ System.out.println("Completed call visit() on the access expression: " + indexEx
 				if (!(indexExp.getType() instanceof TypeInt)) {
 					s = "Invalid index expression given to access indexed set, expected int, saw: "
 						+ indexExp.getType();
-					throw new PrismLangException(s, e.getVarIdent(i));	
+					PrismLangException ple = new PrismLangException(s, e.getVarIdent(i));	
+if (DEBUG) ple.printStackTrace(System.out); else
+					throw ple;
 				}
 else System.out.println("Type of the argument used to access indexed-set is acceptable (int)");
 
@@ -110,11 +114,13 @@ else System.out.println("Type of the argument used to access indexed-set is acce
 					// not done yet.
 
 				// Consider the type that the result ought to be:
-System.out.println("Looking for "+ e.getVar(i) + "[0]");
+System.out.println("Looking for "+ e.getVar(i) + "[0] (which is of the target kind)");
 				j = varIdents.indexOf(e.getVar(i)+"[0]");		// the first element's type is all we need
 				if (j == -1) {
 					s = "Unknown indexed-set \"" + e.getVar(i) + "\"";
-					throw new PrismLangException(s, e.getVarIdent(i));	
+					PrismLangException ple = new PrismLangException(s, e.getVarIdent(i));	
+if (DEBUG) ple.printStackTrace(System.out); else
+					throw ple;
 				}
 
 
@@ -136,6 +142,7 @@ System.out.println("Determined its type: " + targetType + ", but leaving its j-p
 				// Maybe: replace Update with UpdateEnhanced, which has a reference to the varIdents.
 			}
 			else {		// Not an indexed-set, just an ordinary variable (seemingly)
+System.out.println("\nDealing with: " + e.getVarIdent(i) + " (which is non-indexed)");
 				// Check variable exists - by finding its index within the vector of the ModulesFile's known variables.
 				j = varIdents.indexOf(e.getVar(i));
 				if (j == -1) {
@@ -145,13 +152,10 @@ System.out.println("Determined its type: " + targetType + ", but leaving its j-p
 				// Look up its type (in the ModulesFile), and store it inside the ElementOfUpdate
 				Type tfe = e.getTypeForElement(i);
 
-System.out.println("\nBefore e.setType (for e being " + e + "), e's type is reported to be: " + tfe + " (" + ((tfe == null) ? "---" : tfe.getClass().getName()) +")");
+System.out.println("\nBefore setType (for " + e.getVar(i) + "), the type is reported to be: " + tfe + " (" + ((tfe == null) ? "---" : tfe.getClass().getName()) +")");
 				e.setType(i, varTypes.elementAt(j));
 tfe = e.getTypeForElement(i);
-System.out.println("\nBefore e.setType (for e being " + e + "), e's type is reported to be: " + tfe + " (" + ((tfe == null) ? "---" : tfe.getClass().getName()) +")");
-				e.setType(i, varTypes.elementAt(j));
-tfe = e.getTypeForElement(i);
-System.out.println("\nAfter e.setType, e's type is reported to be: " + tfe + " (" + ((tfe == null) ? "---" : tfe.getClass().getName()) +")" );
+System.out.println("After setType,  (for " + e.getVar(i) + "), the type is reported to be: " + tfe + " (" + ((tfe == null) ? "---" : tfe.getClass().getName()) +")\n" );
 				// And store the variable index
 				e.setVarIndex(i, j);
 			}

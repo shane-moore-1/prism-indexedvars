@@ -77,13 +77,16 @@ public class SemanticCheckAfterConstants extends ASTTraverse
 		// Check that no variables are set twice in the same update
 		// Currently, could do this *before* constants are defined,
 		// but one day we might need to worry about e.g. array indices...
+		// SHANE SAYS: That day has come! Thus some alterations are made...
 		n = e.getNumElements();
 		for (i = 0; i < n; i++) {
+		    if (!(e.getVarIdent(i) instanceof ExpressionIndexedSetAccess)) {
 			var = e.getVar(i);
 			if (varsUsed.contains(var)) {
 				throw new PrismLangException("Variable \"" + var + "\" is set twice in the same update", e.getVarIdent(i));
 			}
 			varsUsed.add(var);
+		    }	// There's not much we can do about actual accesses of an indexed set. Thus the same slot may get updated twice.
 		}
 		varsUsed.clear();
 	}

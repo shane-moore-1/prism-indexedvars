@@ -144,7 +144,7 @@ System.out.println("Added update element for varIdent: " + v + " classtype: " + 
 	public void setType(int i, Type t)
 	{
 //Exception e = new Exception(); e.printStackTrace(System.out);
-System.out.println("in Update.setType(int,Type) for \'" + this.toString() + "\', with i=" + i + " and type: " + t);
+if (DEBUG_MSG) System.out.println("in Update.setType(int,Type) for \'" + this.toString() + "\', with i=" + i + " and type: " + t);
 		ElementOfUpdate ue = elements.get(i);
 		ue.varType = t;
 	}
@@ -177,17 +177,25 @@ System.out.println("in Update.setType(int,Type) for \'" + this.toString() + "\',
 
 	/** Get the name (only) of an identifier (the variable) that is to be mutated by this update.
 	 *  For non-indexed set variables, this is just the name of the variable.
-	 *  If the identifier is actually an element within an indexed set, however, then there is 
-	 *  CURRENTLY A PROBLEM BECAUSE IT NEEDS TO KNOW EXACTLY WHICH ONE!! 
+	 *  If the identifier is actually an element within an indexed set, however, then there would be 
+	 *  A PROBLEM (BECAUSE IT NEEDS TO KNOW EXACTLY WHICH ONE!) however, as such variables get replaced
+	 *  by the Convert visitor, that won't occur.
+	 *  STILL: for variables made to realise an indexed set, the 'var' is not including the index number,
+	 * due to the way it was initially stored. but the varIdent has the fully qualified name.
 	 * @param i The index of the update element for which to find out the name.
 	 * @return
 	 */
+	// It may be best to simply return the getName() as defined for the varIdent in position i, since that includes
+	// the bracketed index.
 	public String getVar(int i)
 	{
-		if (getTypeForElement(i) instanceof TypeIndexedSet)
+//if (DEBUG_MSG) System.out.println("in getVar() for " + elements.get(i).var + " / " + elements.get(i).varIdent + " - what to return for getType?");
+//if (DEBUG_MSG) System.out.println("The current getType is: " + getTypeForElement(i));
+//Exception k = new Exception("STACK TRACE");
+//if (DEBUG_MSG) k.printStackTrace(System.out);
+		if (getTypeForElement(i) instanceof TypeIndexedSet)		// Should not usually occur, because it would have been replaced by individuals before now.
 		{
-System.out.println("in getVar() for " + elements.get(i).var + " / " + elements.get(i).varIdent + " - what to return for getType?");
-System.out.println("The current getType is: " + getTypeForElement(i) + ", but returning null");
+//if (DEBUG_MSG) System.out.println("But returning null, because this is an TypeIndexedSet");
 			return null;
 		} 
 		else
@@ -293,12 +301,14 @@ System.out.println("The current getType is: " + getTypeForElement(i) + ", but re
 		
 		n = elements.size();
 		for (i = 0; i < n; i++) {
-			if (getTypeForElement(i) instanceof TypeIndexedSet)
+System.out.println("in Update.update(State,State), dealing with element "+i+" which is "+ getVarIdent(i) + " and type is " + getVarIdent(i).getType() ); 
+			if (getVarIdent(i) instanceof ExpressionIndexedSetAccess)
 			{
-				// we cannot rely on getVarIndex(i), because that would be the IndexedSet itself.
+								// we cannot rely on getVarIndex(i), because that would be the IndexedSet itself.
 				// so perform runtime evaluation of the expression specified in the sourcecode modules file.
 				ExpressionIndexedSetAccess eisa = (ExpressionIndexedSetAccess) getVarIdent(i); // HMM? Should it be getVarIndex instead? (Says me after 2 weeks away from the code, while it was unfinished before the break)
 				Object evaluatedIndex = eisa.getIndexExpression().evaluate(oldState);
+System.out.println("evaluatedIndex is " + evaluatedIndex + ", its classType is " + evaluatedIndex.getClass().getName() );
 				if (evaluatedIndex instanceof Integer)
 				{
 					// Construct the hoped-for name of the specific variable to be updated.
@@ -306,6 +316,7 @@ System.out.println("The current getType is: " + getTypeForElement(i) + ", but re
 					// Check it exists. If it doesn't, then it is either mis-use of IndexedSet notation
 					// or else it is outside the bounds of the declared number of elements.
 					indexOfVarToUpdate = parent.getParent().getParent().getParent().getVarIndex(varNameToUpdate);
+System.out.println("Line Update:318: Chose indexOfVarToUpdate to be " + indexOfVarToUpdate);
 					
 					if (indexOfVarToUpdate == -1)		// It wasn't found as a valid variable, index was obviously wrong.
 						throw new PrismLangException("Attempt to access undefined element of IndexedSet: " + varNameToUpdate, getExpression(i));
@@ -315,11 +326,13 @@ System.out.println("The current getType is: " + getTypeForElement(i) + ", but re
 			}
 			else {
 				// Update of an non-indexed variable:  
-				indexOfVarToUpdate = i;
+				indexOfVarToUpdate = getVarIndex(i);
+System.out.println("Line Update:329: Chose indexOfVarToUpdate to be " + indexOfVarToUpdate);
 			}
+System.out.println("Will use index " + indexOfVarToUpdate + " as the one which gets modified.");
 			
 			// Evaluate the RH expression part, based on the 'old' state, and assign this to the target variable.
-			newState.setValue(getVarIndex(indexOfVarToUpdate), getExpression(i).evaluate(oldState));
+			newState.setValue(indexOfVarToUpdate, getExpression(i).evaluate(oldState));
 		}
 	}
 

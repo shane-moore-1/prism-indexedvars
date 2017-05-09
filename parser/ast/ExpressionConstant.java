@@ -43,8 +43,8 @@ public class ExpressionConstant extends Expression
 	
 	public ExpressionConstant(String n, Type t)
 	{
-		setType(t);
 		name = n;
+		setType(t);
 	}
 			
 	// Set method

@@ -55,6 +55,9 @@ import simulator.method.SimulationMethod;
 
 public class PrismCL implements PrismModelListener
 {
+	// Temporary ADDED BY SHANE
+	public static boolean DEBUG = true;
+
 	// flags
 	private boolean importpepa = false;
 	private boolean importprismpp = false;
@@ -206,9 +209,15 @@ public class PrismCL implements PrismModelListener
 		// Initialise
 		initialise(args);
 
+if (DEBUG) {
+	System.out.println("in PrismCL.run(): About to call doParsing()");
+}
 		// Parse/load model/properties
 		doParsing();
 
+if (DEBUG) {
+	System.out.println("in PrismCL.run(): About to call sortProperties()");
+}
 		// Sort out properties to check
 		sortProperties();
 
@@ -246,8 +255,14 @@ public class PrismCL implements PrismModelListener
 			results[i] = new ResultsCollection(undefinedConstants[i], propertiesToCheck.get(i).getExpression().getResultName());
 		}
 
+if (DEBUG) {
+	Exception e = new Exception("in PrismCL.run(): About to do a massive for loop");
+	e.printStackTrace(System.out);
+}
 		// iterate through as many models as necessary
 		for (i = 0; i < undefinedMFConstants.getNumModelIterations(); i++) {
+if (DEBUG)
+	System.out.println("Start of Iteration " + i);
 
 			// set values for ModulesFile constants
 			try {
@@ -300,6 +315,10 @@ public class PrismCL implements PrismModelListener
 			if (modelBuildFail)
 				continue;
 
+if (DEBUG) {
+	Exception e = new Exception("in PrismCL.run(): About to check the properties");
+	e.printStackTrace(System.out);
+}
 			// Work through list of properties to be checked
 			for (j = 0; j < numPropertiesToCheck; j++) {
 
@@ -424,21 +443,34 @@ public class PrismCL implements PrismModelListener
 				}
 			}
 
+if (DEBUG) {
+	Exception e = new Exception("in PrismCL.run(): About to call buildModel()");
+	e.printStackTrace(System.out);
+}
 			// Explicitly request a build if necessary
 			if (propertiesToCheck.size() == 0 && !steadystate && !dotransient && !simpath && !nobuild && prism.modelCanBeBuilt() && !prism.modelIsBuilt()) {
 				try {
 					prism.buildModel();
 				} catch (PrismException e) {
+if (DEBUG) e.printStackTrace(System.out); else
 					error(e.getMessage());
 				}
 			}
+if (DEBUG) {
+	System.out.println("\nin PrismCL.run(): Finished call of buildModel() with no execptions caught");
+}
 
 			// iterate to next model
 			undefinedMFConstants.iterateModel();
 			for (j = 0; j < numPropertiesToCheck; j++) {
 				undefinedConstants[j].iterateModel();
 			}
+if (DEBUG)
+	System.out.println("in PrismCL.run(): Reached end of the massive for-loop for value i=" + i); 
 		}
+
+if (DEBUG)
+	System.out.println("in PrismCL.run(): No more iterations to do of the massive for-loop.");
 
 		// export results (if required)
 		if (exportresults) {
@@ -473,6 +505,7 @@ public class PrismCL implements PrismModelListener
 			tmpLog.close();
 		}
 
+System.out.println("in PrismCL.run() about to call closeDown() to end the run() method");
 		// close down
 		closeDown();
 	}

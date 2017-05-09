@@ -50,6 +50,7 @@ public abstract class ASTElement
 	public void setType(Type t)
 	{
 System.out.println("setType as defined in ASTElement has been called for " + this + ", specifying type: " + ( (t == null) ? "null" : t.getClass().getName()) );
+//Exception e = new Exception(); e.printStackTrace(System.out);
 		type = t;
 	}
 

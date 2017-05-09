@@ -128,6 +128,16 @@ public class ModulesFile extends ASTElement
 		globals.add(d);
 	}
 
+	/**
+	 * Remove a declaration of an IndexedSet, to be done after the ConvertIndexedSetDeclarations visitor has created individuals.
+	 */
+	// ADDED by SHANE
+	public void removeGlobal(Declaration d)
+	{
+		if (d.getDeclType() instanceof DeclTypeIndexedSet)
+		globals.remove(d);
+	}
+
 	public void setGlobal(int i, Declaration d)
 	{
 		globals.set(i, d);
@@ -878,6 +888,7 @@ System.out.println("\nBasically completed the tidyUp() method");
 		n = getNumGlobals();
 		for (i = 0; i < n; i++) {
 			s = getGlobal(i).getName();
+System.out.println("Considering Global: " + s);
 			if (isIdentUsed(s)) {
 				throw new PrismLangException("Duplicated identifier \"" + s + "\"", getGlobal(i));
 			} else {
@@ -895,6 +906,7 @@ System.out.println("\nBasically completed the tidyUp() method");
 			m = module.getNumDeclarations();
 			for (j = 0; j < m; j++) {
 				s = module.getDeclaration(j).getName();
+System.out.println("Considering Module-Local: " + s);
 				if (isIdentUsed(s)) {
 					throw new PrismLangException("Duplicated identifier \"" + s + "\"", module.getDeclaration(j));
 				} else {

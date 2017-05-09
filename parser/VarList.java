@@ -90,6 +90,7 @@ public class VarList
 
 	/**
 	 * Add a new variable to the end of the VarList.
+	 * However, if the declaration's type is DeclTypeIndexedSet, it will do nothing.
 	 * @param decl Declaration defining the variable
 	 * @param module Index of module containing variable
 	 * @param constantValues Values of constants needed to evaluate low/high/etc.
@@ -97,13 +98,16 @@ public class VarList
 	public void addVar(Declaration decl, int module, Values constantValues) throws PrismLangException
 	{
 		Var var = createVar(decl, module, constantValues);
-		vars.add(var);
-		totalNumBits += getRangeLogTwo(vars.size() - 1);
-		nameMap.put(decl.getName(), vars.size() - 1);
+		if (var != null) {
+			vars.add(var);
+			totalNumBits += getRangeLogTwo(vars.size() - 1);
+			nameMap.put(decl.getName(), vars.size() - 1);
+		}
 	}
 
 	/**
 	 * Add a new variable at position i in the VarList.
+	 * However, if the declaration's type is DeclTypeIndexedSet, it will do nothing.
 	 * @param decl Declaration defining the variable
 	 * @param module Index of module containing variable
 	 * @param constantValues Values of constants needed to evaluate low/high/etc.
@@ -111,14 +115,16 @@ public class VarList
 	public void addVar(int i, Declaration decl, int module, Values constantValues) throws PrismLangException
 	{
 		Var var = createVar(decl, module, constantValues);
-		vars.add(i, var);
-		totalNumBits += getRangeLogTwo(i);
-		// Recompute name map
-		int j, n;
-		n = getNumVars();
-		nameMap = new HashMap<String, Integer>(n);
-		for (j = 0; j < n; j++) {
-			nameMap.put(getName(j), j);
+		if (var != null) {
+			vars.add(i, var);
+			totalNumBits += getRangeLogTwo(i);
+			// Recompute name map
+			int j, n;
+			n = getNumVars();
+			nameMap = new HashMap<String, Integer>(n);
+			for (j = 0; j < n; j++) {
+				nameMap.put(getName(j), j);
+			}
 		}
 	}
 
@@ -131,6 +137,7 @@ public class VarList
 	 */
 	private Var createVar(Declaration decl, int module, Values constantValues) throws PrismLangException
 	{
+System.out.println("VarList.createVar(decl=\'"+decl+"\'");
 		Var var;					// type is defined at bottom of this code file.
 		int low, high, start;
 		DeclarationType declType;
@@ -185,8 +192,9 @@ public class VarList
 			start = decl.getStartOrDefault().evaluateInt(constantValues);
 		}
 		else if (declType instanceof DeclTypeIndexedSet) {
-			throw new PrismLangException("Indexed Set variables not fully implemented yet.");
-			
+			// There is nothing to do, since the individual elements should by now have been added to the modulesFile
+			// by the visitor class ConvertIndexedSetDeclarations
+			return null;		// So, we return null.
 		}
 		else {
 			throw new PrismLangException("Unknown variable type \"" + declType + "\" in declaration", decl);
