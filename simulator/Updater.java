@@ -34,6 +34,7 @@ import prism.*;
 
 public class Updater extends PrismComponent
 {
+public static boolean DEBUG = true;
 	// Settings:
 	// Do we check that probabilities sum to 1?
 	protected boolean doProbChecks = true;
@@ -316,12 +317,15 @@ public class Updater extends PrismComponent
 		n = module.getNumCommands();
 		for (i = 0; i < n; i++) {
 			command = module.getCommand(i);
-			if (command.getGuard().evaluateBoolean(state)) {
+if (DEBUG) System.out.println("in simulator.Updater:320 (calcUpdForMod): dealing with command: " + command.toString() + "which has guard: " + command.getGuard() ); System.out.flush();
+			try {
+			    if (command.getGuard().evaluateBoolean(state)) {
 				j = command.getSynchIndex();
 				updateLists.get(m).get(j).add(command.getUpdates());
 				enabledSynchs.set(j);
 				enabledModules[j].set(m);
-			}
+			    }
+			} catch (PrismOutOfBoundsException oob) { /* Ignore that command, guard references invalid slot */ }
 		}
 	}
 
