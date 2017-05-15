@@ -3,6 +3,8 @@ package parser.ast;
 import parser.EvaluateContext;
 import parser.visitor.ASTVisitor;
 import prism.PrismLangException;
+import prism.PrismOutOfBoundsException;
+import java.util.Vector;
 
 /**
  * Represents an indexed identifier (i.e. an array, being accessed by an index) used as an expression, e.g. an element position of an Indexed Set is being given as the thing containing a value to be assigned during an Update (to another variable) 
@@ -11,9 +13,16 @@ import prism.PrismLangException;
  */
 public class ExpressionIndexedSetAccess extends ExpressionIdent {	
 																	
+
+	public static boolean DEBUG = true;
+	public static boolean DEBUG_VISITOR = true;
+
 //	String name; <<-- inherited, no need to redeclare;
 	Expression indexExpression;			// The expression which specifies (evaluates to) an index
-	
+
+	private Vector<String> varIdents;		// A reference to the one provided during the FindAllVars visitor, so that
+							// the 'index' of the relevant variable can be found during evaluate()
+
 	// Constructors
 	
 	public ExpressionIndexedSetAccess()
@@ -39,8 +48,8 @@ public class ExpressionIndexedSetAccess extends ExpressionIdent {
 	
 	public void setName(String n)
 	{
-Exception e = new Exception("CALLED ExpressionIndexedSetAccess.setName with parameter " + n + "(name was " + name + " when called)");
-e.printStackTrace(System.out);
+Exception e = new Exception("ExpressionIndexedSetAccess.setName called for object " + hashCode() + " with parameter " + n + "(name was " + name + " prior to call)");
+if (DEBUG) e.printStackTrace(System.out);
 		name = n;
 	}
 
@@ -55,17 +64,27 @@ e.printStackTrace(System.out);
 
 	public void setIndexExpression(Expression indexExpr)
 	{
-System.out.println("For object: " + hashCode() + " the index expression has been set to: " + indexExpr);
-Exception e = new Exception(""); e.printStackTrace(System.out);
+if (DEBUG) System.out.println("For ExprIndSetAcc object " + hashCode() + "(accessing \"" + name + "\", the index expression has been set to: " + indexExpr);
 		this.indexExpression = indexExpr;
 	}
 
 	public Expression getIndexExpression()
 	{
-System.out.println("Retrieving IndexExpression for object " + hashCode());
+if (DEBUG) System.out.println("Retrieving IndexExpression for object " + hashCode() + "(accessing \"" + name + "\", which is: " + indexExpression);
 		return indexExpression;
 	}
-	
+
+	// Messy (high coupling to other code), but necessary for run-time resolution during evaluate()
+	/**
+	 * This should be called during the FindAllVars visitor, to enable run-time resolution of an index (where it may be dynamically determined).
+	 */
+	public void setVarIdentsVector(Vector<String> original)
+	{
+System.out.println("Setting varIdents to be " + original.hashCode());
+		varIdents = original;
+	}
+
+
 	// Methods required for Expression ancestor class:
 	
 	/**
@@ -101,12 +120,68 @@ System.out.println("Retrieving IndexExpression for object " + hashCode());
 	@Override
 	public Object evaluate(EvaluateContext ec) throws PrismLangException
 	{
-		// This should never be called (that is, the version in ExpressionIdent, from where this was copied.)
-		// The ExpressionIdent should have been converted to an ExpressionVar (by parser.visitor.FindAllVars.visit(ExprIdent) )
-		// or ExpressionConstant (by parser.visitor.FindAllConstants)/...
-		throw new PrismLangException("Could not evaluate indexed identifier - not implemented yet", this);
-		
-		// THE ABOVE should probably be replaced; unless we NEVER want to evaluate this type of object (because perhaps it is meant to be converted by a visitor)
+		String nameToFind;
+		PrismLangException ple;			// possible exception could be thrown.
+// SHANE NOTE: This method will be invoked, at ****simulation time****, if we have a guard (for example) where the index to access 
+// is given by a variable (thus not known at model-construction time).
+
+// Note: ec can be of various implementing class types
+if (DEBUG) System.out.println("In ExprIndSetAcc.evaluate(EvalCtxt): considering the index expression: " + toString() );
+
+		Object idx = indexExpression.evaluate(ec);
+if (DEBUG) System.out.println("Result of evaluating that index-access expression is: " + idx + " which has type " + idx.getClass().getName());
+System.out.flush();
+		if (!(idx instanceof Integer))
+		{
+			ple = new PrismLangException("Incompatible value given in Indexed-Set Access expression. Must be an integer",this);
+			throw ple;
+		}
+
+		// Convert to int
+		int idxAsInt = ((Integer)idx);
+
+		// Now to check the index corresponds to a valid index
+		Declaration origDecl = Helper.getIndexedSetDeclaration(this.getName());
+
+		if (origDecl == null)
+		{
+			ple = new PrismLangException("Not an indexed set",this);
+			throw ple;
+		}
+
+		DeclTypeIndexedSet dtInfo = (DeclTypeIndexedSet) origDecl.getDeclType();
+		if (dtInfo != null) {
+			Expression size = dtInfo.getSize();
+			int count = size.evaluateInt();
+
+			if ((idxAsInt < 0) || (idxAsInt >= count)) {
+				ple = new PrismOutOfBoundsException("Attempt to access invalid index of an indexed set: " + idxAsInt);
+				throw ple;
+			}
+
+			nameToFind = this.getName() + "[" + idx.toString() + "]";
+System.out.println("Looking for variable: " + nameToFind + " in varIdents with value " + (varIdents == null ? null : varIdents.hashCode()) );
+
+			int i = -1;
+			if (varIdents != null)
+				// Copied from FindAllVars.visit(ExpressionIdent):
+				i = varIdents.indexOf(nameToFind);		// Index within the ModulesFile collated list of all variables
+			if (i == -1) {
+				ple = new PrismLangException("Could not find variable in memory: " + nameToFind);
+				throw ple;
+			}
+			return ec.getVarValue(nameToFind,i);		// the first parameter is actually ignored, hence why i was needed.
+/*
+			// If name was found, construct a normal variable expression, and try to evaluate it...
+			ExpressionVar expr = new ExpressionVar(name, getType());
+			// Store variable index	- needed for call to evaluate() to work.
+			expr.setIndex(i);
+
+			ExpressionVar var = new ExpressionVar(nameToFind,getType());
+			return var.evaluate(ec);
+*/
+		} else
+			throw new PrismLangException("Unexpected Error in System, evaluating: " + this);
 	}
 
 	@Override
@@ -124,7 +199,7 @@ System.out.println("Retrieving IndexExpression for object " + hashCode());
 	@Override
 	public Object accept(ASTVisitor v) throws PrismLangException
 	{
-System.out.println("In ExprIndSetAcc.accept(Visitor [" + v.getClass().getName()+"]) - about to call v.visit() for this visitor.");
+if (DEBUG_VISITOR) System.out.println("In ExprIndSetAcc.accept(Visitor [" + v.getClass().getName()+"]) - about to call v.visit() for that visitor on ExprIndSetAcc with code " + hashCode() + " which is " + this.toString());
 		return v.visit(this);
 	}
 	
@@ -146,6 +221,7 @@ System.out.println("In ExprIndSetAcc.accept(Visitor [" + v.getClass().getName()+
 		ExpressionIndexedSetAccess expr = new ExpressionIndexedSetAccess(name,indexExpression.deepCopy());
 		expr.setType(type);
 		expr.setPosition(this);
+		expr.varIdents = this.varIdents;
 		return expr;
 	}
 }

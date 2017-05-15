@@ -35,6 +35,8 @@ import prism.PrismLangException;
  */
 public class Declaration extends ASTElement
 {
+  public static boolean DEBUG = true;
+
 	// Name
 	protected String name;
 	// Type of declaration
@@ -66,10 +68,11 @@ public class Declaration extends ASTElement
 		// The type stored for a Declaration/DeclarationType object
 		// is static - it is not computed during type checking.
 		// (But we re-use the existing "type" field for this purpose)
-System.out.println("DEALING WITH: " + name + " in the AS Tree. trying to set declType to be " + declType);
+if (DEBUG) System.out.println("In setDeclType() for Declaration Object " + hashCode() + " (in the AS Tree) having name: \"" + name +"\"");
+		parser.type.Type fromDeclType = declType.getType();
+if (DEBUG) System.out.println(" - trying to set declType to be: \"" + declType + "\", which is conformant to type: " + declType.getType());
 System.out.flush();
-System.out.println("Its 'type' is : " + declType.getType());
-		setType(declType.getType());
+		setType(fromDeclType);	// was setType(declType.getType());   BUT expanded/split-out for debugging output
 	}	
 
 	public void setStart(Expression start)

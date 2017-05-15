@@ -212,6 +212,11 @@ System.out.println("j for first element of indexed set is: " + j);
 				Type targetType = varTypes.elementAt(j);
 System.out.println("2:Determined its type: " + targetType + ", but leaving its j-position for run-time determination.");
 				e.setType(targetType);
+
+				// Tell it of the varIdents vector, to allow the specific element to be found at later time.
+				e.setVarIdentsVector(varIdents);	// enable run-time resolution of whichever index is to be accessed.
+System.out.println("3:Concluding");
+
 		return detail;
 	}		// End of method visit(ExprIndAccSet)
 
@@ -224,18 +229,25 @@ System.out.println("2:Determined its type: " + targetType + ", but leaving its j
 	{
 		int i;
 		// See if identifier corresponds to a variable
+System.out.println("FindAllVars.visit(ExprIdent) was called for: " + e);
 		i = varIdents.indexOf(e.getName());
-		if (!(e instanceof ExpressionIndexedSetAccess)) {	// IndexedSet Access is to be treated differently/later.
-		   if (i != -1) {
+	   	if (i != -1) {			// An exact variable is being accessed, or a indexed variable with known index is being accessed.
+System.out.println("It was found, at i=" + i);
 			// If so, replace it with an ExpressionVar object
 			ExpressionVar expr = new ExpressionVar(e.getName(), varTypes.elementAt(i));
 			expr.setPosition(e);
 			// Store variable index
 			expr.setIndex(i);
 			return expr;
-		   }
 		} 
-else System.out.println("visit(ExprIdent) was called, with an ExpressionIndexedSetAccess object as the parameter: " + e);
+		else {
+			if (e instanceof ExpressionIndexedSetAccess) {	// IndexedSet Access is to be treated differently/later.
+System.out.println("It was not found, because it was an access of an indexedset, with dynamic index");
+				ExpressionIndexedSetAccess eisa = (ExpressionIndexedSetAccess) e;
+				eisa.setVarIdentsVector(varIdents);	// enable run-time resolution of whichever index is to be accessed.
+			}
+			else throw new PrismLangException("Unexpected situation in FindAllVars.visit(ExpressionIdent)",e);
+		}
 		// Otherwise, leave it unchanged
 		return e;
 	}

@@ -15,6 +15,8 @@ import prism.PrismLangException;
  */
 public class ConvertIndexedSetDeclarations extends ASTTraverseModify {
 
+  public static boolean DEBUG = true;
+
 	// Constants that have been defined, and can be used in specifying the size of the IndexedSet
 	private ConstantList constants;
 	private ModulesFile currentModuleFile = null;
@@ -92,6 +94,7 @@ public class ConvertIndexedSetDeclarations extends ASTTraverseModify {
 			
 			if (currentModule != null)		// It was a local declaration within a specific module:
 			{
+if (DEBUG) System.out.println("About to replace IndexedSetDeclaration of " + indexedSetName + " with " + count + " individual declarations");
 				// Using that count, we will now create that many declarations in the module
 				for (int i = 0; i < count; i++)
 				{
@@ -99,11 +102,13 @@ public class ConvertIndexedSetDeclarations extends ASTTraverseModify {
 					if (i == 0) returnVal = d;		// to replace original Declaration
 					d.setIsPartOfIndexedVar();
 					currentModule.addDeclaration(d);
-					currentModule.addIndexedSetName(indexedSetName);	// Needed for SemanticCheck visitor
+					currentModule.addIndexedSetDecl(e);	// Needed for SemanticCheck visitor
 				}
 
 				// delete e so that the State class and the VarList class do not try to create/access it.
 				currentModule.removeDeclaration(e);
+				// Note it instead in the helper, so it can be used for bounds checking when evaluating access expressions.
+				Helper.noteIndexedSetDeclaration(e);
 			}
 			else if (currentModuleFile != null) {						
 				// Using that count, we will now create that many declarations at the global level:	
@@ -111,13 +116,16 @@ public class ConvertIndexedSetDeclarations extends ASTTraverseModify {
 				{
 					Declaration d = new Declaration(indexedSetName + "[" + i + "]", elementsType);
 					if (i == 0) returnVal = d;		// to replace original Declaration
-					d.setIsPartOfIndexedVar();
+					d.setIsPartOfIndexedVar();		// to enable bounds checking at evaluationTime
 					currentModuleFile.addGlobal(d);
-					currentModuleFile.addIndexedSetName(indexedSetName);	// Needed for SemanticCheck visitor
+					currentModuleFile.addIndexedSetName(indexedSetName);	// MAYBE Needed for SemanticCheck visitor
+						// But above line may not be needed any more for Semantic Check
 				}
 
 				// delete e so that the State class and the VarList class do not try to create/access it.
 				currentModuleFile.removeGlobal(e);
+				// Note it instead in the helper, so it can be used for bounds checking when evaluating access expressions.
+				Helper.noteIndexedSetDeclaration(e);
 			}
 			else
 				throw new PrismLangException("Apparently found a declaration for an IndexedSet, but not whilst in an ModulesFile, nor a Module");

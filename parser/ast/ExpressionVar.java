@@ -56,6 +56,9 @@ public class ExpressionVar extends Expression
 	
 	public void setIndex(int i) 
 	{
+System.out.println("In ExpressionVar.setIndex for "+name+", setting 'index' to be: " + i);
+Exception e = new Exception();
+e.printStackTrace(System.out);
 		index = i;
 	}
 	
@@ -93,6 +96,9 @@ public class ExpressionVar extends Expression
 	 */
 	public Object evaluate(EvaluateContext ec) throws PrismLangException
 	{
+System.out.println("in ExpressionVar.evaluate(), about to call ec.getVarValue providing:  name="+ name + " and index="+index);
+Exception e = new Exception();
+e.printStackTrace(System.out);
 		Object res = ec.getVarValue(name, index);
 		if (res == null)
 			throw new PrismLangException("Could not evaluate variable", this);

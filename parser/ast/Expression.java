@@ -36,6 +36,7 @@ import parser.type.*;
 
 public abstract class Expression extends ASTElement
 {
+private static boolean DEBUG = true;
 	/**
 	 * Is this expression constant?
 	 */
@@ -242,6 +243,8 @@ public abstract class Expression extends ASTElement
 	 */
 	public int evaluateInt(EvaluateContext ec) throws PrismLangException
 	{
+if (DEBUG) System.out.println("in base-class\' evaluateInt(EC) for expression \'" + this.toString() + "\', about to call 'evaluate'");
+if (DEBUG) System.out.println("[The class itself is an instance of: " + getClass().getName() +"]");
 		Object o = evaluate(ec);
 		if (o instanceof Integer) {
 			return ((Integer) o).intValue();
@@ -441,6 +444,8 @@ public abstract class Expression extends ASTElement
 	 */
 	public boolean evaluateBoolean(EvaluateContext ec) throws PrismLangException
 	{
+if (DEBUG) System.out.println("in base-class' evaluateBoolean(EC) for expression \'" + this.toString() + "\', about to call 'evaluate'");
+if (DEBUG) System.out.println("[The class itself is an instance of: " + getClass().getName() +"]");
 		Object o = evaluate(ec);
 		if (!(o instanceof Boolean)) {
 			throw new PrismLangException("Cannot evaluate to a boolean", this);

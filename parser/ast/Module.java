@@ -38,8 +38,8 @@ public class Module extends ASTElement
 	private ExpressionIdent nameASTElement;
 	// Local variables
 	private ArrayList<Declaration> decls;
-	//  names of indexed-sets that exist in this module
-	private Set<String> indexedSetNames;		
+	// The original declarations (before transformation) of indexed-sets that exist in this module
+	private Map<String,Declaration> indexedSetDecls;
 	// Commands
 	private ArrayList<Command> commands;
 	// Invariant (PTA models only; optional)
@@ -56,7 +56,7 @@ public class Module extends ASTElement
 		name = n;
 		decls = new ArrayList<Declaration>();
 		commands = new ArrayList<Command>();
-		indexedSetNames = new HashSet<String>();
+		indexedSetDecls = new HashMap<String,Declaration>();
 		invariant = null;
 		parent = null;
 		baseModule = null;
@@ -74,6 +74,10 @@ public class Module extends ASTElement
 		nameASTElement = e;
 	}
 	
+	/**
+	 * Add a declaration to this Module. Declarations with the type of indexed-set are permitted during parsing,
+	 * but after parsing, the ConvertIndexedSetDeclarations visitor will add declarations for individual variables of the set,
+	 * and move the declaration from here, to the indexedSetDecls Map. */
 	public void addDeclaration(Declaration d)
 	{
 System.out.println("\n\tAdded Declaration to Module: " + d);
@@ -89,12 +93,14 @@ System.out.println("\n\tRemoved Declaration from Module: " + d);
 	
 	// ADDED BY SHANE - should probably also write a "delete" one?
 	/**
-	 * Notes the name of an indexed-set. The string should not contain any brackets.
+	 * Notes the declaration of an indexed-set. Called by ConvertIndexedSetDeclarations.
 	 */
-	public void addIndexedSetName(String nameOfIS)
+	public void addIndexedSetDecl(Declaration indDecl)
 	{
-System.out.println("Adding " + nameOfIS + " to set of indexed-set names, in module " + name);
-		indexedSetNames.add(nameOfIS);
+		if (indDecl != null) {
+System.out.println("Adding declaration of Indexed Set" + indDecl.getName() + " to module " + name);
+			indexedSetDecls.put(indDecl.getName(),indDecl);
+		}
 	}
 
 	public void setDeclaration(int i, Declaration d)
@@ -168,6 +174,14 @@ System.out.println("Adding " + nameOfIS + " to set of indexed-set names, in modu
 	public List<Declaration> getDeclarations()
 	{
 		return decls;
+	}
+
+	/**
+	 * Returns the original  delcaration of an indexed-set, or null if invalid name)
+	 */
+	public Declaration getIndexedSetDeclaration(String name)
+	{
+		return indexedSetDecls.get(name);
 	}
 	
 	/**
@@ -260,10 +274,8 @@ System.out.println("Adding " + nameOfIS + " to set of indexed-set names, in modu
 		if (s.contains("["))
 		{
 			s = s.substring(0,s.indexOf("["));
-System.out.println("Module:255 - truncated is: \'" + s +"\'");
-System.out.println("contains() : " + indexedSetNames.contains(s) + " size is " + indexedSetNames.size());
 		}
-		return indexedSetNames.contains(s);
+		return (indexedSetDecls.get(s) != null);
 	}
 
 	// Methods required for ASTElement:
@@ -305,6 +317,7 @@ System.out.println("contains() : " + indexedSetNames.contains(s) + " size is " +
 	/**
 	 * Perform a deep copy.
 	 */
+// SHANE NOTE: Does not yet include indexedDecls
 	public ASTElement deepCopy()
 	{
 		int i, n;
