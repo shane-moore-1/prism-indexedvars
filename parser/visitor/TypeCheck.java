@@ -36,6 +36,7 @@ import prism.PrismLangException;
  */
 public class TypeCheck extends ASTTraverse
 {
+    public static boolean DEBUG = false;
 	private PropertiesFile propertiesFile = null;
 
 	public TypeCheck()
@@ -149,25 +150,27 @@ System.out.println("TypeCheck.visitPost(DeclarationIndexedSet) not yet implement
 		int i, n;
 		n = e.getNumElements();
 		for (i = 0; i < n; i++) {
-System.out.println("\nDealing with element " + i + " of update: " + e);
-System.out.println(" which is: " + e.getElement(i).toString());
-System.out.println(" getTypeForElement(" + i+ ") is " + e.getTypeForElement(i)); System.out.flush();
+if (DEBUG) System.out.println("\nDealing with element " + i + " of update: " + e);
+if (DEBUG) System.out.println(" which is: " + e.getElement(i).toString());
+if (DEBUG) System.out.println(" getTypeForElement(" + i+ ") is " + e.getTypeForElement(i)); System.out.flush();
 			if (e.getTypeForElement(i) == null)
 				throw new PrismLangException("ERROR: null type encountered in update to variable \"" + e.getVar(i) + "\"", e.getExpression(i));
 			// Updates to non-clocks
 			if (!(e.getTypeForElement(i) instanceof TypeClock)) {
 
-System.out.println(" and e.getExpression("+i+") is " + e.getExpression(i)); System.out.flush();
-System.out.println(" and e.getExpression("+i+").getType() is " + e.getExpression(i).getType() ); System.out.flush();
+if (DEBUG) System.out.println(" and e.getExpression("+i+") is " + e.getExpression(i)); System.out.flush();
+if (DEBUG) System.out.println(" and e.getExpression("+i+").getType() is " + e.getExpression(i).getType() ); System.out.flush();
 
-if (e.getTypeForElement(i) == null) System.out.println("   being NULL, nothing can be checked.");
-else System.out.println("Checking if canAssign the expression to the target. (If not, exception is generated)");
+if (DEBUG) {
+  if (e.getTypeForElement(i) == null) System.out.println("   being NULL, nothing can be checked.");
+  else System.out.println("Checking if canAssign the expression to the target. (If not, exception is generated)");
+}
 
 			// SHANE NOTE: if for some reason e.getType returns null, then the following line will cause NullPointerException
 				if (!e.getTypeForElement(i).canAssign(e.getExpression(i).getType())) {
 					throw new PrismLangException("Type error in update to variable \"" + e.getVar(i) + "\"", e.getExpression(i));
 				}
-System.out.println("  - Yes, it can.");
+if (DEBUG) System.out.println("  - Yes, it can.");
 			}
 			// Updates to clocks
 			else {
@@ -467,7 +470,6 @@ System.out.println("  - Yes, it can.");
 
 	public void visitPost(ExpressionConstant e) throws PrismLangException
 	{
-System.out.println("APPARENTLY the constant-expression's type is already known. But it is: " + e.getType());
 		// Type already known
 	}
 

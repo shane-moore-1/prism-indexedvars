@@ -1872,7 +1872,6 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 			}
 
 			mainLog.print("\nBuilding model...\n");
-Exception e = new Exception("Building Model - SHANE marker"); e.printStackTrace(System.out);
 			if (currentDefinedMFConstants != null && currentDefinedMFConstants.getNumValues() > 0)
 				mainLog.println("Model constants: " + currentDefinedMFConstants);
 
@@ -1880,14 +1879,11 @@ Exception e = new Exception("Building Model - SHANE marker"); e.printStackTrace(
 			l = System.currentTimeMillis();
 			switch (currentModelSource) {
 			case PRISM_MODEL:
-System.out.println("Prism.java: Case PRISM_MODEL");
 				if (!getExplicit()) {
-System.out.println("Prism.java: getExplicit() was false");
 					Modules2MTBDD mod2mtbdd = new Modules2MTBDD(this, currentModulesFile);
 					currentModel = mod2mtbdd.translate();
 					currentModelExpl = null;
 				} else {
-System.out.println("Prism.java: getExplicit() was true");
 					ConstructModel constructModel = new ConstructModel(this, getSimulator());
 					constructModel.setFixDeadlocks(getFixDeadlocks());
 					currentModelExpl = constructModel.constructModel(currentModulesFile, false, true);
@@ -1896,19 +1892,15 @@ System.out.println("Prism.java: getExplicit() was true");
 				// if (...) ... currentModel = buildModelExplicit(currentModulesFile);
 				break;
 			case EXPLICIT_FILES:
-System.out.println("Prism.java: Case EXPLICIT_FILES");
 				if (!getExplicit()) {
-System.out.println("Prism.java: getExplicit() was false");
 					expf2mtbdd = new ExplicitFiles2MTBDD(this);
 					currentModel = expf2mtbdd.build(explicitFilesStatesFile, explicitFilesTransFile, explicitFilesLabelsFile, currentModulesFile,
 							explicitFilesNumStates);
 				} else {
-System.out.println("Prism.java: getExplicit() was true - throwing exception...");
 					throw new PrismNotSupportedException("Explicit import not yet supported for explicit engine");
 				}
 				break;
 			default:
-System.out.println("Prism.java: Case DEFAULT: Throwing exception...");
 				throw new PrismException("Don't know how to build model from source " + currentModelSource);
 			}
 			l = System.currentTimeMillis() - l;
@@ -1977,8 +1969,6 @@ System.out.println("Prism.java: Case DEFAULT: Throwing exception...");
 				if (listener != null)
 					listener.notifyModelBuildSuccessful();
 			}
-Exception NOTE = new Exception("NOTE: Reached end of doBuildModel with NO exception");
-NOTE.printStackTrace(System.out);
 		} catch (PrismException e) {
 			// Notify model listeners of build failure
 			for (PrismModelListener listener : modelListeners) {

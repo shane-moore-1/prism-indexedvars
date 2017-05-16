@@ -80,14 +80,12 @@ public class Module extends ASTElement
 	 * and move the declaration from here, to the indexedSetDecls Map. */
 	public void addDeclaration(Declaration d)
 	{
-System.out.println("\n\tAdded Declaration to Module: " + d);
 		decls.add(d);
 	}
 	
 	// ADDED BY SHANE - to allow IndexedSet declarations to be replaced by declarations of each index.
 	public void removeDeclaration(Declaration d)
 	{
-System.out.println("\n\tRemoved Declaration from Module: " + d);
 		decls.remove(d);
 	}
 	
@@ -98,7 +96,6 @@ System.out.println("\n\tRemoved Declaration from Module: " + d);
 	public void addIndexedSetDecl(Declaration indDecl)
 	{
 		if (indDecl != null) {
-System.out.println("Adding declaration of Indexed Set" + indDecl.getName() + " to module " + name);
 			indexedSetDecls.put(indDecl.getName(),indDecl);
 		}
 	}
@@ -335,6 +332,7 @@ System.out.println("Adding declaration of Indexed Set" + indDecl.getName() + " t
 		if (invariant != null)
 			ret.setInvariant(invariant.deepCopy());
 		ret.setPosition(this);
+System.out.println("*** Did not deepCopy the indexedSetDecls (in ASTElement) ***");
 		return ret;
 	}
 }

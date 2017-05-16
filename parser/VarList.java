@@ -137,7 +137,6 @@ public class VarList
 	 */
 	private Var createVar(Declaration decl, int module, Values constantValues) throws PrismLangException
 	{
-System.out.println("VarList.createVar(decl=\'"+decl+"\'");
 		Var var;					// type is defined at bottom of this code file.
 		int low, high, start;
 		DeclarationType declType;

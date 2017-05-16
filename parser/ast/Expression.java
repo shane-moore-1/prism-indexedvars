@@ -36,7 +36,7 @@ import parser.type.*;
 
 public abstract class Expression extends ASTElement
 {
-private static boolean DEBUG = true;
+private static boolean DEBUG = false;
 	/**
 	 * Is this expression constant?
 	 */

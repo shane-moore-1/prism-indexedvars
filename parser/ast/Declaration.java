@@ -35,7 +35,7 @@ import prism.PrismLangException;
  */
 public class Declaration extends ASTElement
 {
-  public static boolean DEBUG = true;
+  public static boolean DEBUG = false;
 
 	// Name
 	protected String name;

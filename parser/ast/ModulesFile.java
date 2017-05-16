@@ -39,6 +39,7 @@ import parser.type.*;
 
 public class ModulesFile extends ASTElement
 {
+    public static boolean DEBUG = false;
 	// Model type (enum)
 	private ModelType modelType;
 
@@ -594,7 +595,6 @@ public class ModulesFile extends ASTElement
 		if (s.contains("["))
 		{
 			s = s.substring(0,s.indexOf("["));
-System.out.println("ModulesFile:576 - truncated is: " + s);
 		}
 		return indexedSetNames.contains(s);
 	}
@@ -623,79 +623,79 @@ System.out.println("ModulesFile:576 - truncated is: " + s);
 		// (e.g. with variables) because this relies on module renaming which in turn
 		// must be done after formula expansion. Then, check for any cyclic
 		// dependencies in the formula list and then expand all formulas.
-System.out.println("\nAbout to call findAllFormulas()\n");
+if (DEBUG) System.out.println("\nAbout to call findAllFormulas()\n");
 		findAllFormulas(formulaList);
-System.out.println("\nAbout to call findCycles()\n");
+if (DEBUG) System.out.println("\nAbout to call findCycles()\n");
 		formulaList.findCycles();
-System.out.println("\nAbout to call expandFormulas()\n");
+if (DEBUG) System.out.println("\nAbout to call expandFormulas()\n");
 		expandFormulas(formulaList);
 		// Perform module renaming
-System.out.println("\nAbout to call sortRenamings()\n");
+if (DEBUG) System.out.println("\nAbout to call sortRenamings()\n");
 		sortRenamings();
 
 		// Check label identifiers
-System.out.println("\nAbout to call checkLabelIdents()\n");
+if (DEBUG) System.out.println("\nAbout to call checkLabelIdents()\n");
 		checkLabelIdents();
 
 		// Check module names
-System.out.println("\nAbout to call checkModuleNames()\n");
+if (DEBUG) System.out.println("\nAbout to call checkModuleNames()\n");
 		checkModuleNames();
 
 		// Check constant identifiers
-System.out.println("\nAbout to call checkConstantIdents()\n");
+if (DEBUG) System.out.println("\nAbout to call checkConstantIdents()\n");
 		checkConstantIdents();
 		// Find all instances of constants
 		// (i.e. locate identifiers which are constants)
-System.out.println("\nAbout to call findAllConstants()\n");
+if (DEBUG) System.out.println("\nAbout to call findAllConstants()\n");
 		findAllConstants(constantList);
 		// Check constants for cyclic dependencies
-System.out.println("\nAbout to call constantList.findCycles()\n");
+if (DEBUG) System.out.println("\nAbout to call constantList.findCycles()\n");
 		constantList.findCycles();
 
 		// Call INSERTED BY SHANE
 		// Find all declarations of indexed sets, and convert them to individual declarations of the element type.
 		// Must be done before checkVarNames (so that variables don't re-use the name of the indexed set)
-System.out.println("\nAbout to call convertIndexedDeclarations***()\n");
+if (DEBUG) System.out.println("\nAbout to call convertIndexedDeclarations***()\n");
 	convertIndexedDeclarations(constantList,this);	
 		
 		// Check variable names, etc.
-System.out.println("\nAbout to call checkVarNames()\n");
+if (DEBUG) System.out.println("\nAbout to call checkVarNames()\n");
 		checkVarNames();
 		// Find all instances of use of variables (including indexed ones), 
 		// Also replace any remaining identifiers with variables.	(Shane thinks: identifier DECLs with vars.)
 		// Also check variables valid, store indices into Updates, etc.
-Update.DEBUG_MSG = true;
-System.out.println("\nAbout to call findAllVars()\n");
+if (DEBUG) System.out.println("\nAbout to call findAllVars()\n");
+//Update.DEBUG_MSG = true;
 		findAllVars(varNames, varTypes);
-Update.DEBUG_MSG = false;
+//Update.DEBUG_MSG = false;
 
 		// Find all instances of property refs
-System.out.println("\nAbout to call findAllPropRefs()\n");
+if (DEBUG) System.out.println("\nAbout to call findAllPropRefs()\n");
 		findAllPropRefs(this, null);
 		
 		// Check reward structure names
-System.out.println("\nAbout to call checkRewardsStructNames()\n");
+if (DEBUG) System.out.println("\nAbout to call checkRewardsStructNames()\n");
 		checkRewardStructNames();
 
 		// Check "system...endsystem" constructs
-System.out.println("\nAbout to call checkSystemDefns()\n");
+if (DEBUG) System.out.println("\nAbout to call checkSystemDefns()\n");
 		checkSystemDefns();
 		
 		// Get synchronising action names
 		// (NB: Do this *after* checking for cycles in system defns above)
-System.out.println("\nAbout to call getSynchNames()\n");
+if (DEBUG) System.out.println("\nAbout to call getSynchNames()\n");
 		getSynchNames();
 		// Then identify/check any references to action names
-System.out.println("\nAbout to call findAllActions()\n");
+if (DEBUG) System.out.println("\nAbout to call findAllActions()\n");
 		findAllActions(synchs);
 
 		// Various semantic checks 
-System.out.println("\nAbout to call semanticCheck()\n");
+if (DEBUG) System.out.println("\nAbout to call semanticCheck()\n");
 		semanticCheck(this);
 		// Type checking
-System.out.println("\nAbout to call typeCheck()\n");
+if (DEBUG) System.out.println("\nAbout to call typeCheck()\n");
 		typeCheck();
-System.out.println("\nBasically completed the tidyUp() method");
+if (DEBUG) System.out.println("\nBasically completed the tidyUp() method");
 		
 		// If there are no undefined constants, set up values for constants
 		// (to avoid need for a later call to setUndefinedConstants).

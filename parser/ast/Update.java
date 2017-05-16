@@ -110,7 +110,7 @@ public static boolean DEBUG_MSG = false;
 		ue.index = -1;				// Index is currently unknown. Set by the FindAllVars.visitPost(Update e)
 
 		elements.add(ue);		// Store in memory for this Update.
-System.out.println("Added update element for varIdent: " + v + " classtype: " + v.getClass().getName() +"\n  to be set to result of calculating: " + e);
+if (DEBUG_MSG) System.out.println("Added update element for varIdent: " + v + " classtype: " + v.getClass().getName() +"\n  to be set to result of calculating: " + e);
 	}
 
 	/**
@@ -143,8 +143,6 @@ System.out.println("Added update element for varIdent: " + v + " classtype: " + 
 	 */
 	public void setType(int i, Type t)
 	{
-//Exception e = new Exception(); e.printStackTrace(System.out);
-if (DEBUG_MSG) System.out.println("in Update.setType(int,Type) for \'" + this.toString() + "\', with i=" + i + " and type: " + t);
 		ElementOfUpdate ue = elements.get(i);
 		ue.varType = t;
 	}
@@ -301,14 +299,14 @@ if (DEBUG_MSG) System.out.println("in Update.setType(int,Type) for \'" + this.to
 		
 		n = elements.size();
 		for (i = 0; i < n; i++) {
-System.out.println("in Update.update(State,State), dealing with element "+i+" which is "+ getVarIdent(i) + " and type is " + getVarIdent(i).getType() ); 
+if (DEBUG_MSG) System.out.println("in Update.update(State,State), dealing with element "+i+" which is "+ getVarIdent(i) + " and type is " + getVarIdent(i).getType() ); 
 			if (getVarIdent(i) instanceof ExpressionIndexedSetAccess)
 			{
 								// we cannot rely on getVarIndex(i), because that would be the IndexedSet itself.
 				// so perform runtime evaluation of the expression specified in the sourcecode modules file.
 				ExpressionIndexedSetAccess eisa = (ExpressionIndexedSetAccess) getVarIdent(i); // HMM? Should it be getVarIndex instead? (Says me after 2 weeks away from the code, while it was unfinished before the break)
 				Object evaluatedIndex = eisa.getIndexExpression().evaluate(oldState);
-System.out.println("evaluatedIndex is " + evaluatedIndex + ", its classType is " + evaluatedIndex.getClass().getName() );
+if (DEBUG_MSG) System.out.println("evaluatedIndex is " + evaluatedIndex + ", its classType is " + evaluatedIndex.getClass().getName() );
 				if (evaluatedIndex instanceof Integer)
 				{
 					// Construct the hoped-for name of the specific variable to be updated.
@@ -316,7 +314,7 @@ System.out.println("evaluatedIndex is " + evaluatedIndex + ", its classType is "
 					// Check it exists. If it doesn't, then it is either mis-use of IndexedSet notation
 					// or else it is outside the bounds of the declared number of elements.
 					indexOfVarToUpdate = parent.getParent().getParent().getParent().getVarIndex(varNameToUpdate);
-System.out.println("Line Update:318: Chose indexOfVarToUpdate to be " + indexOfVarToUpdate);
+if (DEBUG_MSG) System.out.println("Line Update:318: Chose indexOfVarToUpdate to be " + indexOfVarToUpdate);
 					
 					if (indexOfVarToUpdate == -1)		// It wasn't found as a valid variable, index was obviously wrong.
 						throw new PrismLangException("Attempt to access undefined element of IndexedSet: " + varNameToUpdate, getExpression(i));
@@ -327,9 +325,9 @@ System.out.println("Line Update:318: Chose indexOfVarToUpdate to be " + indexOfV
 			else {
 				// Update of an non-indexed variable:  
 				indexOfVarToUpdate = getVarIndex(i);
-System.out.println("Line Update:329: Chose indexOfVarToUpdate to be " + indexOfVarToUpdate);
+if (DEBUG_MSG) System.out.println("Line Update:329: Chose indexOfVarToUpdate to be " + indexOfVarToUpdate);
 			}
-System.out.println("Will use index " + indexOfVarToUpdate + " as the one which gets modified.");
+if (DEBUG_MSG) System.out.println("Will use index " + indexOfVarToUpdate + " as the one which gets modified.");
 			
 			// Evaluate the RH expression part, based on the 'old' state, and assign this to the target variable.
 			newState.setValue(indexOfVarToUpdate, getExpression(i).evaluate(oldState));
@@ -387,7 +385,7 @@ System.out.println("Will use index " + indexOfVarToUpdate + " as the one which g
 	 */
 	public Object accept(ASTVisitor v) throws PrismLangException
 	{
-if (DEBUG_MSG) System.out.println("\n\nin Update.accept(), for \'" + toString() + "\', about to call " + v.getClass().getName() +".visit(Update)...");
+//if (DEBUG_MSG) System.out.println("\n\nin Update.accept(), for \'" + toString() + "\', about to call " + v.getClass().getName() +".visit(Update)...");
 //Object o = v.visit(this);
 		return v.visit(this);
 //if (DEBUG_MSG) System.out.println("in Update.accept(), for \'" + toString() + "\', returned from call of " + v.getClass().getName() +".visit(Update)...");

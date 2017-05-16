@@ -48,8 +48,6 @@ public class ExpressionIndexedSetAccess extends ExpressionIdent {
 	
 	public void setName(String n)
 	{
-Exception e = new Exception("ExpressionIndexedSetAccess.setName called for object " + hashCode() + " with parameter " + n + "(name was " + name + " prior to call)");
-if (DEBUG) e.printStackTrace(System.out);
 		name = n;
 	}
 
@@ -64,13 +62,11 @@ if (DEBUG) e.printStackTrace(System.out);
 
 	public void setIndexExpression(Expression indexExpr)
 	{
-if (DEBUG) System.out.println("For ExprIndSetAcc object " + hashCode() + "(accessing \"" + name + "\", the index expression has been set to: " + indexExpr);
 		this.indexExpression = indexExpr;
 	}
 
 	public Expression getIndexExpression()
 	{
-if (DEBUG) System.out.println("Retrieving IndexExpression for object " + hashCode() + "(accessing \"" + name + "\", which is: " + indexExpression);
 		return indexExpression;
 	}
 
@@ -80,7 +76,6 @@ if (DEBUG) System.out.println("Retrieving IndexExpression for object " + hashCod
 	 */
 	public void setVarIdentsVector(Vector<String> original)
 	{
-System.out.println("Setting varIdents to be " + original.hashCode());
 		varIdents = original;
 	}
 
@@ -117,20 +112,17 @@ System.out.println("Setting varIdents to be " + original.hashCode());
 	 * Note: assumes that type checking has been done already.
 	 */
 	// Copied from ExpressionVar, which is what ExpressionIdent usually get converted to, by FindAllVars
+
+// SHANE NOTE: This method will be invoked, at ****simulation time****, if we have a guard (for example) where the index to access 
+// is given by a variable (thus not known at model-construction time).
 	@Override
 	public Object evaluate(EvaluateContext ec) throws PrismLangException
 	{
 		String nameToFind;
 		PrismLangException ple;			// possible exception could be thrown.
-// SHANE NOTE: This method will be invoked, at ****simulation time****, if we have a guard (for example) where the index to access 
-// is given by a variable (thus not known at model-construction time).
 
-// Note: ec can be of various implementing class types
-if (DEBUG) System.out.println("In ExprIndSetAcc.evaluate(EvalCtxt): considering the index expression: " + toString() );
 
 		Object idx = indexExpression.evaluate(ec);
-if (DEBUG) System.out.println("Result of evaluating that index-access expression is: " + idx + " which has type " + idx.getClass().getName());
-System.out.flush();
 		if (!(idx instanceof Integer))
 		{
 			ple = new PrismLangException("Incompatible value given in Indexed-Set Access expression. Must be an integer",this);
@@ -160,7 +152,6 @@ System.out.flush();
 			}
 
 			nameToFind = this.getName() + "[" + idx.toString() + "]";
-System.out.println("Looking for variable: " + nameToFind + " in varIdents with value " + (varIdents == null ? null : varIdents.hashCode()) );
 
 			int i = -1;
 			if (varIdents != null)
@@ -171,15 +162,6 @@ System.out.println("Looking for variable: " + nameToFind + " in varIdents with v
 				throw ple;
 			}
 			return ec.getVarValue(nameToFind,i);		// the first parameter is actually ignored, hence why i was needed.
-/*
-			// If name was found, construct a normal variable expression, and try to evaluate it...
-			ExpressionVar expr = new ExpressionVar(name, getType());
-			// Store variable index	- needed for call to evaluate() to work.
-			expr.setIndex(i);
-
-			ExpressionVar var = new ExpressionVar(nameToFind,getType());
-			return var.evaluate(ec);
-*/
 		} else
 			throw new PrismLangException("Unexpected Error in System, evaluating: " + this);
 	}
@@ -199,7 +181,6 @@ System.out.println("Looking for variable: " + nameToFind + " in varIdents with v
 	@Override
 	public Object accept(ASTVisitor v) throws PrismLangException
 	{
-if (DEBUG_VISITOR) System.out.println("In ExprIndSetAcc.accept(Visitor [" + v.getClass().getName()+"]) - about to call v.visit() for that visitor on ExprIndSetAcc with code " + hashCode() + " which is " + this.toString());
 		return v.visit(this);
 	}
 	
@@ -213,8 +194,9 @@ if (DEBUG_VISITOR) System.out.println("In ExprIndSetAcc.accept(Visitor [" + v.ge
 	}
 
 	/**
-	 * Perform a deep copy. SHANE Believes he has updated this correctly (from the parent version)
+	 * Perform a deep copy. 
 	 */
+//SHANE Believes he has updated this correctly (from the parent version)
 	@Override
 	public Expression deepCopy()
 	{

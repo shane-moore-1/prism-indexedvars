@@ -960,11 +960,7 @@ public class StateModelChecker implements ModelChecker
 		int evaluatedIndexPos = 0;
 
 		// Evaluate the index expression:
-		Exception e = new Exception("NEED TO EVALUATE ExprIndSetAcc " + expr.hashCode() + ", its full access expression is: " + expr );
-		e.printStackTrace(System.out);
-
 		StateValues intermediate = checkExpression(expr.getIndexExpression());
-		System.out.println("RESULT StateValues is : "+ intermediate);
 
 		// evaluatedIndexPos = ...
 
