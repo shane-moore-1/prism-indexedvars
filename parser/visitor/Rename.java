@@ -87,8 +87,10 @@ public class Rename extends ASTTraverseModify
 		// Rename variables in update
 		n = e.getNumElements();
 		for (i = 0; i < n; i++) {
+			if (e.getVarIdent(i) instanceof ExpressionIndexedSetAccess)
+				throw new PrismLangException("Cannot rename a module containined indexed-sets - not yet supported.");
 			s = rm.getNewName(e.getVar(i));
-			if (s != null) e.setVar(i, new ExpressionIdent(s));
+			if (s != null) e.setVarIdent(i, new ExpressionIdent(s));
 		}
 	}
 

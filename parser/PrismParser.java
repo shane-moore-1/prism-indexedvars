@@ -922,8 +922,6 @@ e.printStackTrace();    //SHANE ADDED
                             // a visitor will need to convert these Declarations into individual variable declarations 
                             // with names that include square brackets (and which each are distinct numbers).
                             decl = new Declaration(name, new DeclTypeIndexedSet(declType,size));
-System.out.println("Indexed Set has type: " + declType + "!!");
-System.out.println("The Declaration itself is \u005c'" + decl + "\u005c'");
           {if (true) return decl;}
     throw new Error("Missing return statement in function");
   }
@@ -1044,7 +1042,6 @@ System.out.println("The Declaration itself is \u005c'" + decl + "\u005c'");
         break label_6;
       }
       var = Declaration();
-                                        System.out.println("Matched a Declaration: " + var);
          module.addDeclaration(var);
     }
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
@@ -2529,7 +2526,7 @@ System.out.println("The Declaration itself is \u005c'" + decl + "\u005c'");
                         // may not be valid doubles.
                         ParseException ex = new ParseException("Invalid double literal");
                         // NB: can't call generateParseException() here; it crashes
-                        // SHANE WONDERS WHY THE ABOVE BLOCK INCLUDES A THROW, BUT THIS BLOCK DOES NOT?
+        // SHANE WONDERS WHY THE ABOVE BLOCK for <REG_INT> INCLUDES A THROW, BUT THIS BLOCK FOR <REG_DOUBLE> DOES NOT?
                 }
       break;
     case TRUE:
@@ -3478,6 +3475,16 @@ System.out.println("The Declaration itself is \u005c'" + decl + "\u005c'");
     try { return !jj_3_17(); }
     catch(LookaheadSuccess ls) { return true; }
     finally { jj_save(16, xla); }
+  }
+
+  static private boolean jj_3R_181() {
+    if (jj_scan_token(AND)) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_179() {
+    if (jj_scan_token(MAX)) return true;
+    return false;
   }
 
   static private boolean jj_3R_58() {
@@ -4489,6 +4496,13 @@ System.out.println("The Declaration itself is \u005c'" + decl + "\u005c'");
     return false;
   }
 
+  static private boolean jj_3_1() {
+    if (jj_scan_token(MODULE)) return true;
+    if (jj_3R_28()) return true;
+    if (jj_scan_token(EQ)) return true;
+    return false;
+  }
+
   static private boolean jj_3R_79() {
     if (jj_3R_89()) return true;
     Token xsp;
@@ -4496,13 +4510,6 @@ System.out.println("The Declaration itself is \u005c'" + decl + "\u005c'");
       xsp = jj_scanpos;
       if (jj_3R_90()) { jj_scanpos = xsp; break; }
     }
-    return false;
-  }
-
-  static private boolean jj_3_1() {
-    if (jj_scan_token(MODULE)) return true;
-    if (jj_3R_28()) return true;
-    if (jj_scan_token(EQ)) return true;
     return false;
   }
 
@@ -5064,16 +5071,6 @@ System.out.println("The Declaration itself is \u005c'" + decl + "\u005c'");
     if (jj_scan_token(DQUOTE)) return true;
     if (jj_3R_28()) return true;
     if (jj_scan_token(DQUOTE)) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_181() {
-    if (jj_scan_token(AND)) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_179() {
-    if (jj_scan_token(MAX)) return true;
     return false;
   }
 

@@ -33,12 +33,13 @@ import prism.PrismLangException;
 
 public class Module extends ASTElement
 {
+public static boolean DEBUG = false;
 	// Module name
 	private String name;
 	private ExpressionIdent nameASTElement;
 	// Local variables
 	private ArrayList<Declaration> decls;
-	// The original declarations (before transformation) of indexed-sets that exist in this module
+	// The original declarations (from before transformation) of indexed-sets that exist in this module
 	private Map<String,Declaration> indexedSetDecls;
 	// Commands
 	private ArrayList<Command> commands;
@@ -80,12 +81,14 @@ public class Module extends ASTElement
 	 * and move the declaration from here, to the indexedSetDecls Map. */
 	public void addDeclaration(Declaration d)
 	{
+if (DEBUG)  System.out.println("Adding declaration to Module " + this.getName() + ": " + d);
 		decls.add(d);
 	}
 	
 	// ADDED BY SHANE - to allow IndexedSet declarations to be replaced by declarations of each index.
 	public void removeDeclaration(Declaration d)
 	{
+if (DEBUG) System.out.println("Removing declaration from Module " + this.getName() + ": " + d);
 		decls.remove(d);
 	}
 	

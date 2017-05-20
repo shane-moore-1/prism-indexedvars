@@ -754,8 +754,6 @@ Declaration IndSetDecl(String name) :
 			    // a visitor will need to convert these Declarations into individual variable declarations 
 			    // with names that include square brackets (and which each are distinct numbers).
 			    decl = new Declaration(name, new DeclTypeIndexedSet(declType,size)); 
-System.out.println("Indexed Set has type: " + declType + "!!");
-System.out.println("The Declaration itself is \'" + decl + "\'");
 			}	
 		)
 	{ return decl; }
@@ -855,7 +853,7 @@ Module Module() :
 }
 {
 	begin = <MODULE> name = IdentifierExpression() { module = new Module(name.getName()); }
-	( var = Declaration() {		System.out.println("Matched a Declaration: " + var);
+	( var = Declaration() {
 	 module.addDeclaration(var); } )*
 	( <INVARIANT> invar = Expression(false, false) <ENDINVARIANT> { module.setInvariant(invar); } )?
 	( comm = Command() { module.addCommand(comm); } )*
@@ -1561,7 +1559,7 @@ Expression ExpressionLiteral(boolean prop, boolean pathprop) :
 			// may not be valid doubles.
 			ParseException ex = new ParseException("Invalid double literal");
 			// NB: can't call generateParseException() here; it crashes
-			// SHANE WONDERS WHY THE ABOVE BLOCK INCLUDES A THROW, BUT THIS BLOCK DOES NOT?
+	// SHANE WONDERS WHY THE ABOVE BLOCK for <REG_INT> INCLUDES A THROW, BUT THIS BLOCK FOR <REG_DOUBLE> DOES NOT?
 		}}
 	|
 	<TRUE> { ret = new ExpressionLiteral(TypeBool.getInstance(), new Boolean(true)); }

@@ -43,6 +43,10 @@ public class FindAllFormulas extends ASTTraverseModify
 	
 	public Object visit(ExpressionIdent e) throws PrismLangException
 	{
+System.out.println("FindAllFormulas.visit(ExprIdent) for \'"+ e + "\' [" + e.getClass().getName() + "]");
+
+if (e instanceof ExpressionIndexedSetAccess)
+System.out.println("Are you considering FindAllConstants for IndexedSet Access for this: " + e);
 		int i;
 		// See if identifier corresponds to a formula
 		i = formulaList.getFormulaIndex(e.getName());

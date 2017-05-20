@@ -55,8 +55,8 @@ import simulator.method.SimulationMethod;
 
 public class PrismCL implements PrismModelListener
 {
-	// Temporary ADDED BY SHANE
-	public static boolean DEBUG = true;
+  // Temporary ADDED BY SHANE
+  public static boolean DEBUG = false;
 
 	// flags
 	private boolean importpepa = false;

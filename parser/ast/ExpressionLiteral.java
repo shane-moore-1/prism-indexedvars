@@ -32,6 +32,7 @@ import prism.PrismLangException;
 import parser.type.*;
 public class ExpressionLiteral extends Expression
 {
+public static boolean DEBUG = false;
 	Object value; // Value
 	String string; // Optionally, keep original string to preserve user formatting
 
@@ -44,6 +45,13 @@ public class ExpressionLiteral extends Expression
 
 	public ExpressionLiteral(Type type, Object value, String string)
 	{
+if (DEBUG) {
+  System.out.println("Created ExpressionLiteral(type=" + type + ", value= "+value + ", string = " + string);
+  System.out.println("value's type: " + (value == null ? "null ref" : value.getClass().getName()) );
+  Exception e = new Exception();
+  e.printStackTrace(System.out);
+  System.out.println();
+}
 		this.type = type;
 		this.value = value;
 		this.string = string;
@@ -53,6 +61,11 @@ public class ExpressionLiteral extends Expression
 	
 	public void setValue(Object value)
 	{
+System.out.println("Altered ExpressionLiteral from " + this.value + " to " + value);
+System.out.println("value's type: " + (value == null ? "null ref" : value.getClass().getName()) );
+Exception e = new Exception();
+e.printStackTrace(System.out);
+System.out.println();
 		this.value = value;
 		this.string = ""+value;
 	}
@@ -112,6 +125,7 @@ public class ExpressionLiteral extends Expression
 	 */
 	public Object accept(ASTVisitor v) throws PrismLangException
 	{
+if (DEBUG) System.out.println("ExprLiteral.accept for " + this);
 		return v.visit(this);
 	}
 	

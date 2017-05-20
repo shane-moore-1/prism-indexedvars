@@ -181,6 +181,7 @@ public class ExpressionIndexedSetAccess extends ExpressionIdent {
 	@Override
 	public Object accept(ASTVisitor v) throws PrismLangException
 	{
+System.out.println("The " + v.getClass().getName() + " visitor has reached accept for ExpressionIndexedSetAccess: " + toString());
 		return v.visit(this);
 	}
 	

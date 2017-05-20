@@ -39,7 +39,7 @@ import prism.PrismLangException;
  */
 public class FindAllVars extends ASTTraverseModify
 {
-	public static boolean DEBUG = false;
+	public static boolean DEBUG = true;
 
 	private Vector<String> varIdents;
 	private Vector<Type> varTypes;
@@ -76,6 +76,7 @@ public class FindAllVars extends ASTTraverseModify
 	{
 		int i, j, n;
 		String s;
+System.out.println("FindAllVars.visitPost(Update) for : " + e);
 		
 		boolean sawAnIndexedSet = false;		// May not need, now. - shane
 		
@@ -83,7 +84,7 @@ public class FindAllVars extends ASTTraverseModify
 		n = e.getNumElements();
 		for (i = 0; i < n; i++) {
 			ExpressionIdent targetOfUpdate = e.getVarIdent(i);
-			
+if (DEBUG) System.out.println("Considering (i=" + i + "/"+n+"): " + targetOfUpdate);			
 			if (targetOfUpdate instanceof ExpressionIndexedSetAccess)
 			{
 				ExpressionIndexedSetAccess detail = (ExpressionIndexedSetAccess) targetOfUpdate;
@@ -174,15 +175,15 @@ if (DEBUG) System.out.println("After setType,  (for " + e.getVar(i) + "), the ty
 	{
 		String s;
 		// COPIED FROM ABOVE
+System.out.println("FindAllVars.visit(ExprIndSetAcc) for " + e + " which needs to be interpreted now...");
 				ExpressionIndexedSetAccess detail = e;
-if (DEBUG) System.out.println("2:Interpreting access-expression: " + e);
 				// Consider the Access part's validity - is it an int value.
 				Expression indexExp = detail.getIndexExpression();
 
-if (DEBUG) System.out.println("2:Going to call visit() on the access expression: " + indexExp);
+if (DEBUG) System.out.println("FAV.v(EISA): Going to call visit() on the access expression: " + indexExp);
 				// Delve in so that the expression might be resolved.
 				Expression resolve = (Expression) indexExp.accept(this);
-if (DEBUG) System.out.println("2:Completed call visit() on the access expression: " + indexExp + " - its type is " + resolve.getType());
+if (DEBUG) System.out.println("FAV.v(EISA): Completed call visit() on the access expression: " + indexExp + " - its type is " + resolve.getType());
 				detail.setIndexExpression(resolve);
 	
 				//refresh it (in case it just got changed by above line)
@@ -192,21 +193,23 @@ if (DEBUG) System.out.println("2:Completed call visit() on the access expression
 				if (!(indexExp.getType() instanceof TypeInt)) {
 					s = "Invalid index expression given to access indexed set, expected int, saw: "
 						+ indexExp.getType();
-					throw new PrismLangException(s, e);	
+					PrismLangException ple = new PrismLangException(s, e);	
+if (DEBUG) ple.printStackTrace(System.out); else
+					throw ple;
 				}
-else if (DEBUG) System.out.println("2:Type of the argument used to access indexed-set is acceptable (int)");
+else if (DEBUG) System.out.println("FAV.v(EISA):Type of the argument used to access indexed-set is acceptable (int)");
 
 				// Consider if it is out-of-bounds:
 					// not done yet.
 
 				// Consider the type that the result ought to be:
-if (DEBUG) System.out.println("2:Looking for "+ e.getName() + "[0]");
+if (DEBUG) System.out.println("FAV.v(EISA): Looking for "+ e.getName() + "[0]");
 				int j = varIdents.indexOf(e.getName()+"[0]");		// the first element's type is all we need
 				if (j == -1) {
 					s = "Unknown indexed-set \"" + e.getName() + "\"";
 					throw new PrismLangException(s, e);	
 				}
-if (DEBUG) System.out.println("j for first element of indexed set is: " + j);
+if (DEBUG) System.out.println("FAV.v(EISA) j for first element of indexed set is: " + j);
 
 				Type targetType = varTypes.elementAt(j);
 if (DEBUG) System.out.println("2:Determined its type: " + targetType + ", but leaving its j-position for run-time determination.");
@@ -227,6 +230,8 @@ if (DEBUG) System.out.println("2:Determined its type: " + targetType + ", but le
 	{
 		int i;
 		// See if identifier corresponds to a variable
+if (DEBUG) System.out.println("FindAllVars.visit(ExprIdent) for " + e + " [" + e.getClass().getName() + "]");
+
 		i = varIdents.indexOf(e.getName());
 	   	if (i != -1) {			// An exact variable is being accessed, or a indexed variable with known index is being accessed.
 			// If so, replace it with an ExpressionVar object

@@ -106,6 +106,7 @@ public class TypeCheck extends ASTTraverse
 		}
 	}
 
+// SHANE THINKS that the following is not used, because arrays were not coded by the original Prism authors.
 	public void visitPost(DeclarationArray e) throws PrismLangException
 	{
 		if (e.getLow() != null && !TypeInt.getInstance().canAssign(e.getLow().getType())) {
@@ -149,9 +150,11 @@ System.out.println("TypeCheck.visitPost(DeclarationIndexedSet) not yet implement
 //if (e == null) throw new PrismLangException("in TypeCheck.visitPost(Update) --- null Update object provided to visitPost(Update)"); else 
 		int i, n;
 		n = e.getNumElements();
+if (DEBUG) System.out.println("\nIn TypeCheck.visitPost(Update) for update: " + e);
 		for (i = 0; i < n; i++) {
-if (DEBUG) System.out.println("\nDealing with element " + i + " of update: " + e);
-if (DEBUG) System.out.println(" which is: " + e.getElement(i).toString());
+if (DEBUG) System.out.println("\nDealing with update-element " + (i+1) + "/" + n + ": " + e.getElement(i).toString());
+
+
 if (DEBUG) System.out.println(" getTypeForElement(" + i+ ") is " + e.getTypeForElement(i)); System.out.flush();
 			if (e.getTypeForElement(i) == null)
 				throw new PrismLangException("ERROR: null type encountered in update to variable \"" + e.getVar(i) + "\"", e.getExpression(i));

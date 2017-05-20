@@ -40,6 +40,7 @@ import parser.type.*;
 public class ModulesFile extends ASTElement
 {
     public static boolean DEBUG = false;
+    public static boolean DEBUG_TU = true;	// Whether to report what stage of tidyUp() we are at (for debug assistance)
 	// Model type (enum)
 	private ModelType modelType;
 
@@ -623,79 +624,79 @@ public class ModulesFile extends ASTElement
 		// (e.g. with variables) because this relies on module renaming which in turn
 		// must be done after formula expansion. Then, check for any cyclic
 		// dependencies in the formula list and then expand all formulas.
-if (DEBUG) System.out.println("\nAbout to call findAllFormulas()\n");
+if (DEBUG_TU) System.out.println("\ntidyUp(): 1 - About to call findAllFormulas()\n");
 		findAllFormulas(formulaList);
-if (DEBUG) System.out.println("\nAbout to call findCycles()\n");
+if (DEBUG_TU) System.out.println("\ntidyUp(): 2 - About to call findCycles()\n");
 		formulaList.findCycles();
-if (DEBUG) System.out.println("\nAbout to call expandFormulas()\n");
+if (DEBUG_TU) System.out.println("\nAbout to call expandFormulas()\n");
 		expandFormulas(formulaList);
 		// Perform module renaming
-if (DEBUG) System.out.println("\nAbout to call sortRenamings()\n");
+if (DEBUG_TU) System.out.println("\nAbout to call sortRenamings()\n");
 		sortRenamings();
 
 		// Check label identifiers
-if (DEBUG) System.out.println("\nAbout to call checkLabelIdents()\n");
+if (DEBUG_TU) System.out.println("\nAbout to call checkLabelIdents()\n");
 		checkLabelIdents();
 
 		// Check module names
-if (DEBUG) System.out.println("\nAbout to call checkModuleNames()\n");
+if (DEBUG_TU) System.out.println("\nAbout to call checkModuleNames()\n");
 		checkModuleNames();
 
 		// Check constant identifiers
-if (DEBUG) System.out.println("\nAbout to call checkConstantIdents()\n");
+if (DEBUG_TU) System.out.println("\nAbout to call checkConstantIdents()\n");
 		checkConstantIdents();
 		// Find all instances of constants
 		// (i.e. locate identifiers which are constants)
-if (DEBUG) System.out.println("\nAbout to call findAllConstants()\n");
+if (DEBUG_TU) System.out.println("\nAbout to call findAllConstants()\n");
 		findAllConstants(constantList);
 		// Check constants for cyclic dependencies
-if (DEBUG) System.out.println("\nAbout to call constantList.findCycles()\n");
+if (DEBUG_TU) System.out.println("\nAbout to call constantList.findCycles()\n");
 		constantList.findCycles();
 
 		// Call INSERTED BY SHANE
 		// Find all declarations of indexed sets, and convert them to individual declarations of the element type.
 		// Must be done before checkVarNames (so that variables don't re-use the name of the indexed set)
-if (DEBUG) System.out.println("\nAbout to call convertIndexedDeclarations***()\n");
+if (DEBUG_TU) System.out.println("\nAbout to call convertIndexedDeclarations***()\n");
 	convertIndexedDeclarations(constantList,this);	
 		
 		// Check variable names, etc.
-if (DEBUG) System.out.println("\nAbout to call checkVarNames()\n");
+if (DEBUG_TU) System.out.println("\nAbout to call checkVarNames()\n");
 		checkVarNames();
 		// Find all instances of use of variables (including indexed ones), 
 		// Also replace any remaining identifiers with variables.	(Shane thinks: identifier DECLs with vars.)
 		// Also check variables valid, store indices into Updates, etc.
-if (DEBUG) System.out.println("\nAbout to call findAllVars()\n");
+if (DEBUG_TU) System.out.println("\nAbout to call findAllVars()\n");
 //Update.DEBUG_MSG = true;
 		findAllVars(varNames, varTypes);
 //Update.DEBUG_MSG = false;
 
 		// Find all instances of property refs
-if (DEBUG) System.out.println("\nAbout to call findAllPropRefs()\n");
+if (DEBUG_TU) System.out.println("\nAbout to call findAllPropRefs()\n");
 		findAllPropRefs(this, null);
 		
 		// Check reward structure names
-if (DEBUG) System.out.println("\nAbout to call checkRewardsStructNames()\n");
+if (DEBUG_TU) System.out.println("\nAbout to call checkRewardsStructNames()\n");
 		checkRewardStructNames();
 
 		// Check "system...endsystem" constructs
-if (DEBUG) System.out.println("\nAbout to call checkSystemDefns()\n");
+if (DEBUG_TU) System.out.println("\nAbout to call checkSystemDefns()\n");
 		checkSystemDefns();
 		
 		// Get synchronising action names
 		// (NB: Do this *after* checking for cycles in system defns above)
-if (DEBUG) System.out.println("\nAbout to call getSynchNames()\n");
+if (DEBUG_TU) System.out.println("\nAbout to call getSynchNames()\n");
 		getSynchNames();
 		// Then identify/check any references to action names
-if (DEBUG) System.out.println("\nAbout to call findAllActions()\n");
+if (DEBUG_TU) System.out.println("\nAbout to call findAllActions()\n");
 		findAllActions(synchs);
 
 		// Various semantic checks 
-if (DEBUG) System.out.println("\nAbout to call semanticCheck()\n");
+if (DEBUG_TU) System.out.println("\nAbout to call semanticCheck()\n");
 		semanticCheck(this);
 		// Type checking
-if (DEBUG) System.out.println("\nAbout to call typeCheck()\n");
+if (DEBUG_TU) System.out.println("\nAbout to call typeCheck()\n");
 		typeCheck();
-if (DEBUG) System.out.println("\nBasically completed the tidyUp() method");
+if (DEBUG_TU) System.out.println("\nBasically completed the tidyUp() method");
 		
 		// If there are no undefined constants, set up values for constants
 		// (to avoid need for a later call to setUndefinedConstants).
@@ -888,7 +889,7 @@ if (DEBUG) System.out.println("\nBasically completed the tidyUp() method");
 		n = getNumGlobals();
 		for (i = 0; i < n; i++) {
 			s = getGlobal(i).getName();
-System.out.println("Considering Global: " + s);
+if (DEBUG) System.out.println("Considering Global: " + s);
 			if (isIdentUsed(s)) {
 				throw new PrismLangException("Duplicated identifier \"" + s + "\"", getGlobal(i));
 			} else {
@@ -906,7 +907,7 @@ System.out.println("Considering Global: " + s);
 			m = module.getNumDeclarations();
 			for (j = 0; j < m; j++) {
 				s = module.getDeclaration(j).getName();
-System.out.println("Considering Module-Local: " + s);
+if (DEBUG) System.out.println("Considering Module-Local (j=" + j+ " of m=" + m + "["+module.getNumDeclarations()+"]: " + s);
 				if (isIdentUsed(s)) {
 					throw new PrismLangException("Duplicated identifier \"" + s + "\"", module.getDeclaration(j));
 				} else {

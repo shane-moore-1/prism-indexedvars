@@ -15,7 +15,7 @@ import prism.PrismLangException;
  */
 public class ConvertIndexedSetDeclarations extends ASTTraverseModify {
 
-  public static boolean DEBUG = true;
+  public static boolean DEBUG = false;
 
 	// Constants that have been defined, and can be used in specifying the size of the IndexedSet
 	private ConstantList constants;
@@ -99,14 +99,20 @@ if (DEBUG) System.out.println("About to replace IndexedSetDeclaration of " + ind
 				for (int i = 0; i < count; i++)
 				{
 					Declaration d = new Declaration(indexedSetName + "[" + i + "]", elementsType);
-					if (i == 0) returnVal = d;		// to replace original Declaration
 					d.setIsPartOfIndexedVar();
-					currentModule.addDeclaration(d);
-					currentModule.addIndexedSetDecl(e);	// Needed for SemanticCheck visitor
+					if (i == 0) {
+						returnVal = d;		// to replace original Declaration upon returning
+						currentModule.addIndexedSetDecl(e);	// Needed for SemanticCheck visitor
+					} else {
+						currentModule.addDeclaration(d);	// It will be additional to what was there beforehand
+					}
+
 				}
 
 				// delete e so that the State class and the VarList class do not try to create/access it.
-				currentModule.removeDeclaration(e);
+// Not needed because old e gets replaced by returnVal anyway
+//				currentModule.removeDeclaration(e);
+
 				// Note it instead in the helper, so it can be used for bounds checking when evaluating access expressions.
 				Helper.noteIndexedSetDeclaration(e);
 			}

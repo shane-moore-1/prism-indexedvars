@@ -118,7 +118,7 @@ if (DEBUG_MSG) System.out.println("Added update element for varIdent: " + v + " 
 	 * @param i - update element's position within the update command
 	 * @param v - the Identifier to change
 	 */
-	public void setVar(int i, ExpressionIdent v)
+	public void setVarIdent(int i, ExpressionIdent v)
 	{
 		ElementOfUpdate ue = elements.get(i);
 		ue.var = v.getName();

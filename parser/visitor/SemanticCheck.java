@@ -418,7 +418,9 @@ public class SemanticCheck extends ASTTraverse			// USED by the 'parser.ast.ASTE
 	{
 		// By the time the expression is checked, this should
 		// have been converted to an ExpressionVar/ExpressionConstant/...
-		throw new PrismLangException("Undeclared identifier", e);
+		PrismLangException ple = new PrismLangException("Undeclared identifier", e);
+ple.printStackTrace(System.out);
+		throw ple;
 	}
 
 	public void visitPost(ExpressionFormula e) throws PrismLangException

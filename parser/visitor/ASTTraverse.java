@@ -182,6 +182,7 @@ public class ASTTraverse implements ASTVisitor
 	public void visitPre(DeclTypeIndexedSet e) throws PrismLangException { defaultVisitPre(e); }
 	public Object visit(DeclTypeIndexedSet e) throws PrismLangException
 	{
+System.out.println("reached ASTTraverse.visit(DeclTypeIndSet)");
 		visitPre(e);
 		if (e.getSize() != null) e.getSize().accept(this);
 		if (e.getElementsType() != null) e.getElementsType().accept(this);
@@ -236,6 +237,7 @@ public class ASTTraverse implements ASTVisitor
 	{
 		// Note: a few classes override this method (e.g. SemanticCheck)
 		// so take care to update those versions if changing this method
+if (e.getSynch().length() > 0) System.out.println("\n*** Considering Command with synch: " + e.getSynch());
 		visitPre(e);
 		e.getGuard().accept(this);
 		e.getUpdates().accept(this);
@@ -264,6 +266,7 @@ public class ASTTraverse implements ASTVisitor
 	{
 		visitPre(e);
 		int i, n;
+System.out.println("In ASTTraverse.visit(Update) for update: " + e);
 		n = e.getNumElements();
 		for (i = 0; i < n; i++) {
 			if (e.getExpression(i) != null) e.getExpression(i).accept(this);
@@ -454,6 +457,7 @@ public class ASTTraverse implements ASTVisitor
 	public void visitPre(ExpressionIdent e) throws PrismLangException { defaultVisitPre(e); }
 	public Object visit(ExpressionIdent e) throws PrismLangException
 	{
+System.out.println("Reached ASTTraverse.visit(ExprIdent) for :" + e + " [" + e.getClass().getName() + "]");
 		visitPre(e);
 		visitPost(e);
 		return null;
