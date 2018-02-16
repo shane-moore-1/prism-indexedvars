@@ -95,6 +95,8 @@ public class ConvertIndexedSetDeclarations extends ASTTraverseModify {
 			if (currentModule != null)		// It was a local declaration within a specific module:
 			{
 if (DEBUG) System.out.println("About to replace IndexedSetDeclaration of " + indexedSetName + " with " + count + " individual declarations");
+				int posToInsert = currentModule.getDeclPosInArrayList(e);
+
 				// Using that count, we will now create that many declarations in the module
 				for (int i = 0; i < count; i++)
 				{
@@ -104,7 +106,7 @@ if (DEBUG) System.out.println("About to replace IndexedSetDeclaration of " + ind
 						returnVal = d;		// to replace original Declaration upon returning
 						currentModule.addIndexedSetDecl(e);	// Needed for SemanticCheck visitor
 					} else {
-						currentModule.addDeclaration(d);	// It will be additional to what was there beforehand
+						currentModule.insertDeclarationAt(d,posToInsert+i);	// It will be additional to what was there beforehand
 					}
 
 				}
@@ -136,7 +138,7 @@ if (DEBUG) System.out.println("About to replace IndexedSetDeclaration of " + ind
 			else
 				throw new PrismLangException("Apparently found a declaration for an IndexedSet, but not whilst in an ModulesFile, nor a Module");
 
-System.out.println("returnVal is : " + returnVal);
+if (DEBUG) System.out.println("returnVal is : " + returnVal);
 		}
 
 		return returnVal;

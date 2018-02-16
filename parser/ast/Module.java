@@ -84,6 +84,25 @@ public static boolean DEBUG = false;
 if (DEBUG)  System.out.println("Adding declaration to Module " + this.getName() + ": " + d);
 		decls.add(d);
 	}
+
+	/** Returns the position within our 'decls' ArrayList, at which the supplied Declaration resides. Useful for the insertDeclaration method. */
+	public int getDeclPosInArrayList(Declaration d)
+	{
+		int pos = 0;
+		while (pos < decls.size())
+		{
+			if (decls.get(pos) == d) return pos;
+			else pos++;
+		}
+
+		return -1;		// Should not occur, but just in case it does, this signifies 'No Place'
+	}
+
+	public void insertDeclarationAt(Declaration d, int position)
+	{
+if (DEBUG)  System.out.println("Inserting declaration: " + d + " to Module " + this.getName() + " at position: " + position);
+		decls.add(position,d);
+	}
 	
 	// ADDED BY SHANE - to allow IndexedSet declarations to be replaced by declarations of each index.
 	public void removeDeclaration(Declaration d)
@@ -335,7 +354,8 @@ if (DEBUG) System.out.println("Removing declaration from Module " + this.getName
 		if (invariant != null)
 			ret.setInvariant(invariant.deepCopy());
 		ret.setPosition(this);
-System.out.println("*** Did not deepCopy the indexedSetDecls (in ASTElement) ***");
+System.out.println("*** In Modules.deepCopy() - Did not deepCopy the indexedSetDecls (but probably ought to have) ***");
+Exception e = new Exception(); e.printStackTrace(System.out);
 		return ret;
 	}
 }
