@@ -1,27 +1,126 @@
-Brief notes on the structure of this source directory.
-Further details on packages are in the Javadoc.
-Dave Parker.
+======
+README
+======
 
------------
+This is PRISM (Probabilistic Symbolic Model Checker).
 
-* bin/ - OS-specific build scripts, customised and installed by make.
-* dd/ - A C/C++ library of BDD/MTBDD functions, mostly just wrappers for the CUDD library.
-* dv/ - Utility functions for operations on vectors of doubles (stored in C++ through JNI).
-* explicit/ - Explicit-state probabilistic model checking engine, implemented in Java.
-* hybrid/ - The "Hybrid" engine: data structures and model checking algorithms that mix MTBDDs and explicit-state techniques.
-* jdd/ - A Java library providing a wrapper around the dd library and hence Java access to CUDD via JNI.
-* jltl2ba/ - Java port of the LTL to Buchi automata conversion library.
-* jltl2dstar/ - Java port of the LTL to deterministic Rabin automata conversion library.
-* mtbdd/ - The "MTBDD" engine: fully symbolic implementations of model checking algorithms.
-* odd/ - ODDs (offset-labelled BDDs), used to facilitate indexing of states between BDDs and explicit-state data structures.
-* parser/ - The PRISM model/properties parser, accompanying abstract syntax tree data structures and tools (and JavaCC parser files).
-* pepa/ - PEPA-to-PRISM model translation.
-* prism/ - The main Prism API, the command-line tool, and Java classes for symbolic data structures and algorithms.
-* pta/ - Probabilistic timed automata (PTA) model checking, including DBM library.
-* scripts/ - Shell script(s) used from within make.
-* settings/ - Generic 'settings' functionality.
-* simulator/ - The discrete event simulation engine and approximate (statistical) model checking code.
-* sparse/ - The "Sparse" engine: sparse matrix data structures and corresponding implementations of model checking algorithms.
-* userinterface/ - PRISM's graphical user interface (GUI).
+------------
+INSTALLATION
+------------
 
-* nsis_script.nsi - Script to build Windows binaries with NSIS.
+For detailed installation instructions, check the online manual at:
+
+  http://www.prismmodelchecker.org/manual/InstallingPRISM/Instructions
+  
+or see the local copies included in this distribution:
+
+  doc/manual/InstallingPRISM/Instructions.html
+  doc/manual.pdf
+
+Very abbreviated instructions for installing/running PRISM are as follows:
+
+For Windows binary distributions:
+
+ - to install, run prism-XXX-win-installer.exe
+ - to run, use Desktop/Start menu shortcuts or double-click bin\xprism.bat
+
+For other binary distributions:
+
+ - to install, enter the PRISM directory, type "./install.sh"
+ - to run, execute bin/xprism or bin/prism
+
+For source code distributions:
+
+ - enter the PRISM directory and type "make"
+ - to run, execute bin/xprism or bin/prism
+
+If you have problems check the manual, especially the section "Common Problems And Questions".
+
+-------------
+DOCUMENTATION
+-------------
+
+The best source of information about using PRISM is the online manual:
+
+  http://www.prismmodelchecker.org/manual/
+
+You can also view the local copies included in this distribution:
+
+  doc/manual/index.html
+  doc/manual.pdf
+
+For other PRISM-related information, see the website:
+
+  http://www.prismmodelchecker.org/
+
+---------
+LICENSING
+---------
+
+PRISM is distributed under the GNU General Public License (GPL).
+A copy of this license can be found in the file COPYING.txt.
+For more information, see:
+
+  http://www.gnu.org/licenses/
+
+PRISM uses the CUDD (Colorado University Decision Diagram) library of
+Fabio Somenzi, which is freely available. For more information about this
+library, see:
+
+  http://vlsi.colorado.edu/~fabio/CUDD/
+
+----------------
+ACKNOWLEDGEMENTS
+----------------
+
+PRISM was created and is still actively maintained by:
+
+ * Dave Parker (University of Birmingham)
+ * Gethin Norman (University of Glasgow)
+ * Marta Kwiatkowska (University of Oxford) 
+
+We gratefully acknowledge contributions to the PRISM code-base from various sources,
+including (in approximately reverse chronological order):
+
+ * Joachim Klein: Various bug fixes, especially related to LTL
+ * Ernst Moritz Hahn: Parametric model checking, fast adaptive uniformisation + various other features
+ * Frits Dannenberg: Fast adaptive uniformisation
+ * Vojtech Forejt: Various model checking code, including multi-objective + GUI enhancements
+ * Hongyang Qu: Multi-objective model checking
+ * Mateusz Ujma: Bug fixes and GUI improvements
+ * Christian von Essen: Symbolic/explicit-state model checking
+ * Vincent Nimal: Approximate (simulation-based) model checking techniques
+ * Mark Kattenbelt: Wide range of enhancements/additions, especially in the GUI
+ * Carlos Bederian (working with Pedro D'Argenio): LTL model checking for MDPs
+ * Gethin Norman: Precomputation algorithms, abstraction
+ * Alistair John Strachan: Port to 64-bit architectures
+ * Alistair John Strachan, Mike Arthur and Zak Cohen: Integration of JFreeChart into PRISM
+ * Charles Harley and Sebastian Vermehren: GUI enhancements
+ * Rashid Mehmood: Improvements to low-level data structures and numerical solution algorithms
+ * Stephen Gilmore: Support for the stochastic process algebra PEPA
+ * Paolo Ballarini & Kenneth Chan: Port to Mac OS X
+ * Andrew Hinton: Original versions of the GUI, Windows port and simulator
+ * Joachim Meyer-Kayser: Original implementation of the "Fox-Glynn" algorithm 
+
+For more details see:
+
+  http://www.prismmodelchecker.org/people.php
+
+-------
+CONTACT
+-------
+
+If you have problems or questions regarding PRISM, please use the help forum provided. See:
+
+  http://www.prismmodelchecker.org/support.php
+
+Other comments and feedback about any aspect of PRISM are also very welcome. Please contact:
+
+  Dave Parker
+  (d.a.parker@cs.bham.ac.uk)
+  School of Computer Science
+  University of Birmingham
+  Edgbaston
+  Birmingham
+  B15 2TT
+  ENGLAND
