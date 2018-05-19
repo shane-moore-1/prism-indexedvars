@@ -14,8 +14,8 @@ import java.util.Vector;
 public class ExpressionIndexedSetAccess extends ExpressionIdent {	
 																	
 
-	public static boolean DEBUG = true;
-	public static boolean DEBUG_VISITOR = true;
+public static boolean DEBUG = false;
+public static boolean DEBUG_VISITOR = false;
 
 //	String name; <<-- inherited, no need to redeclare;
 	Expression indexExpression;			// The expression which specifies (evaluates to) an index
@@ -181,7 +181,7 @@ public class ExpressionIndexedSetAccess extends ExpressionIdent {
 	@Override
 	public Object accept(ASTVisitor v) throws PrismLangException
 	{
-System.out.println("The " + v.getClass().getName() + " visitor has reached accept for ExpressionIndexedSetAccess: " + toString());
+if (DEBUG_VISITOR) System.out.println("The " + v.getClass().getName() + " visitor has reached ExpressionIndexedSetAccess.access() for: " + toString());
 		return v.visit(this);
 	}
 	
