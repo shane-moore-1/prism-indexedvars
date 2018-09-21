@@ -253,7 +253,7 @@ public class DigitalClocks
 				ExpressionFunc exprFunc;
 				n = e.getNumElements();
 				for (i = 0; i < n; i++) {
-					if (e.getType(i) instanceof TypeClock) {
+					if (e.getTypeForElement(i) instanceof TypeClock) {
 						// Don't actually need to set the type here since
 						// will be done in subsequent call to tidyUp() but do it anyway.
 						e.setType(i, TypeInt.getInstance());
@@ -529,7 +529,7 @@ public class DigitalClocks
 			Collection<Integer> allVals;
 			n = e.getNumElements();
 			for (i = 0; i < n; i++) {
-				if (e.getType(i) instanceof TypeClock) {
+				if (e.getTypeForElement(i) instanceof TypeClock) {
 					clock = e.getVar(i);
 					maxVal = ParserUtils.findMaxForIntExpression(e.getExpression(i), varList, constantValues);
 					updateMax(clock, maxVal);
