@@ -338,7 +338,7 @@ public class StateValuesDV implements StateValues
 	 */
 	public JDDNode getBDDFromInterval(RelOp relOp, double bound)
 	{
-		return values.getBDDFromInterval(relOp, bound, vars, odd);
+ 		return values.getBDDFromInterval(relOp, bound, vars, odd);
 	}
 
 	/**

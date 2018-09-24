@@ -37,7 +37,7 @@
 	#define EXPORT
 #endif
 
-// Fox-Glynn wieghts struct
+// Fox-Glynn weights struct
 typedef struct FoxGlynnWeights
 {
 	long left;
@@ -51,6 +51,7 @@ EXPORT long get_real_time(JNIEnv *env);
 EXPORT void get_string_array_from_java(JNIEnv *env, jobject strings_list, jstring *&strings_jstrings, const char **&strings, int &size);
 EXPORT void release_string_array_from_java(JNIEnv *env, jstring *strings_jstrings, const char **strings, jint size);
 EXPORT FoxGlynnWeights fox_glynn(double q_tmax, double underflow, double overflow, double accuracy);
+EXPORT const char* get_export_iterations_filename();
 
 // Global constants
 // Delay between occasional updates for slow processes, e.g. numerical solution (milliseconds)

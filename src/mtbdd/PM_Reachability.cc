@@ -58,6 +58,11 @@ jlong __jlongpointer s	// start state
 	bool done;
 	int iters;
 	
+PM_PrintToMainLog(env, "\nstart of Java_mtbdd_PrismMTBDD_PM_1Reachability:");
+PM_PrintToMainLog(env, "\n");
+
+bool SHANE_showProgressLog = true;	
+int SHANE_showProgressFreq = 1; // NOT WORKING: env->CallIntMethod(prism_obj, env->GetMethodID(prism_cls, "getShaneFreqOfOutput", "()I"));
 	// get PRISM options
 	int reach_method = env->CallIntMethod(prism_obj, env->GetMethodID(prism_cls, "getReachMethod", "()I"));
 	int info = env->CallIntMethod(prism_obj, env->GetMethodID(prism_cls, "getExtraReachInfo", "()Z"));
@@ -65,50 +70,93 @@ jlong __jlongpointer s	// start state
 	// timing stuff
 	long start1, start2, start3, stop;
 	double time_taken, time_for_setup, time_for_iters;
-
 	// start clocks
 	start1 = util_cpu_time();
-	
+
+PM_PrintToMainLog(env, "\nShaneNote Place 1");	
 	if (reach_method == REACH_BFS) {
+PM_PrintToMainLog(env, "\n  reach_method is REACH_BFS");
 	
 		// initialise
 		done = false;
 		iters = 0;
 		Cudd_Ref(init);
+PM_PrintToMainLog(env, "\nShaneNote Place A2 - Permute the row vars according to col vars (there are %d rvars) - store in 'reach'",num_rvars);
+
 		reach = DD_PermuteVariables(ddman, init, rvars, cvars, num_rvars);
+		if (reach == NULL) return ptr_to_jlong(NULL);
+
+PM_PrintToMainLog(env, "\nShaneNote Place A3 - starting WHILE loop");	
 		
+	start2 = util_cpu_time();
 		while (!done) {
+
 			iters++;
 			// output info on progress
-			if (info > 0) {
+// Altered by Shane::
+	// ORIG:		if (info > 0)
+//if (iters % SHANE_showProgressFreq == 0) {
+	SHANE_showProgressLog = true;
+	PM_PrintToMainLog(env, "\n");	
+//}
+//else
+//	SHANE_showProgressLog = false;
+			if (SHANE_showProgressLog) {
 				PM_PrintToMainLog(env, "Iteration %d:", iters);
 				PM_PrintToMainLog(env, " %0.f states", DD_GetNumMinterms(ddman, reach, num_rvars));
 				PM_PrintToMainLog(env, " (%d nodes)", DD_GetNumNodes(ddman, reach));
-				start2 = util_cpu_time();
 			}
+int STOP=Cudd_ReadSize(ddman); for (int shane = 0; shane < STOP; shane++) PM_PrintToMainLog(env, "\n\t Reach[%d] = %d",shane, (Cudd_IsConstant(&reach[shane])? Cudd_V(&(reach[shane])): -1));
 			// perform iteration
 			Cudd_Ref(reach);
+PM_PrintToMainLog(env, "\nShaneNote Place A4 - permute the col vars according to the row vars, store in 'tmp'");
 			tmp = DD_PermuteVariables(ddman, reach, cvars, rvars, num_cvars);
+			if (tmp == NULL) return ptr_to_jlong(NULL);
+PM_PrintToMainLog(env, "\ntmp is now (0x%p), and its contents are:",tmp);
+STOP=Cudd_ReadSize(ddman); for (int shane = 0; shane < STOP; shane++) PM_PrintToMainLog(env, "\n\t tmp[%d] = %d",shane,tmp[shane]);
 			Cudd_Ref(trans01);
+PM_PrintToMainLog(env, "\nShaneNote Place A5 - about to AND tmp with trans01  ==> replaces tmp");
 			tmp = DD_And(ddman, tmp, trans01);
+			if (tmp == NULL) return ptr_to_jlong(NULL);
+PM_PrintToMainLog(env, "\ntmp is now (0x%x), and its contents are:",tmp);
+STOP=Cudd_ReadSize(ddman); for (int shane = 0; shane < STOP; shane++) PM_PrintToMainLog(env, "\n\t tmp[%d] = %d",shane,tmp[shane]);
+PM_PrintToMainLog(env, "\nShaneNote Place A6 - about to ThereExists with tmp, rvars ==> replaces tmp");
 			tmp = DD_ThereExists(ddman, tmp, rvars, num_rvars);
+			if (tmp == NULL) return ptr_to_jlong(NULL);
+PM_PrintToMainLog(env, "\ntmp is now (0x%x), and its contents are:",tmp);
+STOP=Cudd_ReadSize(ddman); for (int shane = 0; shane < STOP; shane++) PM_PrintToMainLog(env, "\n\t tmp[%d] = %d",shane,tmp[shane]);
 			Cudd_Ref(reach);
+PM_PrintToMainLog(env, "\nShaneNote Place A7 - about to OR reach with tmp ==> replaces tmp");
 			tmp = DD_Or(ddman, reach, tmp);
+			if (tmp == NULL) return ptr_to_jlong(NULL);
+PM_PrintToMainLog(env, "\ntmp is now (0x%x), and its contents are:",tmp);
+STOP=Cudd_ReadSize(ddman); for (int shane = 0; shane < STOP; shane++) PM_PrintToMainLog(env, "\n\t tmp[%d] = %d",shane,tmp[shane]);
+
+PM_PrintToMainLog(env, "\nShaneNote Place A8 - about to check convergence, i.e. is tmp (0x%x) the same as reach (0x%x)",tmp,reach);
 			// check convergence
 			if (tmp == reach) {
 				done = true;
+PM_PrintToMainLog(env, "\n  done is now set to true\n");
 			}
+else PM_PrintToMainLog(env, "\n  done is NOT YET set to true\n");
 			Cudd_RecursiveDeref(ddman, reach);
 			reach = tmp;
+PM_PrintToMainLog(env, "\nSetting 'reach' to be what 'tmp' is referring to.");
 			// output info on progress
-			if (info > 0) {
+			if (SHANE_showProgressLog) {		// Originally was different:  info > 0     or similar.
 				stop = util_cpu_time();
-				PM_PrintToMainLog(env, " (%.2f seconds)\n", (double)(stop - start2)/1000);
+				PM_PrintToMainLog(env, " (%.2f seconds)\n", (double) (stop - start2)/1000);
+				start2 = stop;
 			}
 		}
+PM_PrintToMainLog(env, "\nShaneNote Place A9 - Concluded WIHLE loop.");
 		reach = DD_PermuteVariables(ddman, reach, cvars, rvars, num_cvars);
+PM_PrintToMainLog(env, "\nShaneNote Place A10 - reach==NULL is %s",(reach == NULL ? "true" : "false"));
+PM_PrintToMainLog(env, "\n");
+		if (reach == NULL) return ptr_to_jlong(NULL);
 	}
 	else {
+PM_PrintToMainLog(env, "\n  reach_method is NOT REACH_BFS\n");
 		// initialise
 		done = false;
 		iters = 0;
@@ -116,32 +164,56 @@ jlong __jlongpointer s	// start state
 		reach = init;
 		Cudd_Ref(reach);
 		frontier = reach;
+
+PM_PrintToMainLog(env, "\nShaneNote Place B1");
 		
 		while (!done) {
 			iters++;
 			// output info on progress
-			if (info > 0) {
+// Altered by Shane::
+	// ORIG:		if (info > 0)
+//if (iters % SHANE_showProgressFreq == 0) {
+	SHANE_showProgressLog = true;
+	PM_PrintToMainLog(env, "\n");	
+//}
+//else
+//	SHANE_showProgressLog = false;
+			if (SHANE_showProgressLog) {
 				PM_PrintToMainLog(env, "Iteration %d:", iters);
 				PM_PrintToMainLog(env, " %0.f states", DD_GetNumMinterms(ddman, reach, num_rvars));
 				PM_PrintToMainLog(env, " (%d nodes)", DD_GetNumNodes(ddman, reach));
-				start2 = util_cpu_time();
+//				start2 = util_cpu_time();
 			}
 			// perform iteration
 			Cudd_Ref(frontier);
 			tmp = DD_PermuteVariables(ddman, frontier, cvars, rvars, num_cvars);
+			if (tmp == NULL) return ptr_to_jlong(NULL);
+PM_PrintToMainLog(env, "\nShaneNote Place B2");
 			Cudd_Ref(trans01);
 			tmp = DD_And(ddman, tmp, trans01);
+			if (tmp == NULL) return ptr_to_jlong(NULL);
+PM_PrintToMainLog(env, "\nShaneNote Place B3");
 			tmp = DD_ThereExists(ddman, tmp, rvars, num_rvars);
+			if (tmp == NULL) return ptr_to_jlong(NULL);
 			Cudd_Ref(reach);
+PM_PrintToMainLog(env, "\nShaneNote Place B4");
 			tmp = DD_Or(ddman, reach, tmp);
+			if (tmp == NULL) return ptr_to_jlong(NULL);
+PM_PrintToMainLog(env, "\nShaneNote Place B5");
 			Cudd_RecursiveDeref(ddman, frontier);
+PM_PrintToMainLog(env, "\nShaneNote Place B6");
 			Cudd_Ref(tmp);
 			Cudd_Ref(reach);
 			frontier = DD_And(ddman, tmp, DD_Not(ddman, reach));
+PM_PrintToMainLog(env, "\nShaneNote Place B7: frontier is NULL? %s",(frontier == NULL ? "true" : "false"));
+PM_PrintToMainLog(env, "\n");
+			if (frontier) return ptr_to_jlong(NULL);
 			// check convergence
 			if (frontier == Cudd_ReadZero(ddman)) {
+PM_PrintToMainLog(env, "\nShaneNote Place B8: done being set to true\n");
 				done = true;
 			}
+else PM_PrintToMainLog(env, "\nShaneNote Place B8: done NOT being set to true\n");
 			Cudd_RecursiveDeref(ddman, reach);
 			reach = tmp;
 			// output info on progress
@@ -150,7 +222,11 @@ jlong __jlongpointer s	// start state
 				PM_PrintToMainLog(env, " (%.2f seconds)\n", (double)(stop - start2)/1000);
 			}
 		}
+PM_PrintToMainLog(env, "\nShaneNote Place B9");
 		reach = DD_PermuteVariables(ddman, reach, cvars, rvars, num_cvars);
+PM_PrintToMainLog(env, "\nShaneNote Place B10: reach==NULL is %s",(reach==NULL ? "true" : "false"));
+PM_PrintToMainLog(env, "\n");
+		if (reach == NULL) return ptr_to_jlong(NULL);
 		Cudd_RecursiveDeref(ddman, frontier);
 	}
 	

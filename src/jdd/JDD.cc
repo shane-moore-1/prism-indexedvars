@@ -28,10 +28,9 @@
 #include "JDD.h"
 #include "JDDNode.h"
 #include "JDDVars.h"
-#include "DebugJDD.h"
 #include "jnipointer.h"
 
-#include <stdio.h>
+#include <cstdio>
 #include <util.h>
 #include <cudd.h>
 #include <dd.h>
@@ -427,9 +426,24 @@ JNIEXPORT jdouble JNICALL Java_jdd_JDD_DD_1FindMin(JNIEnv *env, jclass cls, jlon
 //------------------------------------------------------------------------------
 
 
+JNIEXPORT jdouble JNICALL Java_jdd_JDD_DD_1FindMinPositive(JNIEnv *env, jclass cls, jlong __jlongpointer dd)
+{
+	return DD_FindMinPositive(ddman, jlong_to_DdNode(dd));
+}
+
+//------------------------------------------------------------------------------
+
+
 JNIEXPORT jdouble JNICALL Java_jdd_JDD_DD_1FindMax(JNIEnv *env, jclass cls, jlong __jlongpointer dd)
 {
 	return DD_FindMax(ddman, jlong_to_DdNode(dd));
+}
+
+//------------------------------------------------------------------------------
+
+JNIEXPORT jdouble JNICALL Java_jdd_JDD_DD_1FindMaxFinite(JNIEnv *env, jclass cls, jlong __jlongpointer dd)
+{
+	return DD_FindMaxFinite(ddman, jlong_to_DdNode(dd));
 }
 
 //------------------------------------------------------------------------------
@@ -439,6 +453,15 @@ JNIEXPORT jlong __jlongpointer JNICALL Java_jdd_JDD_DD_1RestrictToFirst(JNIEnv *
 {
 	return ptr_to_jlong(DD_RestrictToFirst(ddman, jlong_to_DdNode(dd), jlong_to_DdNode_array(vars), num_vars));
 }
+
+//------------------------------------------------------------------------------
+
+
+JNIEXPORT jboolean JNICALL Java_jdd_JDD_DD_1IsZeroOneMTBDD(JNIEnv *env, jclass cls, jlong __jlongpointer dd)
+{
+	return DD_IsZeroOneMTBDD(ddman, jlong_to_DdNode(dd));
+}
+
 
 //==============================================================================
 //
@@ -781,7 +804,7 @@ JNIEXPORT void JNICALL Java_jdd_JDD_DD_1ExportMatrixToSpyFile(JNIEnv *env, jclas
 //	
 //==============================================================================
 
-JNIEXPORT jboolean JNICALL Java_jdd_JDDNode_DDN_1IsConstant(JNIEnv *env, jobject obj, jlong __jlongpointer dd)
+JNIEXPORT jboolean JNICALL Java_jdd_JDDNode_DDN_1IsConstant(JNIEnv *env, jclass cls, jlong __jlongpointer dd)
 {
 	return Cudd_IsConstant(jlong_to_DdNode(dd));
 }
@@ -789,7 +812,7 @@ JNIEXPORT jboolean JNICALL Java_jdd_JDDNode_DDN_1IsConstant(JNIEnv *env, jobject
 //------------------------------------------------------------------------------
 
 
-JNIEXPORT jint JNICALL Java_jdd_JDDNode_DDN_1GetIndex(JNIEnv *env, jobject obj, jlong __jlongpointer dd)
+JNIEXPORT jint JNICALL Java_jdd_JDDNode_DDN_1GetIndex(JNIEnv *env, jclass cls, jlong __jlongpointer dd)
 {
 	return (jlong_to_DdNode(dd))->index;
 }
@@ -797,7 +820,7 @@ JNIEXPORT jint JNICALL Java_jdd_JDDNode_DDN_1GetIndex(JNIEnv *env, jobject obj, 
 //------------------------------------------------------------------------------
 
 
-JNIEXPORT jdouble JNICALL Java_jdd_JDDNode_DDN_1GetValue(JNIEnv *env, jobject obj, jlong __jlongpointer dd)
+JNIEXPORT jdouble JNICALL Java_jdd_JDDNode_DDN_1GetValue(JNIEnv *env, jclass cls, jlong __jlongpointer dd)
 {
 	return Cudd_V(jlong_to_DdNode(dd));
 }
@@ -805,17 +828,21 @@ JNIEXPORT jdouble JNICALL Java_jdd_JDDNode_DDN_1GetValue(JNIEnv *env, jobject ob
 //------------------------------------------------------------------------------
 
 
-JNIEXPORT jlong __jlongpointer JNICALL Java_jdd_JDDNode_DDN_1GetThen(JNIEnv *env, jobject obj, jlong __jlongpointer dd)
+JNIEXPORT jlong __jlongpointer JNICALL Java_jdd_JDDNode_DDN_1GetThen(JNIEnv *env, jclass cls, jlong __jlongpointer dd)
 {
-	return ptr_to_jlong(Cudd_T(jlong_to_DdNode(dd)));
+	DdNode *node = jlong_to_DdNode(dd);
+	if (Cudd_IsConstant(node)) return ptr_to_jlong(NULL);
+	return ptr_to_jlong(Cudd_T(node));
 }
 
 //------------------------------------------------------------------------------
 
 
-JNIEXPORT jlong __jlongpointer JNICALL Java_jdd_JDDNode_DDN_1GetElse(JNIEnv *env, jobject obj, jlong __jlongpointer dd)
+JNIEXPORT jlong __jlongpointer JNICALL Java_jdd_JDDNode_DDN_1GetElse(JNIEnv *env, jclass cls, jlong __jlongpointer dd)
 {
-	return ptr_to_jlong(Cudd_E(jlong_to_DdNode(dd)));
+	DdNode *node = jlong_to_DdNode(dd);
+	if (Cudd_IsConstant(node)) return ptr_to_jlong(NULL);
+	return ptr_to_jlong(Cudd_E(node));
 }
 
 //==============================================================================
@@ -868,7 +895,43 @@ JNIEXPORT jint JNICALL Java_jdd_JDDVars_DDV_1GetIndex(JNIEnv *env, jobject obj, 
 
 //------------------------------------------------------------------------------
 
-JNIEXPORT jint JNICALL Java_jdd_DebugJDD_DebugJDD_1GetRefCount(JNIEnv *env, jclass cls, jlong __jlongpointer dd)
+JNIEXPORT jint JNICALL Java_jdd_JDD_DebugJDD_1GetRefCount(JNIEnv *env, jclass cls, jlong __jlongpointer dd)
 {
 	return (jlong_to_DdNode(dd))->ref;
+}
+
+//------------------------------------------------------------------------------
+
+JNIEXPORT jlongArray JNICALL Java_jdd_JDD_DebugJDD_1GetExternalRefCounts(JNIEnv *env, jclass cls)
+{
+	// get external reference counts and return as a long[] Java array
+	// the entries of the array will be alternating ptr / count values
+	std::map<DdNode*, int> external_refs;
+	DD_GetExternalRefCounts(ddman, external_refs);
+	std::size_t v_size = 2 * external_refs.size();
+
+	jlong* v = new jlong[v_size];
+	std::size_t i = 0;
+	for (std::map<DdNode*,int>::iterator it = external_refs.begin();
+	     it != external_refs.end();
+	     ++it) {
+		DdNode *node = it->first;
+		int refs = it->second;
+
+		v[i++] = ptr_to_jlong(node);
+		v[i++] = refs;
+	}
+
+	// printf("v_size = %lu\n", v_size);
+	jlongArray result = env->NewLongArray(v_size);
+	env->SetLongArrayRegion(result, 0, v_size, v);
+	delete[] v;
+
+	return result;
+}
+//------------------------------------------------------------------------------
+
+JNIEXPORT jboolean JNICALL Java_jdd_JDD_DD_1GetErrorFlag(JNIEnv *env, jclass cls)
+{
+	return DD_GetErrorFlag(ddman);
 }
