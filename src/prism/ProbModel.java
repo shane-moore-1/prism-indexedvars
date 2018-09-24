@@ -28,11 +28,15 @@ package prism;
 
 import java.io.*;
 import java.util.*;
+import java.util.Map.Entry;
 
 import jdd.*;
 import odd.*;
 import mtbdd.*;
 import parser.*;
+import parser.ast.Declaration;
+import parser.ast.DeclarationInt;
+import parser.ast.Expression;
 import sparse.*;
 
 /*
@@ -82,8 +86,14 @@ public class ProbModel implements Model
 	protected JDDVars[] moduleDDColVars; // dd vars for each module (cols)
 	protected JDDVars allDDRowVars; // all dd vars (rows)
 	protected JDDVars allDDColVars; // all dd vars (cols)
-	// names for all dd vars used
-	protected Vector<String> ddVarNames;
+
+	protected ModelVariablesDD modelVariables;
+
+	/**
+	 * A map from label to state set, optionally storing a state set
+	 * for a given label directly in the model.
+	 */
+	protected Map<String, JDDNode> labelsDD = new TreeMap<String, JDDNode>();
 
 	protected ODDNode odd; // odd
 
@@ -245,6 +255,12 @@ public class ProbModel implements Model
 	}
 
 	@Override
+	public JDDNode getTransReln()
+	{
+		return trans01;
+	}
+
+	@Override
 	public JDDNode getDeadlocks()
 	{
 		return deadlocks;
@@ -347,6 +363,18 @@ public class ProbModel implements Model
 		return allDDColVars;
 	}
 
+	@Override
+	public JDDNode getLabelDD(String label)
+	{
+		return labelsDD.get(label);
+	}
+
+	@Override
+	public Set<String> getLabels()
+	{
+		return Collections.unmodifiableSet(labelsDD.keySet());
+	}
+
 	// additional useful methods to do with dd vars
 	public int getNumDDRowVars()
 	{
@@ -365,7 +393,13 @@ public class ProbModel implements Model
 
 	public Vector<String> getDDVarNames()
 	{
-		return ddVarNames;
+		return modelVariables.getDDVarNames();
+	}
+
+	@Override
+	public ModelVariablesDD getModelVariables()
+	{
+		return modelVariables;
 	}
 
 	public ODDNode getODD()
@@ -385,7 +419,7 @@ public class ProbModel implements Model
 
 	// constructor
 
-	public ProbModel(JDDNode tr, JDDNode s, JDDNode sr[], JDDNode trr[], String rsn[], JDDVars arv, JDDVars acv, Vector<String> ddvn, int nm, String[] mn,
+	public ProbModel(JDDNode tr, JDDNode s, JDDNode sr[], JDDNode trr[], String rsn[], JDDVars arv, JDDVars acv, ModelVariablesDD mvdd, int nm, String[] mn,
 			JDDVars[] mrv, JDDVars[] mcv, int nv, VarList vl, JDDVars[] vrv, JDDVars[] vcv, Values cv)
 	{
 		int i;
@@ -399,7 +433,7 @@ public class ProbModel implements Model
 		rewardStructNames = rsn;
 		allDDRowVars = arv;
 		allDDColVars = acv;
-		ddVarNames = ddvn;
+		modelVariables = mvdd;
 		numModules = nm;
 		moduleNames = mn;
 		moduleDDRowVars = mrv;
@@ -440,10 +474,48 @@ public class ProbModel implements Model
 		this.numSynchs = synchs.size();
 	}
 
-	/**
-	 * Reset transition matrix DD
-	 */
+	@Override
+	public void addLabelDD(String label, JDDNode labelDD)
+	{
+		JDDNode old = labelsDD.put(label, labelDD);
+		if (old != null) JDD.Deref(old);
+	}
 
+	@Override
+	public String addUniqueLabelDD(String prefix, JDDNode labelDD, Set<String> definedLabelNames)
+	{
+		String label;
+		int i = 0;
+		label = prefix;  // first, try without appending _i
+		while (true) {
+			boolean labelOk = !hasLabelDD(label);  // not directly attached to model
+			if (definedLabelNames != null) {
+				labelOk &= !definedLabelNames.contains(label);  // not defined
+			}
+
+			if (labelOk) {
+				break;
+			}
+
+			// prepare next label to try
+			label = prefix+"_"+i;
+			if (i == Integer.MAX_VALUE)
+				throw new UnsupportedOperationException("Integer overflow trying to add unique label");
+
+			i++;
+		}
+
+		addLabelDD(label, labelDD);
+		return label;
+	}
+
+	/**
+	 * Reset transition matrix DD.
+	 * Note: Update reachable states and call {@code filterReachableStates}
+	 * afterwards to update related information (trans01, odd, etc).
+	 *
+	 * <br>[ STORES: trans, DEREFS: <i>old transition matrix DD</i> ]
+	 */
 	public void resetTrans(JDDNode trans)
 	{
 		if (this.trans != null)
@@ -452,9 +524,10 @@ public class ProbModel implements Model
 	}
 
 	/**
-	 * Reset transition rewards DDs
+	 * Reset transition rewards DD for reward with index i.
+	 *
+	 * <br>[ STORES: transRewards, DEREFS: <i>old trans reward DD</i> ]
 	 */
-
 	public void resetTransRewards(int i, JDDNode transRewards)
 	{
 		if (this.transRewards[i] != null) {
@@ -463,18 +536,52 @@ public class ProbModel implements Model
 		this.transRewards[i] = transRewards;
 	}
 
+	/**
+	 * Reset state rewards DD for reward with index i.
+	 *
+	 * <br>[ STORES: stateRewards, DEREFS: <i>old state reward DD</i> ]
+	 */
+	public void resetStateRewards(int i, JDDNode stateRewards)
+	{
+		if (this.stateRewards[i] != null) {
+			JDD.Deref(this.stateRewards[i]);
+		}
+		this.stateRewards[i] = stateRewards;
+	}
+
 	// do reachability
 
-	public void doReachability()
+	public void doReachability() throws PrismException
 	{
 		// compute reachable states
 		setReach(PrismMTBDD.Reachability(trans01, allDDRowVars, allDDColVars, start));
 	}
 
+	/**
+	 * Compute and store the set of reachable states, where the parameter {@seed}
+	 * provides an initial set of states known to be reachable.
+	 * <br/>
+	 * Starts reachability computation from the union of {@code seed} and {@start}.
+	 * <br/>[ REFS: <i>result</i>, DEREFS: seed ]
+	 * @param seed set of states (over ddRowVars) that is known to be reachable
+	 */
+	public void doReachability(JDDNode seed) throws PrismException
+	{
+		// do sanity check on seed if checking is enabled
+		if (SanityJDD.enabled)
+			SanityJDD.checkIsStateSet(seed, getAllDDRowVars());
+
+		// S = union of initial states and seed. seed is dereferenced here.
+		JDDNode S = JDD.Or(start.copy(), seed);
+		// compute and store reachable states
+		setReach(PrismMTBDD.Reachability(trans01, allDDRowVars, allDDColVars, S));
+		JDD.Deref(S);
+	}
+
 	// this method allows you to skip the reachability phase
 	// it is only here for experimental purposes - not general use.
 
-	public void skipReachability()
+	public void skipReachability() throws PrismException
 	{
 		// don't compute reachable states - assume all reachable
 		reach = JDD.Constant(1);
@@ -482,7 +589,11 @@ public class ProbModel implements Model
 		// work out number of reachable states
 		numStates = Math.pow(2, allDDRowVars.n());
 
-		// build odd
+		// build odd, clear old one
+		if (odd != null) {
+			ODDUtils.ClearODD(odd);
+			odd = null;
+		}
 		odd = ODDUtils.BuildODD(reach, allDDRowVars);
 	}
 
@@ -490,7 +601,7 @@ public class ProbModel implements Model
 	 * Set reachable states BDD (and compute number of states and ODD)
 	 */
 
-	public void setReach(JDDNode reach)
+	public void setReach(JDDNode reach) throws PrismException
 	{
 		if (this.reach != null)
 			JDD.Deref(this.reach);
@@ -499,7 +610,11 @@ public class ProbModel implements Model
 		// work out number of reachable states
 		numStates = JDD.GetNumMinterms(reach, allDDRowVars.n());
 
-		// build odd
+		// build odd, clear old one
+		if (odd != null) {
+			ODDUtils.ClearODD(odd);
+			odd = null;
+		}
 		odd = ODDUtils.BuildODD(reach, allDDRowVars);
 	}
 
@@ -654,9 +769,9 @@ public class ProbModel implements Model
 			n = allDDRowVars.getNumVars();
 			for (i = 0; i < n; i++) {
 				j = allDDRowVars.getVarIndex(i);
-				log.print(" " + j + ":" + ddVarNames.get(j));
+				log.print(" " + j + ":" + getDDVarNames().get(j));
 				j = allDDColVars.getVarIndex(i);
-				log.print(" " + j + ":" + ddVarNames.get(j));
+				log.print(" " + j + ":" + getDDVarNames().get(j));
 			}
 			log.println();
 			log.print(getTransName() + " terminals: " + JDD.GetTerminalsAndNumbersString(trans, getNumDDVarsInTrans()) + "\n");
@@ -708,12 +823,18 @@ public class ProbModel implements Model
 		}
 	}
 
-	// export state rewards vector to a file
+	@Override
+	public void exportStateRewardsToFile(int r, int exportType, File file) throws FileNotFoundException, PrismException
+	{
+		PrismMTBDD.ExportVector(stateRewards[r], "c" + (r + 1), allDDRowVars, odd, exportType, (file == null) ? null : file.getPath());
+	}
 
-	// returns string containing files used if there were more than 1, null otherwise
-
+	@Deprecated
 	public String exportStateRewardsToFile(int exportType, File file) throws FileNotFoundException, PrismException
 	{
+		// export state rewards vector to a file
+		// returns string containing files used if there were more than 1, null otherwise
+
 		if (numRewardStructs == 0)
 			throw new PrismException("There are no state rewards to export");
 		int i;
@@ -729,12 +850,22 @@ public class ProbModel implements Model
 		return (allFilenames.length() > 0) ? allFilenames : null;
 	}
 
-	// export transition rewards matrix to a file
+	@Override
+	public void exportTransRewardsToFile(int r, int exportType, boolean ordered, File file) throws FileNotFoundException, PrismException
+	{
+		if (!ordered) {
+			PrismMTBDD.ExportMatrix(transRewards[r], "C" + (r + 1), allDDRowVars, allDDColVars, odd, exportType, (file == null) ? null : file.getPath());
+		} else {
+			PrismSparse.ExportMatrix(transRewards[r], "C" + (r + 1), allDDRowVars, allDDColVars, odd, exportType, (file == null) ? null : file.getPath());
+		}
+	}
 
-	// returns string containing files used if there were more than 1, null otherwise
-
+	@Deprecated
 	public String exportTransRewardsToFile(int exportType, boolean explicit, File file) throws FileNotFoundException, PrismException
 	{
+		// export transition rewards matrix to a file
+		// returns string containing files used if there were more than 1, null otherwise
+
 		if (numRewardStructs == 0)
 			throw new PrismException("There are no transition rewards to export");
 		int i;
@@ -817,6 +948,180 @@ public class ProbModel implements Model
 	}
 
 	/**
+	 * Apply the given model transformation operator to this model
+	 * and return the resulting, transformed model.
+	 * @param transformation the transformation operator
+	 * @return the transformed model (needs to be cleared after use)
+	 */
+	public ProbModel getTransformed(ProbModelTransformationOperator transformation) throws PrismException
+	{
+		// New (transformed) model - dds, vars, etc.
+		JDDNode newTrans, newStart;
+		JDDVars newVarDDRowVars[], newVarDDColVars[];
+		JDDVars newAllDDRowVars, newAllDDColVars;
+		JDDNode newStateRewards[], newTransRewards[];
+		ModelVariablesDD newModelVariables;
+		VarList newVarList;
+		String extraVar;
+		// DRA stuff
+		JDDVars extraDDRowVars, extraDDColVars;
+		// Misc
+		int i, n;
+		boolean before;
+
+		// Create a (new, unique) name for the variable that will represent the extra states
+		extraVar = transformation.getExtraStateVariableName();
+		while (varList.getIndex(extraVar) != -1) {
+			extraVar = "_" + extraVar;
+		}
+
+		newModelVariables = this.getModelVariables().copy();
+
+		// See how many new dd vars will be needed for the extra variables
+		// and whether there is room to put them before rather than after the existing vars
+		n = transformation.getExtraStateVariableCount();
+		before = newModelVariables.canPrependExtraStateVariable(n);
+
+		extraDDRowVars = new JDDVars();
+		extraDDColVars = new JDDVars();
+		// Create the new dd state variables
+		JDDVars draVars = newModelVariables.allocateExtraStateVariable(n, extraVar, before);
+
+		for (i = 0; i < n; i++) {
+			extraDDRowVars.addVar(draVars.getVar(2*i));
+			extraDDColVars.addVar(draVars.getVar(2*i+1));
+		}
+
+		// notify the transformation operator about the allocated state variables
+		transformation.hookExtraStateVariableAllocation(extraDDRowVars.copy(), extraDDColVars.copy());
+
+		// Create/populate new state variable lists
+		if (n==0) {
+			// no additional state vars, we can just copy everything
+			newVarDDRowVars = JDDVars.copyArray(varDDRowVars);
+			newVarDDColVars = JDDVars.copyArray(varDDColVars);
+			newAllDDRowVars = allDDRowVars.copy();
+			newAllDDColVars = allDDColVars.copy();
+			newVarList = (VarList) varList.clone();
+		} else {
+			// insert new variable either before or after the other variables
+			newVarDDRowVars = new JDDVars[varDDRowVars.length + 1];
+			newVarDDColVars = new JDDVars[varDDRowVars.length + 1];
+			newVarDDRowVars[before ? 0 : varDDRowVars.length] = extraDDRowVars.copy();
+			newVarDDColVars[before ? 0 : varDDColVars.length] = extraDDColVars.copy();
+			for (i = 0; i < varDDRowVars.length; i++) {
+				newVarDDRowVars[before ? i + 1 : i] = varDDRowVars[i].copy();
+				newVarDDColVars[before ? i + 1 : i] = varDDColVars[i].copy();
+			}
+			if (before) {
+				newAllDDRowVars = extraDDRowVars.copy();
+				newAllDDColVars = extraDDColVars.copy();
+				newAllDDRowVars.copyVarsFrom(allDDRowVars);
+				newAllDDColVars.copyVarsFrom(allDDColVars);
+			} else {
+				newAllDDRowVars = allDDRowVars.copy();
+				newAllDDColVars = allDDColVars.copy();
+				newAllDDRowVars.copyVarsFrom(extraDDRowVars);
+				newAllDDColVars.copyVarsFrom(extraDDColVars);
+			}
+			newVarList = (VarList) varList.clone();
+			Declaration decl = new Declaration(extraVar, new DeclarationInt(Expression.Int(0), Expression.Int((1 << n) - 1)));
+			newVarList.addVar(before ? 0 : varList.getNumVars(), decl, 1, this.getConstantValues());
+		}
+
+		// Build transition matrix for transformed model
+		newTrans = transformation.getTransformedTrans();
+
+		if (SanityJDD.enabled) {
+			SanityJDD.checkIsDDOverVars(newTrans, newAllDDRowVars, newAllDDColVars);
+		}
+
+		// Build set of initial states for transformed model
+		newStart = transformation.getTransformedStart();
+
+		if (SanityJDD.enabled) {
+			SanityJDD.checkIsStateSet(newStart, newAllDDRowVars);
+		}
+
+
+		// Build transformed reward information
+		newStateRewards = new JDDNode[stateRewards.length];
+		for (i=0; i < stateRewards.length; i++) {
+			newStateRewards[i] = transformation.getTransformedStateReward(stateRewards[i]);
+
+			if (SanityJDD.enabled) {
+				SanityJDD.checkIsDDOverVars(newStateRewards[i], newAllDDRowVars);
+			}
+		}
+
+		newTransRewards = new JDDNode[transRewards.length];
+		for (i=0; i < transRewards.length; i++) {
+			newTransRewards[i] = transformation.getTransformedTransReward(transRewards[i]);
+
+			if (SanityJDD.enabled) {
+				SanityJDD.checkIsDDOverVars(newTransRewards[i], newAllDDRowVars, newAllDDColVars);
+			}
+		}
+
+
+		// Create a new model model object to store the transformed model
+		ProbModel result = new ProbModel(
+				// New transition matrix/start state
+				newTrans, newStart,
+				// New reward information
+				newStateRewards,
+				newTransRewards,
+				this.rewardStructNames.clone(),
+				// New list of all row/col vars
+				newAllDDRowVars, newAllDDColVars,
+				// New model variables
+				newModelVariables,
+				// Module info (unchanged)
+				this.getNumModules(),
+				this.getModuleNames(),
+				JDDVars.copyArray(this.getModuleDDRowVars()),
+				JDDVars.copyArray(this.getModuleDDColVars()),
+				// New var info
+				newVarList.getNumVars(), newVarList, newVarDDRowVars, newVarDDColVars,
+				// Constants (no change)
+				this.getConstantValues());
+
+		// Do reachability/etc. for the new model
+		JDDNode S;
+		if ( (S = transformation.getReachableStates()) != null) {
+			// the transformation operator knows the reachable state set
+			result.setReach(S);
+		} else if ( (S = transformation.getReachableStateSeed()) != null ) {
+			// the transformation operator knows a seed for the reachability computation
+			result.doReachability(S);
+		} else {
+			// otherwise: do standard reachability
+			result.doReachability();
+		}
+		result.filterReachableStates();
+
+		if (!transformation.deadlocksAreFine()) {
+			result.findDeadlocks(false);
+			if (result.getDeadlockStates().size() > 0) {
+				// Assuming original model has no deadlocks, neither should the transformed model
+				throw new PrismException("Transformed model has deadlock states");
+			}
+		}
+
+		// lift labels attached to the model
+		for (Entry<String, JDDNode> entry : labelsDD.entrySet()) {
+			JDDNode labelStates = entry.getValue();
+			JDDNode transformedLabelStates = transformation.getTransformedLabelStates(labelStates, result.getReach());
+			result.labelsDD.put(entry.getKey(), transformedLabelStates);
+		}
+
+		extraDDRowVars.derefAll();
+		extraDDColVars.derefAll();
+
+		return result;
+	}
+
+	/**
 	 * Convert a BDD (over model row variables) representing a single state to a State object. 
 	 */
 	public State convertBddToState(JDDNode dd)
@@ -870,18 +1175,26 @@ public class ProbModel implements Model
 		return index;
 	}
 
-	// clear up (deref all dds, dd vars)
-
+	/**
+	 * Clear the model (deref all DDs and DD variables)
+	 */
 	public void clear()
 	{
-		for (int i = 0; i < numVars; i++) {
-			varDDRowVars[i].derefAll();
-			varDDColVars[i].derefAll();
+		for (Entry<String, JDDNode> labelDD : labelsDD.entrySet()) {
+			JDD.Deref(labelDD.getValue());
 		}
-		for (int i = 0; i < numModules; i++) {
-			moduleDDRowVars[i].derefAll();
-			moduleDDColVars[i].derefAll();
-		}
+		labelsDD.clear();
+
+		if (varDDRowVars != null)
+			JDDVars.derefAllArray(varDDRowVars);
+		if (varDDColVars != null)
+			JDDVars.derefAllArray(varDDColVars);
+
+		if (moduleDDRowVars != null)
+			JDDVars.derefAllArray(moduleDDRowVars);
+		if (moduleDDColVars != null)
+			JDDVars.derefAllArray(moduleDDColVars);
+
 		allDDRowVars.derefAll();
 		allDDColVars.derefAll();
 		JDD.Deref(trans);
@@ -902,5 +1215,15 @@ public class ProbModel implements Model
 				JDD.Deref(transPerAction[i]);
 			}
 		}
+
+		if (odd != null) {
+			// clear ODD
+			ODDUtils.ClearODD(odd);
+			odd = null;
+		}
+
+		if (modelVariables != null)
+			modelVariables.clear();
 	}
+
 }

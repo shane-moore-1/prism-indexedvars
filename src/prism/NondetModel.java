@@ -27,12 +27,16 @@
 package prism;
 
 import java.io.*;
-import java.util.Vector;
+import java.util.ArrayList;
+import java.util.Map.Entry;
 
 import jdd.*;
 import odd.*;
 import mtbdd.*;
 import parser.*;
+import parser.ast.Declaration;
+import parser.ast.DeclarationInt;
+import parser.ast.Expression;
 import sparse.*;
 
 /*
@@ -51,8 +55,20 @@ public class NondetModel extends ProbModel
 	protected JDDVars allDDNondetVars; // all nondet dd vars (union of two above)
 	protected JDDNode transInd; // BDD for independent part of trans
 	protected JDDNode transSynch[]; // BDD for parts of trans from each action
+	protected JDDNode transReln; // BDD for the transition relation (no action encoding)
 
 	// accessor methods
+
+	@Override
+	public JDDNode getTransReln()
+	{
+		// First, compute the transition relation if it is not there
+		if (transReln == null) {
+			JDD.Ref(trans01);
+			transReln = JDD.ThereExists(trans01, allDDNondetVars);
+		}
+		return transReln;
+	}
 
 	// type
 	public ModelType getModelType()
@@ -170,9 +186,9 @@ public class NondetModel extends ProbModel
 	// constructor
 
 	public NondetModel(JDDNode tr, JDDNode s, JDDNode sr[], JDDNode trr[], String rsn[], JDDVars arv, JDDVars acv, JDDVars asyv, JDDVars asv, JDDVars achv,
-			JDDVars andv, Vector<String> ddvn, int nm, String[] mn, JDDVars[] mrv, JDDVars[] mcv, int nv, VarList vl, JDDVars[] vrv, JDDVars[] vcv, Values cv)
+			JDDVars andv, ModelVariablesDD mvdd, int nm, String[] mn, JDDVars[] mrv, JDDVars[] mcv, int nv, VarList vl, JDDVars[] vrv, JDDVars[] vcv, Values cv)
 	{
-		super(tr, s, sr, trr, rsn, arv, acv, ddvn, nm, mn, mrv, mcv, nv, vl, vrv, vcv, cv);
+		super(tr, s, sr, trr, rsn, arv, acv, mvdd, nm, mn, mrv, mcv, nv, vl, vrv, vcv, cv);
 
 		allDDSynchVars = asyv;
 		allDDSchedVars = asv;
@@ -181,27 +197,61 @@ public class NondetModel extends ProbModel
 
 		transInd = null;
 		transSynch = null;
+		transReln = null;
 	}
 
 	// do reachability
 
-	public void doReachability()
+	public void doReachability() throws PrismException
 	{
 		JDDNode tmp;
+if (DEBUG) System.out.println("--------------------\nStart of Nondet.doReachability(). About to call JDD.MaxAbstract()");
 
 		// remove any nondeterminism
 		JDD.Ref(trans01);
 		tmp = JDD.MaxAbstract(trans01, allDDNondetVars);
 
+if (DEBUG) System.out.println("in NondetModel.doReachability(): About to call PrismMTBDD.Reachability()");
 		// compute reachable states
-		reach = PrismMTBDD.Reachability(tmp, allDDRowVars, allDDColVars, start);
+		JDDNode reachable = PrismMTBDD.Reachability(tmp, allDDRowVars, allDDColVars, start);
 		JDD.Deref(tmp);
 
-		// work out number of reachable states
-		numStates = JDD.GetNumMinterms(reach, allDDRowVars.n());
+if (DEBUG) System.out.println("in NondetModel.doReachability(): About to call PrismMTBDD.setReach()");
+		// set the reachable states, compute numStates, create the ODD, etc
+		setReach(reachable);
+	}
 
-		// build odd
-		odd = ODDUtils.BuildODD(reach, allDDRowVars);
+	/**
+	 * Compute and store the set of reachable states,
+	 * where the parameter {@seed} provides an initial set of states
+	 * known to be reachable.
+	 * <br/>
+	 * Starts reachability computation from the union of {@code seed} and {@start}.
+	 * <br/>[ REFS: <i>result</i>, DEREFS: seed ]
+	 * @param seed set of states (over ddRowVars) that is known to be reachable
+	 */
+	public void doReachability(JDDNode seed) throws PrismException
+	{
+		JDDNode tmp;
+
+		// do sanity check on seed if checking is enabled
+		if (SanityJDD.enabled)
+			SanityJDD.checkIsStateSet(seed, getAllDDRowVars());
+
+		// remove any nondeterminism from the 0/1-transition function
+		JDD.Ref(trans01);
+		tmp = JDD.MaxAbstract(trans01, allDDNondetVars);
+
+		// S = union of initial states and seed. seed is dereferenced here.
+		JDDNode S = JDD.Or(start.copy(), seed);
+
+		// compute reachable states
+		JDDNode reachable = PrismMTBDD.Reachability(tmp, allDDRowVars, allDDColVars, S);
+		JDD.Deref(tmp);
+		JDD.Deref(S);
+
+		// set the reachable states, compute numStates, create the ODD, etc
+		setReach(reachable);
 	}
 
 	// remove non-reachable states from various dds
@@ -221,7 +271,12 @@ public class NondetModel extends ProbModel
 				transSynch[i] = JDD.Apply(JDD.TIMES, reach, transSynch[i]);
 			}
 		}
-
+		// also filter transReln DD (if necessary)
+		if (transReln != null) {
+			JDD.Ref(reach);
+			transReln = JDD.Apply(JDD.TIMES, reach, transReln);
+		}
+		
 		// build mask for nondeterminstic choices
 		// (and work out number of choices)
 		JDD.Ref(trans01);
@@ -268,6 +323,12 @@ public class NondetModel extends ProbModel
 				transInd = JDD.Or(transInd, JDD.ThereExists(tmp, allDDColVars));
 			}
 			JDD.Deref(tmp);
+			// recompute transReln (if needed)
+			if (transReln != null) {
+				JDD.Deref(transReln);
+				JDD.Ref(trans01);
+				transReln = JDD.ThereExists(trans01, allDDNondetVars);
+			}
 			// update transition count
 			numTransitions = JDD.GetNumMinterms(trans01, getNumDDVarsInTrans());
 			// re-build mask for nondeterminstic choices
@@ -300,16 +361,16 @@ public class NondetModel extends ProbModel
 			n = allDDNondetVars.getNumVars();
 			for (i = 0; i < n; i++) {
 				j = allDDNondetVars.getVarIndex(i);
-				log.print(" " + j + ":" + ddVarNames.get(j));
+				log.print(" " + j + ":" + getDDVarNames().get(j));
 			}
 			log.println();
 			log.print("DD vars (r/c):");
 			n = allDDRowVars.getNumVars();
 			for (i = 0; i < n; i++) {
 				j = allDDRowVars.getVarIndex(i);
-				log.print(" " + j + ":" + ddVarNames.get(j));
+				log.print(" " + j + ":" + getDDVarNames().get(j));
 				j = allDDColVars.getVarIndex(i);
-				log.print(" " + j + ":" + ddVarNames.get(j));
+				log.print(" " + j + ":" + getDDVarNames().get(j));
 			}
 			log.println();
 			log.print(getTransName() + " terminals: " + JDD.GetTerminalsAndNumbersString(trans, getNumDDVarsInTrans()) + "\n");
@@ -363,33 +424,22 @@ public class NondetModel extends ProbModel
 		}
 	}
 
-	// export state rewards vector to a file
-
-	// returns string containing files used if there were more than 1, null otherwise
-
-	public String exportStateRewardsToFile(int exportType, File file) throws FileNotFoundException, PrismException
+	@Override
+	public void exportTransRewardsToFile(int r, int exportType, boolean ordered, File file) throws FileNotFoundException, PrismException
 	{
-		if (numRewardStructs == 0)
-			throw new PrismException("There are no state rewards to export");
-		int i;
-		String filename, allFilenames = "";
-		for (i = 0; i < numRewardStructs; i++) {
-			filename = (file != null) ? file.getPath() : null;
-			if (filename != null && numRewardStructs > 1) {
-				filename = PrismUtils.addCounterSuffixToFilename(filename, i + 1);
-				allFilenames += ((i > 0) ? ", " : "") + filename;
-			}
-			PrismMTBDD.ExportVector(stateRewards[i], "c" + (i + 1), allDDRowVars, odd, exportType, filename);
+		if (!ordered) {
+			// can only do explicit (sparse matrix based) export for mdps
+		} else {
+			PrismSparse.ExportSubMDP(trans, transRewards[r], "C" + (r + 1), allDDRowVars, allDDColVars, allDDNondetVars, odd, exportType, (file == null) ? null : file.getPath());
 		}
-		return (allFilenames.length() > 0) ? allFilenames : null;
 	}
 
-	// export transition rewards matrix to a file
-
-	// returns string containing files used if there were more than 1, null otherwise
-
+	@Deprecated
 	public String exportTransRewardsToFile(int exportType, boolean explicit, File file) throws FileNotFoundException, PrismException
 	{
+		// export transition rewards matrix to a file
+		// returns string containing files used if there were more than 1, null otherwise
+
 		if (numRewardStructs == 0)
 			throw new PrismException("There are no transition rewards to export");
 		int i;
@@ -425,7 +475,309 @@ public class NondetModel extends ProbModel
 			for (int i = 0; i < numSynchs; i++) {
 				JDD.Deref(transSynch[i]);
 			}
+		if (transReln != null)
+			JDD.Deref(transReln);
 	}
+
+	/**
+	 * Apply the given model transformation operator to this model
+	 * and return the resulting, transformed model.
+	 * @param transformation the information about the transformation
+	 * @return the transformed model (needs to be cleared after use)
+	 */
+	public NondetModel getTransformed(NondetModelTransformationOperator transformation) throws PrismException
+	{
+		// New (transformed) model - dds, vars, etc.
+		JDDNode newTrans, newStart;
+		JDDVars newVarDDRowVars[], newVarDDColVars[];
+		JDDVars newAllDDRowVars, newAllDDColVars;
+		JDDVars newAllDDChoiceVars, newAllDDNondetVars;
+		JDDNode newStateRewards[], newTransRewards[];
+		ModelVariablesDD newModelVariables;
+		VarList newVarList;
+		String extraStateVar, extraActionVar;
+		// extra variable stuff
+		JDDVars extraDDRowVars, extraDDColVars, extraActionVars;
+		// Misc
+		int i, nStateVars, nActionVars;
+		boolean before;
+
+		// Create a (new, unique) name for the variable that will represent extra states
+		extraStateVar = transformation.getExtraStateVariableName();
+		while (varList.getIndex(extraStateVar) != -1) {
+			extraStateVar = "_" + extraStateVar;
+		}
+
+		// Create a (new, unique) name for the variable that will represent extra actions
+		extraActionVar = transformation.getExtraActionVariableName();
+		while (varList.getIndex(extraActionVar) != -1) {
+			extraActionVar = "_" + extraActionVar;
+		}
+
+		newModelVariables = this.getModelVariables().copy();
+
+		// See how many new dd vars will be needed for extra state variables
+		// and whether there is room to put them before rather than after the existing vars
+		nStateVars = transformation.getExtraStateVariableCount();
+		before = newModelVariables.canPrependExtraStateVariable(nStateVars);
+
+		extraDDRowVars = new JDDVars();
+		extraDDColVars = new JDDVars();
+		// Create the new dd state variables
+		JDDVars extraStateVars = newModelVariables.allocateExtraStateVariable(nStateVars, extraStateVar, before);
+
+		for (i = 0; i < nStateVars; i++) {
+			extraDDRowVars.addVar(extraStateVars.getVar(2*i));
+			extraDDColVars.addVar(extraStateVars.getVar(2*i+1));
+		}
+
+		// notify the transformation about the allocated state variables
+		transformation.hookExtraStateVariableAllocation(extraDDRowVars.copy(), extraDDColVars.copy());
+
+		// allocate action vars
+		nActionVars = transformation.getExtraActionVariableCount();
+		extraActionVars = newModelVariables.allocateExtraActionVariable(nActionVars, extraActionVar);
+
+		// notify the transformation about the allocated action variables
+		transformation.hookExtraActionVariableAllocation(extraActionVars.copy());
+
+		// Generate new allDDChoiceVars and newAllDDNondetVars
+		newAllDDChoiceVars = new JDDVars();
+		newAllDDChoiceVars.copyVarsFrom(extraActionVars);
+		newAllDDChoiceVars.copyVarsFrom(this.allDDChoiceVars);
+
+		newAllDDNondetVars = new JDDVars();
+		newAllDDNondetVars.copyVarsFrom(extraActionVars);
+		newAllDDNondetVars.copyVarsFrom(this.allDDNondetVars);
+
+
+		// Create/populate new state variable lists
+		if (nStateVars == 0) {
+			// no additional state vars, we can just copy everything
+			newVarDDRowVars = JDDVars.copyArray(varDDRowVars);
+			newVarDDColVars = JDDVars.copyArray(varDDColVars);
+			newAllDDRowVars = allDDRowVars.copy();
+			newAllDDColVars = allDDColVars.copy();
+			newVarList = (VarList) varList.clone();
+		} else {
+			// insert new variable either before or after the other variables
+			newVarDDRowVars = new JDDVars[varDDRowVars.length + 1];
+			newVarDDColVars = new JDDVars[varDDRowVars.length + 1];
+			newVarDDRowVars[before ? 0 : varDDRowVars.length] = extraDDRowVars.copy();
+			newVarDDColVars[before ? 0 : varDDColVars.length] = extraDDColVars.copy();
+			for (i = 0; i < varDDRowVars.length; i++) {
+				newVarDDRowVars[before ? i + 1 : i] = varDDRowVars[i].copy();
+				newVarDDColVars[before ? i + 1 : i] = varDDColVars[i].copy();
+			}
+			if (before) {
+				newAllDDRowVars = extraDDRowVars.copy();
+				newAllDDColVars = extraDDColVars.copy();
+				newAllDDRowVars.copyVarsFrom(allDDRowVars);
+				newAllDDColVars.copyVarsFrom(allDDColVars);
+			} else {
+				newAllDDRowVars = allDDRowVars.copy();
+				newAllDDColVars = allDDColVars.copy();
+				newAllDDRowVars.copyVarsFrom(extraDDRowVars);
+				newAllDDColVars.copyVarsFrom(extraDDColVars);
+			}
+			newVarList = (VarList) varList.clone();
+			Declaration decl = new Declaration(extraStateVar, new DeclarationInt(Expression.Int(0), Expression.Int((1 << nStateVars) - 1)));
+			newVarList.addVar(before ? 0 : varList.getNumVars(), decl, 1, this.getConstantValues());
+		}
+
+		// Build transition matrix for transformed model
+		newTrans = transformation.getTransformedTrans();
+
+		if (SanityJDD.enabled) {
+			SanityJDD.checkIsDDOverVars(newTrans, newAllDDRowVars, newAllDDColVars, newAllDDNondetVars);
+		}
+
+		// Build set of initial states for transformed model
+		newStart = transformation.getTransformedStart();
+
+		if (SanityJDD.enabled) {
+			SanityJDD.checkIsStateSet(newStart, newAllDDRowVars);
+		}
+
+
+		// Build transformed reward information
+		newStateRewards = new JDDNode[stateRewards.length];
+		for (i=0; i < stateRewards.length; i++) {
+			newStateRewards[i] = transformation.getTransformedStateReward(stateRewards[i]);
+
+			if (SanityJDD.enabled) {
+				SanityJDD.checkIsDDOverVars(newStateRewards[i], newAllDDRowVars);
+			}
+		}
+		newTransRewards = new JDDNode[transRewards.length];
+		for (i=0; i < transRewards.length; i++) {
+			newTransRewards[i] = transformation.getTransformedTransReward(transRewards[i]);
+
+			if (SanityJDD.enabled) {
+				SanityJDD.checkIsDDOverVars(newTransRewards[i], newAllDDRowVars, newAllDDColVars, newAllDDNondetVars);
+			}
+		}
+
+		// Create a new model model object to store the product model
+		NondetModel result = new NondetModel(
+		// New transition matrix/start state
+				newTrans, newStart,
+				// New reward information
+				newStateRewards,
+				newTransRewards,
+				this.rewardStructNames.clone(),
+				// New list of all row/col vars
+				newAllDDRowVars, newAllDDColVars,
+				// Nondet variables (unchanged)
+				this.getAllDDSchedVars().copy(),
+				this.getAllDDSynchVars().copy(),
+				newAllDDChoiceVars,
+				newAllDDNondetVars,
+				// New model variables
+				newModelVariables,
+				// Module info (unchanged)
+				this.getNumModules(),
+				this.getModuleNames(),
+				JDDVars.copyArray(this.getModuleDDRowVars()),
+				JDDVars.copyArray(this.getModuleDDColVars()),
+				// New var info
+				newVarList.getNumVars(), newVarList, newVarDDRowVars, newVarDDColVars,
+				// Constants (no change)
+				this.getConstantValues());
+
+		// Set new transActions
+		result.setTransActions(transformation.getTransformedTransActions());
+
+		// Also need to copy set of action label strings
+		result.setSynchs(new ArrayList<String>(this.getSynchs()));
+
+
+		// Do reachability/etc. for the new model
+		JDDNode S;
+		if ( (S = transformation.getReachableStates()) != null) {
+			// the transformation operator knows the reachable state set
+			result.setReach(S);
+		} else if ( (S = transformation.getReachableStateSeed()) != null ) {
+			// the transformation operator knows a seed for the reachability computation
+			result.doReachability(S);
+		} else {
+			// otherwise: do standard reachability
+			result.doReachability();
+		}
+		result.filterReachableStates();
+
+		if (!transformation.deadlocksAreFine()) {
+			result.findDeadlocks(false);
+			if (result.getDeadlockStates().size() > 0) {
+				// Assuming original model has no deadlocks, neither should the transformed model
+				throw new PrismException("Transformed model has deadlock states");
+			}
+		}
+
+		// lift labels attached to the model
+		for (Entry<String, JDDNode> entry : labelsDD.entrySet()) {
+			JDDNode labelStates = entry.getValue();
+			JDDNode transformedLabelStates = transformation.getTransformedLabelStates(labelStates, result.getReach());
+			result.labelsDD.put(entry.getKey(), transformedLabelStates);
+		}
+
+
+		extraDDRowVars.derefAll();
+		extraDDColVars.derefAll();
+		extraActionVars.derefAll();
+
+		return result;
+	}
+
+	/**
+	 * Apply the given model transformation, specified as a
+	 * ProbModelTransformationOperator, on this model
+	 * and return the resulting, transformed model.
+	 * <br>
+	 * This convenience method does the transformation via a
+	 * NondetModelTransformationOperation that is constructed on-the-fly
+	 * from the given transformation. For this to work properly,
+	 * the getTrans method has to preserve the action information,
+	 * i.e., simply augment the state space in some way.
+	 * <br>
+	 * As an example, a simple product construction with a deterministic
+	 * automaton would work fine, as that does not change the structure
+	 * of the transitions.
+	 *
+	 * @param transformation the transformation operator
+	 * @return the transformed model (needs to be cleared after use)
+	 */
+	public NondetModel getTransformed(final ProbModelTransformationOperator transformation) throws PrismException
+	{
+		NondetModelTransformationOperator ndTransformation = new NondetModelTransformationOperator(this) {
+			@Override
+			public int getExtraStateVariableCount()
+			{
+				return transformation.getExtraStateVariableCount();
+			}
+
+			@Override
+			public int getExtraActionVariableCount()
+			{
+				// we don't change the nondeterministic choices
+				return 0;
+			}
+
+			@Override
+			public JDDNode getTransformedTrans() throws PrismException
+			{
+				// pass through
+				return transformation.getTransformedTrans();
+			}
+
+			@Override
+			public JDDNode getTransformedStart() throws PrismException
+			{
+				// pass through
+				return transformation.getTransformedStart();
+			}
+
+			@Override
+			public String getExtraStateVariableName()
+			{
+				// pass through
+				return transformation.getExtraStateVariableName();
+			}
+
+			@Override
+			public void hookExtraStateVariableAllocation(JDDVars extraRowVars, JDDVars extraColVars)
+			{
+				// pass through
+				transformation.hookExtraStateVariableAllocation(extraRowVars, extraColVars);
+			}
+
+			@Override
+			public void hookExtraActionVariableAllocation(JDDVars extraActionVars)
+			{
+				if (extraActionVars.n() != 0) {
+					throw new RuntimeException("NondetModel.getTransformed(ProbModelTransformation) has not requested action variables");
+				}
+			}
+
+			@Override
+			public JDDNode getTransformedStateReward(JDDNode oldReward) throws PrismException
+			{
+				// pass through
+				return transformation.getTransformedStateReward(oldReward);
+			}
+
+			@Override
+			public JDDNode getTransformedTransReward(JDDNode oldReward) throws PrismException
+			{
+				// pass through
+				return transformation.getTransformedTransReward(oldReward);
+			}
+		};
+
+		// do transformation with the NondetModelTransformationOperator
+		return getTransformed(ndTransformation);
+	}
+
 }
 
 //------------------------------------------------------------------------------
