@@ -139,7 +139,7 @@ public class StateValues implements StateVector
 				valuesI[i] = initI;
 		} else if (type instanceof TypeDouble) {
 			valuesD = new double[size];
-			Double objD = ((TypeDouble) type).castValueTo(init);
+			Double objD = ((TypeDouble) type).castValueTo(init).doubleValue();
 			double initD = objD.doubleValue();
 			for (i = 0; i < size; i++)
 				valuesD[i] = initD;
@@ -155,6 +155,21 @@ public class StateValues implements StateVector
 		} else {
 			throw new PrismLangException("Cannot create a vector of type " + type);
 		}
+	}
+
+	/**
+	 * Create a new (int-valued) state values vector from an existing array of ints.
+	 * The array is stored directly, not copied.
+	 * Also set associated model (whose state space size should match vector size).
+	 */
+	public static StateValues createFromIntegerArray(int[] array, Model model)
+	{
+		StateValues sv = new StateValues();
+		sv.type = TypeInt.getInstance();
+		sv.size = array.length;
+		sv.valuesI = array;
+		sv.statesList = model.getStatesList();
+		return sv;
 	}
 
 	/**
@@ -468,6 +483,18 @@ public class StateValues implements StateVector
 		valuesB.and(sv.valuesB);
 	}
 
+	/**
+	 * Complement the (boolean) vector.
+	 */
+	public void complement() throws PrismException
+	{
+		if (!(type instanceof TypeBool)) {
+			throw new PrismException("Can only complement Boolean vectors");
+		}
+
+		valuesB.flip(0, size);
+	}
+	
 	/**
 	 * Modify the vector by applying 'equals' with operand {@code sv}.
 	 */
@@ -987,6 +1014,9 @@ public class StateValues implements StateVector
 		case ExpressionFunc.CEIL:
 			ceil();
 			break;
+		case ExpressionFunc.ROUND:
+			round();
+			break;
 		default:
 			throw new PrismException("Unknown unary function");
 		}
@@ -1027,6 +1057,25 @@ public class StateValues implements StateVector
 			valuesD = null;
 		} else {
 			throw new PrismException("Function ceil cannot be applied to Boolean vectors");
+		}
+	}
+
+	/**
+	 * Modify the vector by applying 'round'.
+	 */
+	public void round() throws PrismException
+	{
+		if (type instanceof TypeInt) {
+			// Nothing to do
+		} else if (type instanceof TypeDouble) {
+			valuesI = new int[size];
+			type = TypeInt.getInstance();
+			for (int i = 0; i < size; i++) {
+				valuesI[i] = ExpressionFunc.evaluateRound(valuesD[i]);
+			}
+			valuesD = null;
+		} else {
+			throw new PrismException("Function round cannot be applied to Boolean vectors");
 		}
 	}
 
@@ -1431,6 +1480,33 @@ public class StateValues implements StateVector
 	}
 
 	/**
+	 * Get the maximum finite value of those that are in the (BitSet) filter.
+	 * I.e., this behaves as maxOverBitSet, but filters out POSITIVE_INFINITY.
+	 */
+	public Object maxFiniteOverBitSet(BitSet filter) throws PrismException
+	{
+		if (type instanceof TypeInt) {
+			// for Integers, MAX_VALUE might arise normally or represent +INF,
+			// so we don't filter
+			int maxI = Integer.MIN_VALUE;
+			for (int i = filter.nextSetBit(0); i >= 0; i = filter.nextSetBit(i + 1)) {
+				if (valuesI[i] > maxI)
+					maxI = valuesI[i];
+			}
+			return new Integer(maxI);
+		} else if (type instanceof TypeDouble) {
+			double maxD = Double.NEGATIVE_INFINITY;
+			for (int i = filter.nextSetBit(0); i >= 0; i = filter.nextSetBit(i + 1)) {
+				double d = valuesD[i];
+				if (Double.isFinite(d) && valuesD[i] > maxD)
+					maxD = d;
+			}
+			return new Double(maxD);
+		}
+		throw new PrismException("Can't take max over a vector of type " + type);
+	}
+
+	/**
 	 * Check if value is true for all states in the (BitSet) filter.
 	 */
 	public boolean forallOverBitSet(BitSet filter) throws PrismException
@@ -1667,5 +1743,10 @@ public class StateValues implements StateVector
 		}
 		sv.statesList = statesList;
 		return sv;
+	}
+
+	/** Returns the type of this StateValues object. */
+	public Type getType() {
+		return type;
 	}
 }

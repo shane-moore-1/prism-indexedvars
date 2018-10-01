@@ -33,18 +33,12 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.BitSet;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Map.Entry;
 
-import common.IterableStateSet;
-
 import prism.PrismException;
-import prism.PrismUtils;
-import explicit.rewards.MCRewards;
-import explicit.rewards.MDPRewards;
+
 
 /**
  * Simple explicit-state representation of an MDP.
@@ -274,69 +268,102 @@ public class MDPSimple extends MDPExplicit implements NondetModelSimple
 	@Override
 	public void buildFromPrismExplicit(String filename) throws PrismException
 	{
-		BufferedReader in;
-		Distribution distr;
-		String s, ss[];
-		int i, j, k, iLast, kLast, n, lineNum = 0;
-		double prob;
+		// we want to accurately store the model as it appears
+		// in the file, so we allow dupes
+		allowDupes = true;
 
-		try {
-			// Open file
-			in = new BufferedReader(new FileReader(new File(filename)));
+		int lineNum = 0;
+		// Open file for reading, automatic close
+		try (BufferedReader in = new BufferedReader(new FileReader(new File(filename)))) {
 			// Parse first line to get num states
-			s = in.readLine();
+			String info = in.readLine();
 			lineNum = 1;
-			if (s == null) {
-				in.close();
+			if (info == null) {
 				throw new PrismException("Missing first line of .tra file");
 			}
-			ss = s.split(" ");
-			n = Integer.parseInt(ss[0]);
+			String[] infos = info.split(" ");
+			if (infos.length < 3) {
+				throw new PrismException("First line of .tra file must read #states, #choices, #transitions");
+			}
+			int n = Integer.parseInt(infos[0]);
+			int expectedNumChoices = Integer.parseInt(infos[1]);
+			int expectedNumTransitions = Integer.parseInt(infos[2]);
+
+			int emptyDistributions = 0;
+			
 			// Initialise
 			initialise(n);
 			// Go though list of transitions in file
-			iLast = -1;
-			kLast = -1;
-			distr = null;
-			s = in.readLine();
+			String s = in.readLine();
 			lineNum++;
 			while (s != null) {
 				s = s.trim();
 				if (s.length() > 0) {
-					ss = s.split(" ");
-					i = Integer.parseInt(ss[0]);
-					k = Integer.parseInt(ss[1]);
-					j = Integer.parseInt(ss[2]);
-					prob = Double.parseDouble(ss[3]);
-					// For a new state or distribution
-					if (i != iLast || k != kLast) {
-						// Add any previous distribution to the last state, create new one
-						if (distr != null) {
-							addChoice(iLast, distr);
-						}
-						distr = new Distribution();
+					String[] transition = s.split(" ");
+					int source = Integer.parseInt(transition[0]);
+					int choice = Integer.parseInt(transition[1]);
+					int target = Integer.parseInt(transition[2]);
+					double prob = Double.parseDouble(transition[3]);
+
+					if (source < 0 || source >= numStates) {
+						throw new PrismException("Problem in .tra file (line " + lineNum + "): illegal source state index " + source);
 					}
-					// Add transition to the current distribution
-					distr.add(j, prob);
-					// Prepare for next iter
-					iLast = i;
-					kLast = k;
+					if (target < 0 || target >= numStates) {
+						throw new PrismException("Problem in .tra file (line " + lineNum + "): illegal target state index " + target);
+					}
+
+					// ensure distributions for all choices up to choice (inclusive) exist
+					// this potentially creates empty distributions that are never defined
+					// so we keep track of the number of distributions that are still empty
+					// and provide an error message if there are still empty distributions
+					// after having read the full .tra file
+					while (choice >= getNumChoices(source)) {
+						addChoice(source, new Distribution());
+						emptyDistributions++;
+					}
+
+					if (trans.get(source).get(choice).isEmpty()) {
+						// was empty distribution, becomes non-empty below
+						emptyDistributions--;
+					}
+					// add transition
+					if (! trans.get(source).get(choice).add(target, prob)) {
+						numTransitions++;
+					} else {
+						throw new PrismException("Problem in .tra file (line " + lineNum + "): redefinition of probability for " + source + " " + choice + " " + target);
+					}
+
+					// add action
+					if (transition.length > 4) {
+						String action = transition[4];
+						Object oldAction = getAction(source, choice);
+						if (oldAction != null && !action.equals(oldAction)) {
+							throw new PrismException("Problem in .tra file (line " + lineNum + "):"
+							                       + "inconsistent action label for " + source + ", " + choice + ": "
+									               + oldAction + " and " + action);
+						}
+						setAction(source, choice, action);
+					}
 				}
 				s = in.readLine();
 				lineNum++;
 			}
-			// Add previous distribution to the last state
-			addChoice(iLast, distr);
-			// Close file
-			in.close();
+			// check integrity
+			if (getNumChoices() != expectedNumChoices) {
+				throw new PrismException("Problem in .tra file: unexpected number of choices: " + getNumChoices());
+			}
+			if (getNumTransitions() != expectedNumTransitions) {
+				throw new PrismException("Problem in .tra file: unexpected number of transitions: " + getNumTransitions());
+			}
+			assert(emptyDistributions >= 0);
+			if (emptyDistributions > 0) {
+				throw new PrismException("Problem in .tra file: there are " + emptyDistributions + " empty distribution, are there gaps in the choice indices?");
+			}
 		} catch (IOException e) {
-			System.out.println(e);
-			System.exit(1);
+			throw new PrismException("File I/O error reading from \"" + filename + "\": " + e.getMessage());
 		} catch (NumberFormatException e) {
 			throw new PrismException("Problem in .tra file (line " + lineNum + ") for " + getModelType());
 		}
-		// Set initial state (assume 0)
-		initialStates.add(0);
 	}
 
 	// Mutators (other)
@@ -444,48 +471,6 @@ public class MDPSimple extends MDPExplicit implements NondetModelSimple
 	}
 
 	@Override
-	public Iterator<Integer> getSuccessorsIterator(final int s)
-	{
-		// Need to build set to avoid duplicates
-		// So not necessarily the fastest method to access successors
-		HashSet<Integer> succs = new HashSet<Integer>();
-		for (Distribution distr : trans.get(s)) {
-			succs.addAll(distr.getSupport());
-		}
-		return succs.iterator();
-	}
-
-	@Override
-	public boolean isSuccessor(int s1, int s2)
-	{
-		for (Distribution distr : trans.get(s1)) {
-			if (distr.contains(s2))
-				return true;
-		}
-		return false;
-	}
-
-	@Override
-	public boolean allSuccessorsInSet(int s, BitSet set)
-	{
-		for (Distribution distr : trans.get(s)) {
-			if (!distr.isSubsetOf(set))
-				return false;
-		}
-		return true;
-	}
-
-	@Override
-	public boolean someSuccessorsInSet(int s, BitSet set)
-	{
-		for (Distribution distr : trans.get(s)) {
-			if (distr.containsOneOf(set))
-				return true;
-		}
-		return false;
-	}
-
-	@Override
 	public void findDeadlocks(boolean fix) throws PrismException
 	{
 		for (int i = 0; i < numStates; i++) {
@@ -563,6 +548,12 @@ public class MDPSimple extends MDPExplicit implements NondetModelSimple
 		return trans.get(s).get(i).getSupport().iterator();
 	}
 
+	@Override
+	public SuccessorsIterator getSuccessors(final int s, final int i)
+	{
+		return SuccessorsIterator.from(getSuccessorsIterator(s, i), true);
+	}
+
 	// Accessors (for MDP)
 
 	@Override
@@ -577,442 +568,7 @@ public class MDPSimple extends MDPExplicit implements NondetModelSimple
 		return trans.get(s).get(i).iterator();
 	}
 
-	@Override
-	public void prob0step(BitSet subset, BitSet u, boolean forall, BitSet result)
-	{
-		boolean b1, b2;
-		for (int i : new IterableStateSet(subset, numStates)) {
-			b1 = forall; // there exists or for all
-			for (Distribution distr : trans.get(i)) {
-				b2 = distr.containsOneOf(u);
-				if (forall) {
-					if (!b2) {
-						b1 = false;
-						break;
-					}
-				} else {
-					if (b2) {
-						b1 = true;
-						break;
-					}
-				}
-			}
-			result.set(i, b1);
-		}
-	}
-
-	@Override
-	public void prob1Astep(BitSet subset, BitSet u, BitSet v, BitSet result)
-	{
-		boolean b1;
-		for (int i : new IterableStateSet(subset, numStates)) {
-			b1 = true;
-			for (Distribution distr : trans.get(i)) {
-				if (!(distr.isSubsetOf(u) && distr.containsOneOf(v))) {
-					b1 = false;
-					break;
-				}
-			}
-			result.set(i, b1);
-		}
-	}
-
-	@Override
-	public void prob1Estep(BitSet subset, BitSet u, BitSet v, BitSet result, int strat[])
-	{
-		int j, stratCh = -1;
-		boolean b1;
-		for (int i : new IterableStateSet(subset, numStates)) {
-			j = 0;
-			b1 = false;
-			for (Distribution distr : trans.get(i)) {
-				if (distr.isSubsetOf(u) && distr.containsOneOf(v)) {
-					b1 = true;
-					// If strategy generation is enabled, remember optimal choice
-					if (strat != null)
-						stratCh = j;
-					break;
-				}
-				j++;
-			}
-			// If strategy generation is enabled, store optimal choice
-			// (only if this the first time we add the state to S^yes)
-			if (strat != null & b1 & !result.get(i)) {
-				strat[i] = stratCh;
-			}
-			// Store result
-			result.set(i, b1);
-		}
-	}
-
-	@Override
-	public void prob1step(BitSet subset, BitSet u, BitSet v, boolean forall, BitSet result)
-	{
-		boolean b1, b2;
-		for (int i : new IterableStateSet(subset, numStates)) {
-			b1 = forall; // there exists or for all
-			for (Distribution distr : trans.get(i)) {
-				b2 = distr.containsOneOf(v) && distr.isSubsetOf(u);
-				if (forall) {
-					if (!b2) {
-						b1 = false;
-						break;
-					}
-				} else {
-					if (b2) {
-						b1 = true;
-						break;
-					}
-				}
-			}
-			result.set(i, b1);
-		}
-	}
-
-	@Override
-	public boolean prob1stepSingle(int s, int i, BitSet u, BitSet v)
-	{
-		Distribution distr = trans.get(s).get(i);
-		return distr.containsOneOf(v) && distr.isSubsetOf(u);
-	}
-
-	@Override
-	public double mvMultMinMaxSingle(int s, double vect[], boolean min, int strat[])
-	{
-		int j, k, stratCh = -1;
-		double d, prob, minmax;
-		boolean first;
-		List<Distribution> step;
-
-		j = 0;
-		minmax = 0;
-		first = true;
-		step = trans.get(s);
-		for (Distribution distr : step) {
-			// Compute sum for this distribution
-			d = 0.0;
-			for (Map.Entry<Integer, Double> e : distr) {
-				k = (Integer) e.getKey();
-				prob = (Double) e.getValue();
-				d += prob * vect[k];
-			}
-			// Check whether we have exceeded min/max so far
-			if (first || (min && d < minmax) || (!min && d > minmax)) {
-				minmax = d;
-				// If strategy generation is enabled, remember optimal choice
-				if (strat != null)
-					stratCh = j;
-			}
-			first = false;
-			j++;
-		}
-		// If strategy generation is enabled, store optimal choice
-		if (strat != null & !first) {
-			// For max, only remember strictly better choices
-			if (min) {
-				strat[s] = stratCh;
-			} else if (strat[s] == -1 || minmax > vect[s]) {
-				strat[s] = stratCh;
-			}
-		}
-
-		return minmax;
-	}
-
-	@Override
-	public List<Integer> mvMultMinMaxSingleChoices(int s, double vect[], boolean min, double val)
-	{
-		int j, k;
-		double d, prob;
-		List<Integer> res;
-		List<Distribution> step;
-
-		// Create data structures to store strategy
-		res = new ArrayList<Integer>();
-		// One row of matrix-vector operation 
-		j = -1;
-		step = trans.get(s);
-		for (Distribution distr : step) {
-			j++;
-			// Compute sum for this distribution
-			d = 0.0;
-			for (Map.Entry<Integer, Double> e : distr) {
-				k = (Integer) e.getKey();
-				prob = (Double) e.getValue();
-				d += prob * vect[k];
-			}
-			// Store strategy info if value matches
-			//if (PrismUtils.doublesAreClose(val, d, termCritParam, termCrit == TermCrit.ABSOLUTE)) {
-			if (PrismUtils.doublesAreClose(val, d, 1e-12, false)) {
-				res.add(j);
-				//res.add(distrs.getAction());
-			}
-		}
-
-		return res;
-	}
-
-	@Override
-	public double mvMultSingle(int s, int i, double vect[])
-	{
-		double d, prob;
-		int k;
-
-		Distribution distr = trans.get(s).get(i);
-		// Compute sum for this distribution
-		d = 0.0;
-		for (Map.Entry<Integer, Double> e : distr) {
-			k = (Integer) e.getKey();
-			prob = (Double) e.getValue();
-			d += prob * vect[k];
-		}
-
-		return d;
-	}
-
-	@Override
-	public double mvMultJacMinMaxSingle(int s, double vect[], boolean min, int strat[])
-	{
-		int j, k, stratCh = -1;
-		double diag, d, prob, minmax;
-		boolean first;
-		List<Distribution> step;
-
-		j = 0;
-		minmax = 0;
-		first = true;
-		step = trans.get(s);
-		for (Distribution distr : step) {
-			diag = 1.0;
-			// Compute sum for this distribution
-			d = 0.0;
-			for (Map.Entry<Integer, Double> e : distr) {
-				k = (Integer) e.getKey();
-				prob = (Double) e.getValue();
-				if (k != s) {
-					d += prob * vect[k];
-				} else {
-					diag -= prob;
-				}
-			}
-			if (diag > 0)
-				d /= diag;
-			// Check whether we have exceeded min/max so far
-			if (first || (min && d < minmax) || (!min && d > minmax)) {
-				minmax = d;
-				// If strategy generation is enabled, remember optimal choice
-				if (strat != null) {
-					stratCh = j;
-				}
-			}
-			first = false;
-			j++;
-		}
-		// If strategy generation is enabled, store optimal choice
-		if (strat != null & !first) {
-			// For max, only remember strictly better choices
-			if (min) {
-				strat[s] = stratCh;
-			} else if (strat[s] == -1 || minmax > vect[s]) {
-				strat[s] = stratCh;
-			}
-		}
-
-		return minmax;
-	}
-
-	@Override
-	public double mvMultJacSingle(int s, int i, double vect[])
-	{
-		double diag, d, prob;
-		int k;
-		Distribution distr;
-
-		distr = trans.get(s).get(i);
-		diag = 1.0;
-		// Compute sum for this distribution
-		d = 0.0;
-		for (Map.Entry<Integer, Double> e : distr) {
-			k = (Integer) e.getKey();
-			prob = (Double) e.getValue();
-			if (k != s) {
-				d += prob * vect[k];
-			} else {
-				diag -= prob;
-			}
-		}
-		if (diag > 0)
-			d /= diag;
-
-		return d;
-	}
-
-	@Override
-	public double mvMultRewMinMaxSingle(int s, double vect[], MDPRewards mdpRewards, boolean min, int strat[])
-	{
-		int j, k, stratCh = -1;
-		double d, prob, minmax;
-		boolean first;
-		List<Distribution> step;
-
-		minmax = 0;
-		first = true;
-		j = -1;
-		step = trans.get(s);
-		for (Distribution distr : step) {
-			j++;
-			// Compute sum for this distribution
-			d = mdpRewards.getTransitionReward(s, j);
-			for (Map.Entry<Integer, Double> e : distr) {
-				k = (Integer) e.getKey();
-				prob = (Double) e.getValue();
-				d += prob * vect[k];
-			}
-			// Check whether we have exceeded min/max so far
-			if (first || (min && d < minmax) || (!min && d > minmax)) {
-				minmax = d;
-				// If strategy generation is enabled, remember optimal choice
-				if (strat != null)
-					stratCh = j;
-			}
-			first = false;
-		}
-		// Add state reward (doesn't affect min/max)
-		minmax += mdpRewards.getStateReward(s);
-		// If strategy generation is enabled, store optimal choice
-		if (strat != null & !first) {
-			// For max, only remember strictly better choices
-			if (min) {
-				strat[s] = stratCh;
-			} else if (strat[s] == -1 || minmax > vect[s]) {
-				strat[s] = stratCh;
-			}
-		}
-
-		return minmax;
-	}
-
-	@Override
-	public double mvMultRewSingle(int s, int i, double[] vect, MCRewards mcRewards)
-	{
-		double d, prob;
-		int k;
-
-		Distribution distr = trans.get(s).get(i);
-		// Compute sum for this distribution
-		// TODO: use transition rewards when added to DTMCss
-		// d = mcRewards.getTransitionReward(s);
-		d = 0;
-		for (Map.Entry<Integer, Double> e : distr) {
-			k = (Integer) e.getKey();
-			prob = (Double) e.getValue();
-			d += prob * vect[k];
-		}
-		d += mcRewards.getStateReward(s);
-		
-		return d;
-	}
 	
-	@Override
-	public double mvMultRewJacMinMaxSingle(int s, double vect[], MDPRewards mdpRewards, boolean min, int strat[])
-	{
-		int j, k, stratCh = -1;
-		double diag, d, prob, minmax;
-		boolean first;
-		List<Distribution> step;
-
-		minmax = 0;
-		first = true;
-		j = -1;
-		step = trans.get(s);
-		for (Distribution distr : step) {
-			j++;
-			diag = 1.0;
-			// Compute sum for this distribution
-			d = mdpRewards.getTransitionReward(s, j);
-			for (Map.Entry<Integer, Double> e : distr) {
-				k = (Integer) e.getKey();
-				prob = (Double) e.getValue();
-				if (k != s) {
-					d += prob * vect[k];
-				} else {
-					diag -= prob;
-				}
-			}
-			if (diag > 0)
-				d /= diag;
-			// Check whether we have exceeded min/max so far
-			if (first || (min && d < minmax) || (!min && d > minmax)) {
-				minmax = d;
-				// If strategy generation is enabled, remember optimal choice
-				if (strat != null) {
-					stratCh = j;
-				}
-			}
-			first = false;
-		}
-		// Add state reward (doesn't affect min/max)
-		minmax += mdpRewards.getStateReward(s);
-		// If strategy generation is enabled, store optimal choice
-		if (strat != null & !first) {
-			// For max, only remember strictly better choices
-			if (min) {
-				strat[s] = stratCh;
-			} else if (strat[s] == -1 || minmax > vect[s]) {
-				strat[s] = stratCh;
-			}
-		}
-
-		return minmax;
-	}
-
-	@Override
-	public List<Integer> mvMultRewMinMaxSingleChoices(int s, double vect[], MDPRewards mdpRewards, boolean min, double val)
-	{
-		int j, k;
-		double d, prob;
-		List<Integer> res;
-		List<Distribution> step;
-
-		// Create data structures to store strategy
-		res = new ArrayList<Integer>();
-		// One row of matrix-vector operation 
-		j = -1;
-		step = trans.get(s);
-		for (Distribution distr : step) {
-			j++;
-			// Compute sum for this distribution
-			d = mdpRewards.getTransitionReward(s, j);
-			for (Map.Entry<Integer, Double> e : distr) {
-				k = (Integer) e.getKey();
-				prob = (Double) e.getValue();
-				d += prob * vect[k];
-			}
-			d += mdpRewards.getStateReward(s);
-			// Store strategy info if value matches
-			//if (PrismUtils.doublesAreClose(val, d, termCritParam, termCrit == TermCrit.ABSOLUTE)) {
-			if (PrismUtils.doublesAreClose(val, d, 1e-12, false)) {
-				res.add(j);
-				//res.add(distrs.getAction());
-			}
-		}
-
-		return res;
-	}
-
-	@Override
-	public void mvMultRight(int[] states, int[] strat, double[] source, double[] dest)
-	{
-		for (int s : states) {
-			Iterator<Entry<Integer, Double>> it = this.getTransitionsIterator(s, strat[s]);
-			while (it.hasNext()) {
-				Entry<Integer, Double> next = it.next();
-				int col = next.getKey();
-				double prob = next.getValue();
-				dest[col] += prob * source[s];
-			}
-		}
-	}
 
 	// Accessors (other)
 

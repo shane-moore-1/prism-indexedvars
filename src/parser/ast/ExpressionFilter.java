@@ -26,6 +26,7 @@
 
 package parser.ast;
 
+import param.BigRational;
 import parser.*;
 import parser.type.TypeBool;
 import parser.visitor.*;
@@ -33,9 +34,43 @@ import prism.PrismLangException;
 
 public class ExpressionFilter extends Expression
 {
-	// Enums for  types of filter
+	/**
+	 * Types of filter, for expressions of the form "filter(op, prop, states)",
+	 * with filter states "states" being optional (denoting "true").
+	 */ 
 	public enum FilterOperator {
-		MIN, MAX, ARGMIN, ARGMAX, COUNT, SUM, AVG, FIRST, RANGE, FORALL, EXISTS, PRINT, PRINTALL, STATE;
+		/** Minimum value of prop over all filter states */
+		MIN ("min"),
+		/** Maximum value of prop over all filter states */
+		MAX ("max"),
+		/** True for the filter states that yield the minimum value of prop */
+		ARGMIN ("argmin"),
+		/** True for the filter states that yield the maximum value of prop */
+		ARGMAX ("argmax"),
+		/** Number of filter states for which prop is true */
+		COUNT ("count"),
+		/** Sum of the value of prop for all filter states */
+		SUM ("sum"),
+		/** Average of the value of prop over all filter states */
+		AVG ("avg"),
+		/** Value of prop for the first (lowest-indexed) filter state */
+		FIRST ("first"),
+		/** Range (interval) of values of prop over all filter states */
+		RANGE ("range"),
+		/** True iff prop is true for all filter states */
+		FORALL ("forall"),
+		/** True iff prop is true for some filter states */
+		EXISTS ("exists"),
+		/** Print the (non-zero) values to the log */
+		PRINT ("print"),
+		/** Print all (including zero) values to the log */
+		PRINTALL ("printall"),
+		/** Value for the single filter state (if there is more than one, this is an error) */
+		STATE ("state");
+		public final String keyword;
+		FilterOperator(final String keyword) {
+			this.keyword = keyword;
+		}
 	};
 
 	// Operator used in filter
@@ -79,37 +114,24 @@ public class ExpressionFilter extends Expression
 	public void setOperator(String opName)
 	{
 		this.opName = opName;
-		if (opName.equals("min"))
-			opType = FilterOperator.MIN;
-		else if (opName.equals("max"))
-			opType = FilterOperator.MAX;
-		else if (opName.equals("argmin"))
-			opType = FilterOperator.ARGMIN;
-		else if (opName.equals("argmax"))
-			opType = FilterOperator.ARGMAX;
-		else if (opName.equals("count"))
-			opType = FilterOperator.COUNT;
-		else if (opName.equals("sum") || opName.equals("+"))
+		for (FilterOperator op : FilterOperator.values()) {
+			if (op.keyword.equals(opName)) {
+				opType = op;
+				return;
+			}
+		}
+		// handle shorthands
+		if ("+".equals(opName)) {
 			opType = FilterOperator.SUM;
-		else if (opName.equals("avg"))
-			opType = FilterOperator.AVG;
-		else if (opName.equals("first"))
-			opType = FilterOperator.FIRST;
-		else if (opName.equals("range"))
-			opType = FilterOperator.RANGE;
-		else if (opName.equals("forall") || opName.equals("&"))
+		} else if ("&".equals(opName)) {
 			opType = FilterOperator.FORALL;
-		else if (opName.equals("exists") || opName.equals("|"))
+		} else if ("|".equals(opName)) {
 			opType = FilterOperator.EXISTS;
-		else if (opName.equals("print"))
-			opType = FilterOperator.PRINT;
-		else if (opName.equals("printall"))
-			opType = FilterOperator.PRINTALL;
-		else if (opName.equals("state"))
-			opType = FilterOperator.STATE;
-		else opType = null;
+		} else {
+			opType = null;
+		}
 	}
-	
+
 	public void setOperand(Expression operand)
 	{
 		this.operand = operand;
@@ -184,9 +206,7 @@ public class ExpressionFilter extends Expression
 	
 	// Methods required for Expression:
 
-	/**
-	 * Is this expression constant?
-	 */
+	@Override
 	public boolean isConstant()
 	{
 		// Note: In some sense, ExpressionFilters are (often) constant since they return the same
@@ -201,15 +221,19 @@ public class ExpressionFilter extends Expression
 		return false;
 	}
 	
-	/**
-	 * Evaluate this expression, return result.
-	 * Note: assumes that type checking has been done already.
-	 */
+	@Override
 	public Object evaluate(EvaluateContext ec) throws PrismLangException
 	{
 		throw new PrismLangException("Cannot evaluate a filter without a model");
 	}
 
+	@Override
+	public BigRational evaluateExact(EvaluateContext ec) throws PrismLangException
+	{
+		throw new PrismLangException("Cannot evaluate a filter without a model");
+	}
+
+	@Override
 	public boolean returnsSingleValue()
 	{
 		// Most filters return a single value, but there are some exceptions...
@@ -223,17 +247,28 @@ public class ExpressionFilter extends Expression
 	
 	// Methods required for ASTElement:
 
-	/**
-	 * Visitor method.
-	 */
+	@Override
 	public Object accept(ASTVisitor v) throws PrismLangException
 	{
 		return v.visit(this);
 	}
 
-	/**
-	 * Convert to string.
-	 */
+	@Override
+	public Expression deepCopy()
+	{
+		ExpressionFilter e;
+		e = new ExpressionFilter(opName, operand.deepCopy(), filter == null ? null : filter.deepCopy());
+		e.setInvisible(invisible);
+		e.setType(type);
+		e.setPosition(this);
+		e.param = this.param;
+
+		return e;
+	}
+	
+	// Standard methods
+	
+	@Override
 	public String toString()
 	{
 		String s = "";
@@ -246,19 +281,58 @@ public class ExpressionFilter extends Expression
 		return s;
 	}
 
-	/**
-	 * Perform a deep copy.
-	 */
-	public Expression deepCopy()
+	@Override
+	public int hashCode()
 	{
-		ExpressionFilter e;
-		e = new ExpressionFilter(opName, operand.deepCopy(), filter == null ? null : filter.deepCopy());
-		e.setInvisible(invisible);
-		e.setType(type);
-		e.setPosition(this);
-		e.param = this.param;
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + (explanationEnabled ? 1231 : 1237);
+		result = prime * result + ((filter == null) ? 0 : filter.hashCode());
+		result = prime * result + (invisible ? 1231 : 1237);
+		result = prime * result + ((opName == null) ? 0 : opName.hashCode());
+		result = prime * result + ((opType == null) ? 0 : opType.hashCode());
+		result = prime * result + ((operand == null) ? 0 : operand.hashCode());
+		result = prime * result + (param ? 1231 : 1237);
+		result = prime * result + (storeVector ? 1231 : 1237);
+		return result;
+	}
 
-		return e;
+	@Override
+	public boolean equals(Object obj)
+	{
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		ExpressionFilter other = (ExpressionFilter) obj;
+		if (explanationEnabled != other.explanationEnabled)
+			return false;
+		if (filter == null) {
+			if (other.filter != null)
+				return false;
+		} else if (!filter.equals(other.filter))
+			return false;
+		if (invisible != other.invisible)
+			return false;
+		if (opName == null) {
+			if (other.opName != null)
+				return false;
+		} else if (!opName.equals(other.opName))
+			return false;
+		if (opType != other.opType)
+			return false;
+		if (operand == null) {
+			if (other.operand != null)
+				return false;
+		} else if (!operand.equals(other.operand))
+			return false;
+		if (param != other.param)
+			return false;
+		if (storeVector != other.storeVector)
+			return false;
+		return true;
 	}
 	
 	/**

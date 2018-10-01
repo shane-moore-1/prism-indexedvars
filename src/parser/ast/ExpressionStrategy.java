@@ -26,8 +26,10 @@
 
 package parser.ast;
 
+import java.util.ArrayList;
 import java.util.List;
 
+import param.BigRational;
 import parser.EvaluateContext;
 import parser.visitor.ASTVisitor;
 import prism.PrismLangException;
@@ -44,9 +46,12 @@ public class ExpressionStrategy extends Expression
 	/** Coalition info (for game models) */
 	protected Coalition coalition = new Coalition(); 
 	
-	/** Child expression */
-	protected Expression expression = null;
-
+	/** Child expression(s) */
+	protected List<Expression> operands = new ArrayList<Expression>();
+	
+	/** Is there just a single operand (P/R operator)? If not, the operand list will be parenthesised. **/
+	protected boolean singleOperand = false;
+	
 	// Constructors
 
 	public ExpressionStrategy()
@@ -61,7 +66,8 @@ public class ExpressionStrategy extends Expression
 	public ExpressionStrategy(boolean thereExists, Expression expression)
 	{
 		this.thereExists = thereExists;
-		this.expression = expression;
+		operands.add(expression);
+		singleOperand = true;
 	}
 
 	// Set methods
@@ -81,9 +87,21 @@ public class ExpressionStrategy extends Expression
 		this.coalition.setPlayers(coalition);
 	}
 
-	public void setExpression(Expression expression)
+	public void setSingleOperand(Expression expression)
 	{
-		this.expression = expression;
+		operands.clear();
+		operands.add(expression);
+		singleOperand = true;
+	}
+
+	public void addOperand(Expression e)
+	{
+		operands.add(e);
+	}
+
+	public void setOperand(int i, Expression e)
+	{
+		operands.set(i, e);
 	}
 
 	// Get methods
@@ -116,9 +134,24 @@ public class ExpressionStrategy extends Expression
 		return coalition.getPlayers();
 	}
 	
-	public Expression getExpression()
+	public boolean hasSingleOperand()
 	{
-		return expression;
+		return singleOperand;
+	}
+	
+	public int getNumOperands()
+	{
+		return operands.size();
+	}
+
+	public Expression getOperand(int i)
+	{
+		return operands.get(i);
+	}
+
+	public List<Expression> getOperands()
+	{
+		return operands;
 	}
 
 	// Methods required for Expression:
@@ -142,10 +175,16 @@ public class ExpressionStrategy extends Expression
 	}
 
 	@Override
+	public BigRational evaluateExact(EvaluateContext ec) throws PrismLangException
+	{
+		throw new PrismLangException("Cannot evaluate a " + getOperatorString() + " operator without a model");
+	}
+
+	/*@Override
 	public String getResultName()
 	{
 		return expression.getResultName();
-	}
+	}*/
 
 	@Override
 	public boolean returnsSingleValue()
@@ -162,25 +201,82 @@ public class ExpressionStrategy extends Expression
 	}
 
 	@Override
-	public String toString()
-	{
-		String s = "";
-		s += (thereExists ? "<<" : "[[");
-		s += coalition;
-		s += (thereExists ? ">>" : "]]");
-		s += " " + expression.toString();
-		return s;
-	}
-
-	@Override
 	public Expression deepCopy()
 	{
 		ExpressionStrategy expr = new ExpressionStrategy();
 		expr.setThereExists(isThereExists());
 		expr.coalition = new Coalition(coalition);
-		expr.setExpression(expression == null ? null : expression.deepCopy());
+		for (Expression operand : operands) {
+			expr.addOperand((Expression) operand.deepCopy());
+		}
+		expr.singleOperand = singleOperand;
 		expr.setType(type);
 		expr.setPosition(this);
 		return expr;
+	}
+
+	// Standard methods
+
+	@Override
+	public String toString()
+	{
+		String s = "";
+		s += (thereExists ? "<<" : "[[");
+		s += coalition;
+		s += (thereExists ? ">> " : "]] ");
+		if (singleOperand) {
+			s += operands.get(0);
+		} else {
+			s += "(";
+			boolean first = true;
+			for (Expression operand : operands) {
+				if (!first)
+					s += ", ";
+				else
+					first = false;
+				s = s + operand;
+			}
+			s += ")";
+		}
+		return s;
+	}
+
+	@Override
+	public int hashCode()
+	{
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((coalition == null) ? 0 : coalition.hashCode());
+		result = prime * result + ((operands == null) ? 0 : operands.hashCode());
+		result = prime * result + (singleOperand ? 1231 : 1237);
+		result = prime * result + (thereExists ? 1231 : 1237);
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj)
+	{
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		ExpressionStrategy other = (ExpressionStrategy) obj;
+		if (coalition == null) {
+			if (other.coalition != null)
+				return false;
+		} else if (!coalition.equals(other.coalition))
+			return false;
+		if (operands == null) {
+			if (other.operands != null)
+				return false;
+		} else if (!operands.equals(other.operands))
+			return false;
+		if (singleOperand != other.singleOperand)
+			return false;
+		if (thereExists != other.thereExists)
+			return false;
+		return true;
 	}
 }

@@ -149,6 +149,25 @@ public class Point
 	}
 
 	/**
+ 	 * Determines if this point is pointwise smaller than {@code p+SMALL_NUMBER}.
+ 	 * 
+ 	 */
+	public boolean isCoveredBy(Point p)
+	{
+		if (p.getDimension() != this.getDimension())
+			return false;
+
+		for (int i = 0; i < this.getDimension(); i++) {
+			if (p.getCoord(i) + SMALL_NUMBER - this.getCoord(i) < 0)
+				return false;
+		}
+		//System.err.println("comparing " + this + " and " + second + " with the result " + (x == second.getX() && y == second.getY()));
+		return true;
+	}
+
+	
+
+	/**
 	 * Returns the point in which the coordinates are reweighted so that the
 	 * norm of the point is equal to 1.
 	 * @return
@@ -244,25 +263,34 @@ public class Point
 
 	/**
 	 *  This methods ensures that the point's values corresponds to the properties
-	 *  the user did input. Namely, when the rewards were minimizing, the value
+	 *  the user did input. Namely, (i) the order of properties is restored, and
+	 *  (ii) when the rewards were minimizing, the value
 	 *  is multiplied by -1, and when the probabilities were minimizing,
 	 *  a new value is obtained by 1-value.
 	 * @return
 	 */
 	public Point toRealProperties(OpsAndBoundsList obl)
 	{
-		double[] newCoords = coords.clone();
+		double[] oldCoords = coords.clone();
+		double[] newCoords = new double[oldCoords.length];
 
 		for (int i = 0; i < obl.probSize(); i++) {
-			if (obl.isProbNegated(i)) {
-				newCoords[i] = 1-newCoords[i];
-			}
+			int newIndex = obl.getOrigPositionProb(i);
+			if (obl.isProbNegated(i))
+				newCoords[newIndex] = 1-oldCoords[i];
+			else
+				newCoords[newIndex] = oldCoords[i];
+
 		}
 
 		for (int i = 0; i < obl.rewardSize(); i++) {
+			int newIndex = obl.getOrigPositionReward(i);
 			if (obl.getRewardOperator(i) == Operator.R_MIN
 					|| obl.getRewardOperator(i) == Operator.R_LE)
-				newCoords[i + obl.probSize()] = -newCoords[i + obl.probSize()];			
+				newCoords[newIndex] = -oldCoords[i + obl.probSize()];			
+			else
+				newCoords[newIndex] = oldCoords[i + obl.probSize()];			
+
 		}
 		
 		return new Point(newCoords);

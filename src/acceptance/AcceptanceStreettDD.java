@@ -29,10 +29,10 @@ package acceptance;
 import java.util.ArrayList;
 
 import common.IterableBitSet;
-
 import jdd.JDD;
 import jdd.JDDNode;
 import jdd.JDDVars;
+import prism.PrismNotSupportedException;
 
 /**
  * A Streett acceptance condition (based on JDD state sets).
@@ -46,7 +46,7 @@ import jdd.JDDVars;
  */
 @SuppressWarnings("serial")
 public class AcceptanceStreettDD
-       extends ArrayList<AcceptanceStreettDD.StreettPair>
+       extends ArrayList<AcceptanceStreettDD.StreettPairDD>
        implements AcceptanceOmegaDD
 {
 
@@ -54,7 +54,7 @@ public class AcceptanceStreettDD
 	 * A pair in a Streett acceptance condition, i.e., with
 	 *  (G F "R") -> (G F "G")
 	 **/
-	public static class StreettPair {
+	public static class StreettPairDD {
 		/** State set R */
 		private JDDNode R;
 		
@@ -65,7 +65,7 @@ public class AcceptanceStreettDD
 		 * Constructor with R and G state sets.
 		 * Becomes owner of the references of R and G.
 		 */
-		public StreettPair(JDDNode R, JDDNode G)
+		public StreettPairDD(JDDNode R, JDDNode G)
 		{
 			this.R = R;
 			this.G = G;
@@ -83,8 +83,7 @@ public class AcceptanceStreettDD
 		 */
 		public JDDNode getR()
 		{
-			JDD.Ref(R);
-			return R;
+			return R.copy();
 		}
 
 		/** Get a referenced copy of the state set G.
@@ -92,8 +91,12 @@ public class AcceptanceStreettDD
 		 */
 		public JDDNode getG()
 		{
-			JDD.Ref(G);
-			return G;
+			return G.copy();
+		}
+
+		public StreettPairDD clone()
+		{
+			return new StreettPairDD(getR(), getG());
 		}
 
 		/** Returns true if the bottom strongly connected component
@@ -118,11 +121,39 @@ public class AcceptanceStreettDD
 			}
 		}
 
+		public AcceptanceGenericDD toAcceptanceGeneric()
+		{
+		    AcceptanceGenericDD genericR = new AcceptanceGenericDD(AcceptanceGeneric.ElementType.FIN, getR());
+		    AcceptanceGenericDD genericG = new AcceptanceGenericDD(AcceptanceGeneric.ElementType.INF, getG());
+		    //      G F "R" -> G F "G"
+		    // <=>  ! G F "R"  | G F "G"
+		    // <=>  F G ! "R"  | G F "G"
+		    // <=>  Fin(R) | Inf(G)
+		    return new AcceptanceGenericDD(AcceptanceGeneric.ElementType.OR, genericR, genericG);
+                }
+
+		/**
+		 * Replaces the BDD functions for the acceptance sets
+		 * of this Streett pair with the intersection
+		 * of the current acceptance sets and the function {@code restrict}.
+		 * <br>[ REFS: <i>none</i>, DEREFS: <i>none</i> ]
+		 */
+		public void intersect(JDDNode restrict)
+		{
+			R = JDD.And(R, restrict.copy());
+			G = JDD.And(G, restrict.copy());
+		}
+
 		@Override
 		public String toString()
 		{
 			return "(" + R + "->" + G + ")";
 		}
+	}
+
+	/** Constructor, create empty condition */
+	public AcceptanceStreettDD()
+	{
 	}
 
 	/**
@@ -145,7 +176,7 @@ public class AcceptanceStreettDD
 				newG = JDD.SetVectorElement(newG, ddRowVars, i, 1.0);
 			}
 	
-			StreettPair newPair = new StreettPair(newR, newG);
+			StreettPairDD newPair = new StreettPairDD(newR, newG);
 			this.add(newPair);
 		}
 	}
@@ -153,7 +184,7 @@ public class AcceptanceStreettDD
 	@Override
 	public boolean isBSCCAccepting(JDDNode bscc_states)
 	{
-		for (StreettPair pair : this) {
+		for (StreettPairDD pair : this) {
 			if (!pair.isBSCCAccepting(bscc_states)) {
 				return false;
 			}
@@ -162,18 +193,69 @@ public class AcceptanceStreettDD
 	}
 
 	@Override
+	public AcceptanceStreettDD clone()
+	{
+		AcceptanceStreettDD result = new AcceptanceStreettDD();
+		for (StreettPairDD pair : this) {
+			result.add(pair.clone());
+		}
+		return result;
+	}
+
+
+	@Override
+	public void intersect(JDDNode restrict)
+	{
+		for (StreettPairDD pair : this) {
+			pair.intersect(restrict);
+		}
+	}
+
+	@Override
 	public void clear()
 	{
-		for (StreettPair pair : this) {
+		for (StreettPairDD pair : this) {
 			pair.clear();
 		}
 		super.clear();
 	}
 
+	/**
+	 * Returns a new Streett acceptance condition that corresponds to the conjunction
+	 * of this and the other Streett acceptance condition. The StreettPairs are cloned, i.e.,
+	 * not shared with the argument acceptance condition.
+	 * @param other the other Streett acceptance condition
+	 * @return new AcceptanceStreett, conjunction of this and other
+	 */
+	public AcceptanceStreettDD and(AcceptanceStreettDD other)
+	{
+		AcceptanceStreettDD result = new AcceptanceStreettDD();
+		for (StreettPairDD pair : this) {
+			result.add(pair.clone());
+		}
+		for (StreettPairDD pair : other) {
+			result.add(pair.clone());
+		}
+		return result;
+	}
+
+	/**
+	 * Get the Rabin acceptance condition that is the dual of this Streett acceptance condition, i.e.,
+	 * any word that is accepted by this condition is rejected by the returned Rabin condition.
+	 * <br>
+	 * Deprecated, use complementToRabin or complement(...).
+	 * @return the complement Rabin acceptance condition
+	 */
+	@Deprecated
+	public AcceptanceRabinDD complement()
+	{
+		return complementToRabin();
+	}
+
 	@Override
 	public String toString() {
 		String result = "";
-		for (StreettPair pair : this) {
+		for (StreettPairDD pair : this) {
 			result += pair.toString();
 		}
 		return result;
@@ -192,14 +274,57 @@ public class AcceptanceStreettDD
 	}
 
 	@Override
-	public String getTypeAbbreviated()
+	public AcceptanceOmegaDD complement(AcceptanceType... allowedAcceptance) throws PrismNotSupportedException
 	{
-		return "S";
+		if (AcceptanceType.contains(allowedAcceptance, AcceptanceType.RABIN)) {
+			return complementToRabin();
+		}
+		if (AcceptanceType.contains(allowedAcceptance, AcceptanceType.GENERIC)) {
+			return complementToGeneric();
+		}
+		throw new PrismNotSupportedException("Can not complement " + getType() + " acceptance to a supported acceptance type");
+	}
+
+	public AcceptanceRabinDD complementToRabin()
+	{
+		AcceptanceRabinDD accRabin = new AcceptanceRabinDD();
+
+		for (StreettPairDD accPairStreett : this) {
+			JDDNode L = accPairStreett.getG();
+			JDDNode K = accPairStreett.getR();
+			AcceptanceRabinDD.RabinPairDD accPairRabin = new AcceptanceRabinDD.RabinPairDD(L, K);
+			accRabin.add(accPairRabin);
+		}
+		return accRabin;
 	}
 
 	@Override
-	public String getTypeName()
+	public AcceptanceGenericDD toAcceptanceGeneric()
 	{
-		return "Streett";
+		if (size() == 0) {
+			return new AcceptanceGenericDD(true);
+		}
+		AcceptanceGenericDD genericPairs = null;
+		for (StreettPairDD pair : this) {
+			AcceptanceGenericDD genericPair = pair.toAcceptanceGeneric();
+			if (genericPairs == null) {
+				genericPairs = genericPair;
+			} else {
+				genericPairs = new AcceptanceGenericDD(AcceptanceGeneric.ElementType.AND, genericPairs, genericPair);
+			}
+		}
+		return genericPairs;
+	}
+
+	@Override
+	@Deprecated
+	public String getTypeAbbreviated() {
+		return getType().getNameAbbreviated();
+	}
+
+	@Override
+	@Deprecated
+	public String getTypeName() {
+		return getType().getName();
 	}
 }

@@ -26,15 +26,15 @@
 
 package parser.ast;
 
+import param.BigRational;
 import parser.*;
 import parser.visitor.*;
 import prism.PrismLangException;
 import parser.type.*;
 public class ExpressionLiteral extends Expression
 {
-public static boolean DEBUG = false;
 	Object value; // Value
-	String string; // Optionally, keep original string to preserve user formatting
+	String string; // Optionally, keep original string to preserve user formatting and allow exact evaluation
 
 	// Constructor
 	
@@ -45,13 +45,6 @@ public static boolean DEBUG = false;
 
 	public ExpressionLiteral(Type type, Object value, String string)
 	{
-if (DEBUG) {
-  System.out.println("Created ExpressionLiteral(type=" + type + ", value= "+value + ", string = " + string);
-  System.out.println("value's type: " + (value == null ? "null ref" : value.getClass().getName()) );
-  Exception e = new Exception();
-  e.printStackTrace(System.out);
-  System.out.println();
-}
 		this.type = type;
 		this.value = value;
 		this.string = string;
@@ -61,11 +54,6 @@ if (DEBUG) {
 	
 	public void setValue(Object value)
 	{
-System.out.println("Altered ExpressionLiteral from " + this.value + " to " + value);
-System.out.println("value's type: " + (value == null ? "null ref" : value.getClass().getName()) );
-Exception e = new Exception();
-e.printStackTrace(System.out);
-System.out.println();
 		this.value = value;
 		this.string = ""+value;
 	}
@@ -89,9 +77,7 @@ System.out.println();
 	
 	// Methods required for Expression:
 	
-	/**
-	 * Is this expression constant?
-	 */
+	@Override
 	public boolean isConstant()
 	{
 		return true;
@@ -103,13 +89,27 @@ System.out.println();
 		return true;
 	}
 	
-	/**
-	 * Evaluate this expression, return result.
-	 * Note: assumes that type checking has been done already.
-	 */
+	@Override
 	public Object evaluate(EvaluateContext ec) throws PrismLangException
 	{
+		if (value instanceof BigRational) {
+			// cast from BigRational to appropriate Java data type
+			return getType().castFromBigRational((BigRational) value);
+		}
 		return value;
+	}
+
+	@Override
+	public BigRational evaluateExact(EvaluateContext ec) throws PrismLangException
+	{
+		if (value instanceof BigRational) {
+			// if already a BigRational, return that
+			return (BigRational) value;
+		} else if (value instanceof Boolean) {
+			return BigRational.from(value);
+		}
+		// otherwise, convert from string representation (potentially provides more precision for double literals)
+		return BigRational.from(string);
 	}
 
 	@Override
@@ -120,31 +120,59 @@ System.out.println();
 
 	// Methods required for ASTElement:
 	
-	/**
-	 * Visitor method.
-	 */
+	@Override
 	public Object accept(ASTVisitor v) throws PrismLangException
 	{
-if (DEBUG) System.out.println("ExprLiteral.accept for " + this);
 		return v.visit(this);
 	}
-	
-	/**
-	 * Convert to string.
-	 */
-	public String toString()
-	{
-		return string;
-	}
 
-	/**
-	 * Perform a deep copy.
-	 */
+	@Override
 	public Expression deepCopy()
 	{
 		Expression expr = new ExpressionLiteral(type, value, string);
 		expr.setPosition(this);
 		return expr;
+	}
+
+	// Standard methods
+	
+	@Override
+	public String toString()
+	{
+		return string;
+	}
+
+	@Override
+	public int hashCode()
+	{
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((string == null) ? 0 : string.hashCode());
+		result = prime * result + ((value == null) ? 0 : value.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj)
+	{
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		ExpressionLiteral other = (ExpressionLiteral) obj;
+		if (string == null) {
+			if (other.string != null)
+				return false;
+		} else if (!string.equals(other.string))
+			return false;
+		if (value == null) {
+			if (other.value != null)
+				return false;
+		} else if (!value.equals(other.value))
+			return false;
+		return true;
 	}
 }
 

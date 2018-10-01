@@ -27,9 +27,12 @@
 
 package acceptance;
 
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.BitSet;
 
+import prism.PrismException;
+import prism.PrismNotSupportedException;
 import jdd.JDDVars;
 
 /**
@@ -188,6 +191,22 @@ public class AcceptanceGenRabin
 		return false;
 	}
 
+	/** Complement this acceptance condition, return as AcceptanceGeneric. */
+	public AcceptanceGeneric complementToGeneric()
+	{
+		AcceptanceGeneric generic = toAcceptanceGeneric();
+		return generic.complementToGeneric();
+	}
+
+	@Override
+	public AcceptanceOmega complement(int numStates, AcceptanceType... allowedAcceptance) throws PrismException
+	{
+		if (AcceptanceType.contains(allowedAcceptance, AcceptanceType.GENERIC)) {
+			return complementToGeneric();
+		}
+		throw new PrismNotSupportedException("Can not complement " + getType() + " acceptance to a supported acceptance type");
+	}
+
 	@Override
 	public void lift(LiftBitSet lifter) {
 		for (GenRabinPair pair : this) {
@@ -256,6 +275,31 @@ public class AcceptanceGenRabin
 		return result;
 	}
 
+	@Override
+	public String getSignatureForStateHOA(int stateIndex)
+	{
+		String result = "";
+
+		int set_index = 0;
+		for (GenRabinPair pair : this) {
+			if (pair.getL().get(stateIndex)) {
+				result += (result.isEmpty() ? "" : " ") + set_index;
+			}
+			set_index++;
+			for (int i=0; i < pair.getNumK(); i++) {
+				if (pair.getK(i).get(stateIndex)) {
+					result += (result.isEmpty() ? "" : " ") + set_index;
+				}
+				set_index++;
+			}
+		}
+
+		if (!result.isEmpty())
+			result = "{"+result+"}";
+
+		return result;
+	}
+
 	/** Returns a textual representation of this acceptance condition. */
 	@Override
 	public String toString()
@@ -280,14 +324,45 @@ public class AcceptanceGenRabin
 	}
 
 	@Override
-	public String getTypeAbbreviated()
-	{
-		return "GR";
+	@Deprecated
+	public String getTypeAbbreviated() {
+		return getType().getNameAbbreviated();
 	}
 
 	@Override
-	public String getTypeName()
+	@Deprecated
+	public String getTypeName() {
+		return getType().getName();
+	}
+
+	@Override
+	public void outputHOAHeader(PrintStream out)
 	{
-		return "Generalized Rabin";
+		int sets = 0;
+		out.print("acc-name: generalized-Rabin "+size());
+		for (GenRabinPair pair : this) {
+			sets++;  // the Fin
+			out.print(" "+pair.getNumK());
+			sets += pair.getNumK();
+		}
+		out.println();
+		out.print("Acceptance: " + sets);
+		if (sets == 0) {
+			out.println("f");
+			return;
+		}
+
+		int set_index = 0;
+		for (GenRabinPair pair : this) {
+			if (set_index > 0) out.print(" | ");
+			out.print("( Fin(" + set_index + ")");
+			set_index++;
+			for (int i = 0; i < pair.getNumK(); i++) {
+				out.print(" & Inf(" + set_index +")");
+				set_index++;
+			}
+			out.print(")");
+		}
+		out.println();
 	}
 }

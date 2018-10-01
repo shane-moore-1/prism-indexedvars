@@ -39,6 +39,7 @@ public static boolean DEBUG = false;
 	private ExpressionIdent nameASTElement;
 	// Local variables
 	private ArrayList<Declaration> decls;
+// ADDED BY SHANE
 	// The original declarations (from before transformation) of indexed-sets that exist in this module
 	private Map<String,Declaration> indexedSetDecls;
 	// Commands
@@ -49,6 +50,8 @@ public static boolean DEBUG = false;
 	private ModulesFile parent;
 	// Base module (if was constructed through renaming; null if not)
 	private String baseModule;
+	// Alphabet (if defined explicitly rather than deduced from syntax)
+	private Vector<String> alphabet;
 
 	// Constructor
 	
@@ -57,6 +60,7 @@ public static boolean DEBUG = false;
 		name = n;
 		decls = new ArrayList<Declaration>();
 		commands = new ArrayList<Command>();
+// ADDED BY SHANE on next line...
 		indexedSetDecls = new HashMap<String,Declaration>();
 		invariant = null;
 		parent = null;
@@ -86,6 +90,7 @@ if (DEBUG)  System.out.println("Adding declaration to Module " + this.getName() 
 	}
 
 	/** Returns the position within our 'decls' ArrayList, at which the supplied Declaration resides. Useful for the insertDeclaration method. */
+// ADDED BY SHANE
 	public int getDeclPosInArrayList(Declaration d)
 	{
 		int pos = 0;
@@ -98,23 +103,24 @@ if (DEBUG)  System.out.println("Adding declaration to Module " + this.getName() 
 		return -1;		// Should not occur, but just in case it does, this signifies 'No Place'
 	}
 
+// ADDED BY SHANE
 	public void insertDeclarationAt(Declaration d, int position)
 	{
 if (DEBUG)  System.out.println("Inserting declaration: " + d + " to Module " + this.getName() + " at position: " + position);
 		decls.add(position,d);
 	}
 	
-	// ADDED BY SHANE - to allow IndexedSet declarations to be replaced by declarations of each index.
+// ADDED BY SHANE - to allow IndexedSet declarations to be replaced by declarations of each index.
 	public void removeDeclaration(Declaration d)
 	{
 if (DEBUG) System.out.println("Removing declaration from Module " + this.getName() + ": " + d);
 		decls.remove(d);
 	}
 	
-	// ADDED BY SHANE - should probably also write a "delete" one?
 	/**
 	 * Notes the declaration of an indexed-set. Called by ConvertIndexedSetDeclarations.
 	 */
+// ADDED BY SHANE - should probably also write a "delete" one?
 	public void addIndexedSetDecl(Declaration indDecl)
 	{
 		if (indDecl != null) {
@@ -159,6 +165,16 @@ if (DEBUG) System.out.println("Removing declaration from Module " + this.getName
 		baseModule = b;
 	}
 	
+	/**
+	 * Optionally, define the alphabet (of actions that can label transitions) for this module.
+	 * Normally, this is deduced syntactically (as the set of actions appearing in commands)
+	 * but you can override this if you want. Pass null to un-override;
+	 */
+	public void setAlphabet(List<String> alphabet)
+	{
+		this.alphabet = (alphabet == null) ? null : new Vector<String>(alphabet); 
+	}
+	
 	// Get methods
 	
 	public String getName()
@@ -194,10 +210,11 @@ if (DEBUG) System.out.println("Removing declaration from Module " + this.getName
 	{
 		return decls;
 	}
-
+	
 	/**
 	 * Returns the original  delcaration of an indexed-set, or null if invalid name)
 	 */
+// ADDED BY SHANE
 	public Declaration getIndexedSetDeclaration(String name)
 	{
 		return indexedSetDecls.get(name);
@@ -249,9 +266,15 @@ if (DEBUG) System.out.println("Removing declaration from Module " + this.getName
 	 * Get the set of synchronising actions of this module, i.e. its alphabet.
 	 * Note that the definition of alphabet is syntactic: existence of an a-labelled command in this
 	 * module ensures that a is in the alphabet, regardless of whether the guard is true.
+	 * The alphabet for a module can also be overridden using {@link #setAlphabet(List)}
 	 */
 	public Vector<String> getAllSynchs()
 	{
+		// If overridden, use this
+		if (alphabet != null) {
+			return alphabet;
+		}
+		// Otherwise, deduce syntactically
 		int i, n;
 		String s;
 		Vector<String> allSynchs = new Vector<String>();
@@ -340,12 +363,14 @@ if (DEBUG) System.out.println("Removing declaration from Module " + this.getName
 	public ASTElement deepCopy()
 	{
 		int i, n;
+System.out.println("*** In prism.Modules::deepCopy(), copying the Module " + getName() + " (EXCEPT for any indexed set stuff)");
 		Module ret = new Module(name);
 		if (nameASTElement != null)
 			ret.setNameASTElement((ExpressionIdent)nameASTElement.deepCopy());
 		n = getNumDeclarations();
 		for (i = 0; i < n; i++) {
 			ret.addDeclaration((Declaration)getDeclaration(i).deepCopy());
+System.out.println("       copied declaration: " + getDeclaration(i).getName() + (getDeclaration(i).getIsPartOfIndexedVar() ? " [not indexed var]" : " [indexed var]") );
 		}
 		n = getNumCommands();
 		for (i = 0; i < n; i++) {
@@ -354,8 +379,7 @@ if (DEBUG) System.out.println("Removing declaration from Module " + this.getName
 		if (invariant != null)
 			ret.setInvariant(invariant.deepCopy());
 		ret.setPosition(this);
-System.out.println("*** In Modules.deepCopy() - Did not deepCopy the indexedSetDecls (but probably ought to have) ***");
-Exception e = new Exception(); e.printStackTrace(System.out);
+System.out.println("*** In prism.Modules::deepCopy() - Did not deepCopy the indexedSetDecls (but possibly should have - however, the individual index elements WERE copied. ***");
 		return ret;
 	}
 }

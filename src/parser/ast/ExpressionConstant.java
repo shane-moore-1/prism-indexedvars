@@ -26,6 +26,7 @@
 
 package parser.ast;
 
+import param.BigRational;
 import parser.*;
 import parser.visitor.*;
 import prism.PrismLangException;
@@ -33,7 +34,7 @@ import parser.type.*;
 
 public class ExpressionConstant extends Expression
 {
-	String name;
+	protected String name;
 	
 	// Constructors
 	
@@ -43,8 +44,8 @@ public class ExpressionConstant extends Expression
 	
 	public ExpressionConstant(String n, Type t)
 	{
-		name = n;
 		setType(t);
+		name = n;
 	}
 			
 	// Set method
@@ -63,9 +64,7 @@ public class ExpressionConstant extends Expression
 		
 	// Methods required for Expression:
 	
-	/**
-	 * Is this expression constant?
-	 */
+	@Override
 	public boolean isConstant()
 	{
 		return true;
@@ -77,18 +76,32 @@ public class ExpressionConstant extends Expression
 		return true;
 	}
 	
-	/**
-	 * Evaluate this expression, return result.
-	 * Note: assumes that type checking has been done already.
-	 */
+	@Override
 	public Object evaluate(EvaluateContext ec) throws PrismLangException
 	{
 		Object res = ec.getConstantValue(name);
 		if (res == null)
 			throw new PrismLangException("Could not evaluate constant", this);
+
+		if (res instanceof BigRational) {
+			// Constants can also be BigRational, cast to appropriate type
+			// This might lose precision
+			BigRational r = (BigRational) res;
+			return getType().castFromBigRational(r);
+		}
 		return res;
 	}
-	
+
+	@Override
+	public BigRational evaluateExact(EvaluateContext ec) throws PrismLangException
+	{
+		Object res = ec.getConstantValue(name);
+		if (res == null)
+			throw new PrismLangException("Could not evaluate constant", this);
+
+		return BigRational.from(res);
+	}
+
 	@Override
 	public boolean returnsSingleValue()
 	{
@@ -97,30 +110,53 @@ public class ExpressionConstant extends Expression
 
 	// Methods required for ASTElement:
 	
-	/**
-	 * Visitor method.
-	 */
+	@Override
 	public Object accept(ASTVisitor v) throws PrismLangException
 	{
 		return v.visit(this);
 	}
 	
-	/**
-	 * Convert to string.
-	 */
-	public String toString()
-	{
-		return name;
-	}
-
-	/**
-	 * Perform a deep copy.
-	 */
+	@Override
 	public Expression deepCopy()
 	{
 		Expression ret = new ExpressionConstant(name, type);
 		ret.setPosition(this);
 		return ret;
+	}
+	
+	// Standard methods
+	
+	@Override
+	public String toString()
+	{
+		return name;
+	}
+
+	@Override
+	public int hashCode()
+	{
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((name == null) ? 0 : name.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj)
+	{
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		ExpressionConstant other = (ExpressionConstant) obj;
+		if (name == null) {
+			if (other.name != null)
+				return false;
+		} else if (!name.equals(other.name))
+			return false;
+		return true;
 	}
 }
 

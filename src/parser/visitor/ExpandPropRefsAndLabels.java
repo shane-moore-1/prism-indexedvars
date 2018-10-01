@@ -31,9 +31,10 @@ import parser.type.*;
 import prism.PrismLangException;
 
 /**
-	 * Expand property references and labels, return result.
-	 * Property expansion is done recursively.
-	 * Special labels "deadlock", "init" and any not in label list are left.
+ * Expand property references and labels, return result.
+ * Property expansion is done recursively.
+ * Either properties file or label list can be omitted (set to null)
+ * Special labels "deadlock", "init" and any not in label list are left.
  */
 public class ExpandPropRefsAndLabels extends ASTTraverseModify
 {
@@ -54,6 +55,11 @@ public class ExpandPropRefsAndLabels extends ASTTraverseModify
 		Type t;
 		Expression expr;
 		
+		// Skip this if label list is missing
+		if (labelList == null) {
+			return e;
+		}
+		
 		// See if identifier corresponds to a label
 		i = labelList.getLabelIndex(e.getName());
 		if (i != -1) {
@@ -62,7 +68,7 @@ public class ExpandPropRefsAndLabels extends ASTTraverseModify
 			// But also recursively expand that
 			// (nested labels not currently supported but may be one day)
 			// (don't clone it to avoid duplication of work)
-			expr = (Expression)expr.expandLabels(labelList);
+			expr = (Expression) expr.accept(this);
 			// Put in brackets so precedence is preserved
 			// (for display purposes only; in case of re-parse)
 			// Also, preserve type (this is probably being done before
@@ -84,6 +90,11 @@ public class ExpandPropRefsAndLabels extends ASTTraverseModify
 		Type t;
 		Expression expr;
 		
+		// Skip this if label list is missing
+		if (propertiesFile == null) {
+			return e;
+		}
+		
 		// See if name corresponds to a property
 		prop = propertiesFile.lookUpPropertyObjectByName(e.getName());
 		if (prop != null) {
@@ -91,7 +102,7 @@ public class ExpandPropRefsAndLabels extends ASTTraverseModify
 			expr = prop.getExpression().deepCopy();
 			// But also recursively expand that
 			// (don't clone it to avoid duplication of work)
-			expr = (Expression)expr.expandPropRefsAndLabels(propertiesFile, labelList);
+			expr = (Expression) expr.accept(this);
 			// Put in brackets so precedence is preserved
 			// (for display purposes only; in case of re-parse)
 			// Also, preserve type (this is probably being done before

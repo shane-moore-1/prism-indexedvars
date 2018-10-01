@@ -26,7 +26,7 @@
 
 // includes
 #include "PrismMTBDD.h"
-#include <math.h>
+#include <cmath>
 #include <util.h>
 #include <cudd.h>
 #include <dd.h>
@@ -34,6 +34,8 @@
 #include "PrismMTBDDGlob.h"
 #include "jnipointer.h"
 #include "prism.h"
+#include "ExportIterations.h"
+#include <memory>
 
 //------------------------------------------------------------------------------
 
@@ -122,6 +124,17 @@ jdouble omega		// omega (jor parameter)
 		sol = DD_PermuteVariables(ddman, sol, rvars, cvars, num_rvars);
 	}
 	
+	std::unique_ptr<ExportIterations> iterationExport;
+	if (PM_GetFlagExportIterations()) {
+		std::string title("PM_JOR (");
+		title += (omega == 1.0)?"Jacobi": ("JOR omega=" + std::to_string(omega));
+		title += ")";
+
+		iterationExport.reset(new ExportIterations(title.c_str()));
+		PM_PrintToMainLog(env, "Exporting iterations to %s\n", iterationExport->getFileName().c_str());
+		iterationExport->exportVector(sol, (transpose?cvars:rvars), num_rvars, odd, 0);
+	}
+
 	// get setup time
 	stop = util_cpu_time();
 	time_for_setup = (double)(stop - start2)/1000;
@@ -149,7 +162,10 @@ jdouble omega		// omega (jor parameter)
 			Cudd_Ref(sol);
 			tmp = DD_Apply(ddman, APPLY_PLUS, tmp, DD_Apply(ddman, APPLY_TIMES, sol, DD_Constant(ddman, 1-omega)));
 		}
-		
+
+		if (iterationExport)
+			iterationExport->exportVector(tmp, (transpose?cvars:rvars), num_rvars, odd, 0);
+
 		// check convergence
 		switch (term_crit) {
 		case TERM_CRIT_ABSOLUTE:

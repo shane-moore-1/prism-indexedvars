@@ -26,8 +26,11 @@
 
 package acceptance;
 
+import java.io.PrintStream;
 import java.util.BitSet;
 
+import prism.PrismException;
+import prism.PrismNotSupportedException;
 import jdd.JDDVars;
 
 /**
@@ -76,6 +79,60 @@ public class AcceptanceReach implements AcceptanceOmega
 		return bscc_states.intersects(goalStates);
 	}
 
+	/**
+	 * Get a Rabin acceptance condition that is the complement of this condition, i.e.,
+	 * any word that is accepted by this condition is rejected by the returned Rabin condition.
+	 * <br>
+	 * Relies on the fact that once the goal states have been reached, all subsequent states
+	 * are goal states.
+	 *
+	 * @param numStates the number of states in the underlying model / automaton (needed for complementing BitSets)
+	 * @return the complement Rabin acceptance condition
+	 */
+	public AcceptanceRabin complementToRabin(int numStates)
+	{
+		AcceptanceRabin rabin = new AcceptanceRabin();
+		BitSet allStates = new BitSet();
+		allStates.set(0, numStates);
+		rabin.add(new AcceptanceRabin.RabinPair((BitSet) goalStates.clone(), allStates));
+		return rabin;
+	}
+
+	/**
+	 * Get a Streett acceptance condition that is the complement of this condition, i.e.,
+	 * any word that is accepted by this condition is rejected by the returned Streett condition.
+	 * <br>
+	 * Relies on the fact that once the goal states have been reached, all subsequent states
+	 * are goal states.
+	 *
+	 * @param numStates the number of states in the underlying model / automaton (needed for complementing BitSets)
+	 * @return the complement Streett acceptance condition
+	 */
+	public AcceptanceStreett complementToStreett(int numStates)
+	{
+		AcceptanceStreett streett = new AcceptanceStreett();
+		streett.add(new AcceptanceStreett.StreettPair((BitSet) goalStates.clone(), new BitSet()));
+		return streett;
+	}
+
+	/** Complement this acceptance condition, return as AcceptanceGeneric. */
+	public AcceptanceGeneric complementToGeneric()
+	{
+		return toAcceptanceGeneric().complementToGeneric();
+	}
+
+	@Override
+	public AcceptanceOmega complement(int numStates, AcceptanceType... allowedAcceptance) throws PrismException
+	{
+		if (AcceptanceType.contains(allowedAcceptance, AcceptanceType.RABIN)) {
+			return complementToRabin(numStates);
+		} else if (AcceptanceType.contains(allowedAcceptance, AcceptanceType.STREETT)) {
+			return complementToStreett(numStates);
+		} else if (AcceptanceType.contains(allowedAcceptance, AcceptanceType.GENERIC)) {
+			return complementToGeneric();
+		}
+		throw new PrismNotSupportedException("Can not complement " + getType() + " acceptance to a supported acceptance type");
+	}
 
 	@Override
 	public void lift(LiftBitSet lifter)
@@ -100,6 +157,16 @@ public class AcceptanceReach implements AcceptanceOmega
 	{
 		return goalStates.get(i) ? "!" : " ";
 	}
+	
+	@Override
+	public String getSignatureForStateHOA(int stateIndex)
+	{
+		if (goalStates.get(stateIndex)) {
+			return "{0}";
+		} else {
+			return "";
+		}
+	}
 
 	/** Returns a textual representation of this acceptance condition. */
 	@Override
@@ -121,15 +188,21 @@ public class AcceptanceReach implements AcceptanceOmega
 	}
 
 	@Override
-	public String getTypeAbbreviated()
-	{
-		return "F";
+	@Deprecated
+	public String getTypeAbbreviated() {
+		return getType().getNameAbbreviated();
 	}
 
 	@Override
-	public String getTypeName()
-	{
-		return "Finite";
+	@Deprecated
+	public String getTypeName() {
+		return getType().getName();
 	}
 
+	@Override
+	public void outputHOAHeader(PrintStream out)
+	{
+		out.println("acc-name: Buchi");
+		out.println("Acceptance: 1 Inf(0)");
+	}
 }

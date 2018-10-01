@@ -27,6 +27,13 @@
 
 package jltl2ba;
 
+import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Map;
+
 import jltl2dstar.APMonom;
 import jltl2dstar.NBA;
 import prism.PrismException;
@@ -189,24 +196,53 @@ public class SimpleLTL {
 						left.implies(b.left) && right.implies(b.right)));
 	}
 
-	// simplified PNF form
+	/**
+	 * Construct simplified PNF form.
+	 *
+	 * Currently, this requires that the SimpleLTL formula is a tree, i.e., that
+	 * subtrees are not shared. If this is not the case,
+	 * an {@code IllegalArgumentException} is thrown.
+	 */
 	public SimpleLTL simplify()
+	{
+		if (!this.isTree()) {
+			throw new IllegalArgumentException("Implementation error: SimpleLTL.simplify() requires that the formula is a tree, not a DAG");
+		}
+		return this.simplified();
+	}
+	
+	private SimpleLTL simplified()
 	{
 		SimpleLTL tmp, tmp2, a, b;
 		SimpleLTL rv = this;
 		
 		switch (kind) {
-		case AND: case OR: case IMPLIES: case EQUIV: case UNTIL: case RELEASE:
-			right = right.simplify();
-		case NOT: case NEXT: case FINALLY: case GLOBALLY:
-			left = left.simplify();
+		case AND:
+		case OR:
+		case IMPLIES:
+		case EQUIV:
+		case UNTIL:
+		case RELEASE:
+			right = right.simplified();
+			left = left.simplified();
+			break;
+
+		case NOT:
+		case NEXT:
+		case FINALLY:
+		case GLOBALLY:
+			left = left.simplified();
+			break;
+
+		default:
+			// do nothing
 		}
 
 		switch (kind) {
 		case NOT:
 			tmp = this.pushNegation();
 			if (tmp.kind != LTLType.NOT)
-				rv = tmp.simplify();
+				rv = tmp.simplified();
 			else rv = tmp;
 			break;
 			
@@ -224,7 +260,7 @@ public class SimpleLTL {
 				/* fall thru */
 			}
 			tmp = new SimpleLTL(LTLType.UNTIL, new SimpleLTL(true), left);
-			rv = tmp.simplify();
+			rv = tmp.simplified();
 			break;
 
 		case GLOBALLY:
@@ -241,7 +277,7 @@ public class SimpleLTL {
 				/* fall thru */
 			}
 			tmp = new SimpleLTL(LTLType.RELEASE, new SimpleLTL(false), left);
-			rv = tmp.simplify();
+			rv = tmp.simplified();
 			break;
 
 		case UNTIL:
@@ -883,6 +919,90 @@ public class SimpleLTL {
 		return false;
 	}
 
+	/**
+	 * Returns true if this SimpleLTL structure is a tree, i.e., not a
+	 * directed acyclical graph (DAG) where sharing of subtrees is allowed.
+	 */
+	public boolean isTree()
+	{
+		// use an IdentityHashMap with (formula,formula) pairs indicating that formula
+		// has already been seen (due to lack of IdentityHashSet)
+		IdentityHashMap<SimpleLTL, SimpleLTL> seen = new IdentityHashMap<SimpleLTL, SimpleLTL>();
+		return isTree(seen);
+	}
+
+	/**
+	 * Recursive function for checking if this SimpleLTL structure is a tree, i.e., not a
+	 * directed acyclical graph (DAG) where sharing of subtrees is allowed.
+	 *
+	 * The already seen SimpleLTL subtrees are tracked in {@code seen}.
+	 */
+	private boolean isTree(IdentityHashMap<SimpleLTL,SimpleLTL> seen)
+	{
+		if (seen.containsKey(this)) {
+			return false;
+		}
+		seen.put(this, this);
+
+		if (left != null && !left.isTree(seen)) {
+			// left child exists and is not a tree
+			return false;
+		}
+		if (right != null && !right.isTree(seen)) {
+			// right child exists and is not a tree
+			return false;
+		}
+
+		return true;
+	}
+
+	/**
+	 * Transform LTL formula by extend each<br>
+	 * X phi<br>
+	 * node in the syntax tree to<br>
+	 * X (label & phi).
+	 * <br>
+	 * The LTL formula has to consist only of basic operators (see toBasicOperators()).
+	 * @param label the label of the atomic proposition
+	 * @return the transformed LTL formula
+	 */
+	public SimpleLTL extendNextStepWithAP(String label)
+	{
+		switch (kind) {
+		case TRUE:
+		case FALSE:
+		case AP:
+			return this.clone();
+		case NOT: {
+			SimpleLTL newLeft = left.extendNextStepWithAP(label);
+			return new SimpleLTL(kind, newLeft);
+		}
+		case NEXT: {
+			SimpleLTL newLeft = left.extendNextStepWithAP(label);
+			// transform X phi to X ("label" & phi)
+			return new SimpleLTL(LTLType.NEXT,
+					new SimpleLTL(LTLType.AND, new SimpleLTL(label), newLeft));
+		}
+		case OR:
+		case AND:
+		case RELEASE:
+		case UNTIL: {
+			SimpleLTL newLeft = left.extendNextStepWithAP(label);
+			SimpleLTL newRight = right.extendNextStepWithAP(label);
+			return new SimpleLTL(kind, newLeft, newRight);
+		}
+		case FINALLY:
+		case GLOBALLY: {
+			SimpleLTL newLeft = left.extendNextStepWithAP(label);
+			return new SimpleLTL(kind, newLeft);
+		}
+		case EQUIV:
+		case IMPLIES:
+			throw new UnsupportedOperationException("Extending Next operator with AP not supported for " + kind.toString() + " operator, only for basic operators: " + this);
+		}
+		throw new UnsupportedOperationException();
+	}
+
 	public SimpleLTL toDNF() throws PrismException
 	{
 		switch (kind) {
@@ -1175,6 +1295,101 @@ public class SimpleLTL {
 		return rv;
 	}
 
+	/** Parse a formula in LBT (prefix format) */
+	public static SimpleLTL parseFormulaLBT(String formula) throws Exception
+	{
+		formula=formula.trim();  // remove leading, trailing spaces
+		String[] split = formula.split("[ ]+");
+		List<String> formulaList = new ArrayList<String>();
+		for (String s : split) formulaList.add(s);
+
+		// set up operator -> SimpleLTL.LTLType mapping for the standard operators
+		Map<String, SimpleLTL.LTLType> unaryOps  = new HashMap<String, SimpleLTL.LTLType>();
+		Map<String, SimpleLTL.LTLType> binaryOps = new HashMap<String, SimpleLTL.LTLType>();
+		unaryOps.put("!", SimpleLTL.LTLType.NOT);
+		unaryOps.put("F", SimpleLTL.LTLType.FINALLY);
+		unaryOps.put("G", SimpleLTL.LTLType.GLOBALLY);
+		unaryOps.put("X", SimpleLTL.LTLType.NEXT);
+		binaryOps.put("|", SimpleLTL.LTLType.OR);
+		binaryOps.put("&", SimpleLTL.LTLType.AND);
+		binaryOps.put("i", SimpleLTL.LTLType.IMPLIES);
+		binaryOps.put("e", SimpleLTL.LTLType.EQUIV);
+		binaryOps.put("U", SimpleLTL.LTLType.UNTIL);
+		binaryOps.put("V", SimpleLTL.LTLType.RELEASE);
+
+		SimpleLTL result = parseFormulaLBT(formulaList, unaryOps, binaryOps);
+
+		if (formulaList.size()>0) {
+			String remainingFormula = "";
+			for (String op : formulaList) remainingFormula += " "+op;
+			throw new RuntimeException("Malformed formula, extra information after end of formula: "+remainingFormula);
+		}
+		return result;
+	}
+
+	/**
+	 * Parse a formula in LBT format, where the formula is already split into a list of operators / APs
+	 * @param formulaList sequence of operators / APs
+	 * @param unaryOps map for the standard unary ops
+	 * @param binaryOps map for the standard binary ops
+	 * @throws RuntimeException on parse error
+	 */
+	private static SimpleLTL parseFormulaLBT(List<String> formulaList,
+	                                         Map<String, SimpleLTL.LTLType> unaryOps,
+	                                         Map<String, SimpleLTL.LTLType> binaryOps) throws RuntimeException
+	{
+		if (formulaList.size() == 0) {
+			throw new RuntimeException("Malformed formula, premature ending");
+		}
+		String current = formulaList.get(0);
+		formulaList.remove(0);
+
+		if (current.equals("t")) {
+			return new SimpleLTL(true);
+		} else if (current.equals("f")) {
+			return new SimpleLTL(false);
+		} else if (unaryOps.containsKey(current)) {
+			// standard unary op
+			SimpleLTL operand = parseFormulaLBT(formulaList, unaryOps, binaryOps);
+			return new SimpleLTL(unaryOps.get(current), operand);
+		} else if (binaryOps.containsKey(current)) {
+			// standard binary op
+			SimpleLTL operand1 = parseFormulaLBT(formulaList, unaryOps, binaryOps);
+			SimpleLTL operand2 = parseFormulaLBT(formulaList, unaryOps, binaryOps);
+			return new SimpleLTL(binaryOps.get(current), operand1, operand2);
+		} else if (current.equals("W")) {
+			// a W b == !(a&!b U !a&!b)
+			SimpleLTL operand1 = parseFormulaLBT(formulaList, unaryOps, binaryOps);
+			SimpleLTL operand2 = parseFormulaLBT(formulaList, unaryOps, binaryOps);
+
+			SimpleLTL aAndNotb =
+			   new SimpleLTL(SimpleLTL.LTLType.AND, operand1.clone(),
+			     new SimpleLTL(SimpleLTL.LTLType.NOT, operand2.clone()));
+			
+			SimpleLTL NotaAndNotb =
+			   new SimpleLTL(SimpleLTL.LTLType.AND,
+			     new SimpleLTL(SimpleLTL.LTLType.NOT, operand1.clone()),
+			     new SimpleLTL(SimpleLTL.LTLType.NOT, operand2.clone()));
+
+			return new SimpleLTL(SimpleLTL.LTLType.NOT,
+			   new SimpleLTL(SimpleLTL.LTLType.UNTIL, aAndNotb, NotaAndNotb));
+		} else if (current.equals("^")) {
+			// a xor b == !(a equiv b)
+			SimpleLTL operand1 = parseFormulaLBT(formulaList, unaryOps, binaryOps);
+			SimpleLTL operand2 = parseFormulaLBT(formulaList, unaryOps, binaryOps);
+
+			return new SimpleLTL(SimpleLTL.LTLType.NOT,
+			    new SimpleLTL(SimpleLTL.LTLType.EQUIV, operand1, operand2));
+		} else if (current.equals("M") || current.equals("B")) {
+			throw new RuntimeException("Operator "+current+" currently not supported.");
+		} else if (current.matches("[a-zA-Z].*")) {
+			// atomic proposition
+			return new SimpleLTL(current);
+		} else {
+			throw new RuntimeException("Illegal/unsupported operator: "+current);
+		}
+	}
+
 	public NBA toNBA(APSet apset) throws PrismException
 	{
 		Alternating a = new Alternating(this, apset);
@@ -1199,4 +1414,65 @@ public class SimpleLTL {
 	{
 		return this.toNBA(new APSet());
 	}
+
+	/** Print a DOT representation of the syntax tree of this SimpleLTL formula */
+	public void toDot(PrintStream out) {
+		IdentityHashMap<SimpleLTL, String> map = new IdentityHashMap<SimpleLTL, String>();
+
+		out.println("digraph {");
+		toDot(out, map);
+		out.println("}");
+	}
+
+	/**
+	 * Print a DOT representation of the syntax tree of this SimpleLTL formula.
+	 *
+	 * @param out the output print stream
+	 * @param seen a map storing an identifier for each subformula that has already been seen / printed
+	 */
+	private String toDot(PrintStream out, IdentityHashMap<SimpleLTL, String> seen)
+	{
+		String id = seen.get(this);
+		if (id != null) {
+			return id;
+		}
+
+		id = Integer.toString(seen.size());
+		seen.put(this, id);
+		out.println(id + " [label=\""+toStringLBT()+"\"]");
+
+		switch (kind) {
+		case AND:
+		case EQUIV:
+		case OR:
+		case UNTIL:
+		case RELEASE:
+		case IMPLIES: {
+			String leftID = left.toDot(out, seen);
+			String rightID = right.toDot(out, seen);
+			out.println(id + " -> " + leftID);
+			out.println(id + " -> " + rightID);
+			break;
+		}
+		case FINALLY:
+		case GLOBALLY:
+		case NEXT:
+		case NOT: {
+			String leftID = left.toDot(out, seen);
+			out.println(id + " -> " + leftID);
+			break;
+		}
+
+		case AP:
+		case TRUE:
+		case FALSE:
+			break;
+
+		default:
+			break;
+		}
+
+		return id;
+	}
+
 }

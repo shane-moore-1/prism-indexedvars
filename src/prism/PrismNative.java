@@ -152,6 +152,18 @@ public class PrismNative
 	{
 		PN_SetExportAdvFilename(filename);
 	}
+
+	private static native void PN_SetDefaultExportIterationsFilename(String filename);
+	public static void setDefaultExportIterationsFilename(String filename)
+	{
+		PN_SetDefaultExportIterationsFilename(filename);
+	}
+
+	private static native int PN_SetWorkingDirectory(String dirname);
+	/** Changes the current working directory. Returns 0 on success. */
+	public static int setWorkingDirectory(String dirname) {
+		return PN_SetWorkingDirectory(dirname);
+	}
 	
 	// Some miscellaneous native methods
 	public static native long PN_GetStdout();

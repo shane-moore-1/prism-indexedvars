@@ -66,7 +66,7 @@ public class VarList
 		this();
 
 		int i, j, n, n2;
-		Module module;
+		parser.ast.Module module;
 		Declaration decl;
 
 		// First add all globals to the list
@@ -103,6 +103,8 @@ public class VarList
 			totalNumBits += getRangeLogTwo(vars.size() - 1);
 			nameMap.put(decl.getName(), vars.size() - 1);
 		}
+else System.out.println("in parser.Values::addVar(3 Args): var is null *******"); 
+		
 	}
 
 	/**
@@ -126,6 +128,7 @@ public class VarList
 				nameMap.put(getName(j), j);
 			}
 		}
+else System.out.println("in parser.Values::addVar(4 Args): var is null *******"); 
 	}
 
 	/**
@@ -191,8 +194,8 @@ public class VarList
 			start = decl.getStartOrDefault().evaluateInt(constantValues);
 		}
 		else if (declType instanceof DeclTypeIndexedSet) {
-			// There is nothing to do, since the individual elements should by now have been added to the modulesFile
-			// by the visitor class ConvertIndexedSetDeclarations
+			// There is nothing to do, since the individual elements should by now have been added 
+			// to the ModulesFile by the visitor class ConvertIndexedSetDeclarations
 			return null;		// So, we return null.
 		}
 		else {
@@ -239,6 +242,25 @@ public class VarList
 	public Declaration getDeclaration(int i)
 	{
 		return vars.get(i).decl;
+	}
+
+	/**
+	 * Get the index in this VarList for a given declaration.
+	 */
+	public int getIndexFromDeclaration(Declaration d)
+throws PrismLangException		// Until SHANE has considered the code in more detail.
+	{
+		if (d.getDeclType() instanceof DeclTypeIndexedSet) {
+			PrismLangException ple = new PrismLangException("Not Implemented for IndexedSets.");
+			ple.printStackTrace(System.out);
+			throw ple;
+		}
+		for (int i=0;i<vars.size();i++) {
+			if (vars.get(i).decl == d) {
+				return i;
+			}
+		}
+		return -1;
 	}
 
 	/**
@@ -500,21 +522,6 @@ public class VarList
 	}
 
 	/**
-	 * Does the variable list contain any variables with unbounded range (e.g. "clock: or "int")?
-	 */
-	public boolean containsUnboundedVariables()
-	{
-		int n = getNumVars();
-		for (int i = 0; i < n; i++) {
-			DeclarationType declType = getDeclaration(i).getDeclType();
-			if (declType instanceof DeclarationClock || declType instanceof DeclarationIntUnbounded) {
-				return true;
-			}
-		}
-		return false;
-	}
-	
-	/**
 	 * Clone this list.
 	 */
 	public Object clone()
@@ -560,12 +567,11 @@ public class VarList
 			start = var.start;
 		}
 	}
-	
+
 	/**
 	 * A Class to store information about a single variable that is an indexed set of separate values (i.e. an array type)
-	 * 
-	 *
 	 */
+// ADDED BY SHANE - but (in 2018) not sure if being used anywhere?
 	class IndexedVar extends Var
 	{
 		public int size;
@@ -584,4 +590,5 @@ public class VarList
 			size = var.size;
 		}
 	}
+
 }

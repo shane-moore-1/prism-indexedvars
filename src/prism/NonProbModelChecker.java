@@ -62,22 +62,22 @@ public class NonProbModelChecker extends StateModelChecker
 	// -----------------------------------------------------------------------------------
 
 	// Check expression (recursive)
-
-	public StateValues checkExpression(Expression expr) throws PrismException
+	@Override
+	public StateValues checkExpression(Expression expr, JDDNode statesOfInterest) throws PrismException
 	{
 		StateValues res;
 
 		// E operator
 		if (expr instanceof ExpressionExists) {
-			res = checkExpressionExists(((ExpressionExists) expr).getExpression());
+			res = checkExpressionExists(((ExpressionExists) expr).getExpression(), statesOfInterest);
 		}
 		// A operator
 		else if (expr instanceof ExpressionForAll) {
-			res = checkExpressionForAll(((ExpressionForAll) expr).getExpression());
+			res = checkExpressionForAll(((ExpressionForAll) expr).getExpression(), statesOfInterest);
 		}
 		// Otherwise, use the superclass
 		else {
-			res = super.checkExpression(expr);
+			res = super.checkExpression(expr, statesOfInterest);
 		}
 
 		// Filter out non-reachable states from solution
@@ -94,14 +94,22 @@ public class NonProbModelChecker extends StateModelChecker
 
 	/**
 	 * Model check a CTL exists (E) operator.
+	 * The result will have valid results at least for the states of interest (use model.getReach().copy() for all reachable states)
+	 * <br>[ REFS: <i>result</i>, DEREFS: statesOfInterest ]
 	 */
-	protected StateValues checkExpressionExists(Expression expr) throws PrismException
+	protected StateValues checkExpressionExists(Expression expr, JDDNode statesOfInterest) throws PrismException
 	{
 		StateValues res = null;
 
 		// Check whether this is a simple path formula (i.e. CTL, not LTL)
 		if (!expr.isSimplePathFormula()) {
-			throw new PrismException("(Non-probabilistic) LTL model checking is not supported");
+			JDD.Deref(statesOfInterest);
+			throw new PrismNotSupportedException("(Non-probabilistic) LTL model checking is not supported");
+		}
+
+		if (prism.getFairness()) {
+			JDD.Deref(statesOfInterest);
+			throw new PrismNotSupportedException("Non-probabilistic CTL model checking is not supported with fairness");
 		}
 
 		// Negation/parentheses
@@ -110,12 +118,12 @@ public class NonProbModelChecker extends StateModelChecker
 			// Parentheses
 			if (exprUnary.getOperator() == ExpressionUnaryOp.PARENTH) {
 				// Recurse
-				res = checkExpressionExists(exprUnary.getOperand());
+				res = checkExpressionExists(exprUnary.getOperand(), statesOfInterest);
 			}
 			// Negation
 			else if (exprUnary.getOperator() == ExpressionUnaryOp.NOT) {
 				// Compute, then negate 
-				res = checkExpressionForAll(exprUnary.getOperand());
+				res = checkExpressionForAll(exprUnary.getOperand(), statesOfInterest);
 				res.subtractFromOne();
 			}
 		}
@@ -123,24 +131,24 @@ public class NonProbModelChecker extends StateModelChecker
 		else if (expr instanceof ExpressionTemporal) {
 			ExpressionTemporal exprTemp = (ExpressionTemporal) expr;
 			if (exprTemp.hasBounds()) {
-				throw new PrismException("Model checking of bounded CTL operators is not supported");
+				JDD.Deref(statesOfInterest);
+				throw new PrismNotSupportedException("Model checking of bounded CTL operators is not supported");
 			}
 			// Next (EX)
 			if (exprTemp.getOperator() == ExpressionTemporal.P_X) {
-				// TODO
-				throw new PrismException("CTL model checking of the E X operator is not yet supported");
+				res = checkNext(exprTemp, false, statesOfInterest);
 			}
 			// Until (EU)
 			else if (exprTemp.getOperator() == ExpressionTemporal.P_U) {
-				res = checkExistsUntil(exprTemp);
+				res = checkExistsUntil(exprTemp, statesOfInterest);
 			}
 			// Globally (EG)
 			else if (exprTemp.getOperator() == ExpressionTemporal.P_G) {
-				res = checkExistsGlobally(exprTemp);
+				res = checkExistsGlobally(exprTemp, statesOfInterest);
 			}
 			// Anything else - convert to until and recurse
 			else {
-				res = checkExpressionExists(exprTemp.convertToUntilForm());
+				res = checkExpressionExists(exprTemp.convertToUntilForm(), statesOfInterest);
 			}
 		}
 
@@ -152,14 +160,22 @@ public class NonProbModelChecker extends StateModelChecker
 
 	/**
 	 * Model check a CTL forall (A) operator.
+	 * The result will have valid results at least for the states of interest (use model.getReach().copy() for all reachable states)
+	 * <br>[ REFS: <i>result</i>, DEREFS: statesOfInterest ]
 	 */
-	protected StateValues checkExpressionForAll(Expression expr) throws PrismException
+	protected StateValues checkExpressionForAll(Expression expr, JDDNode statesOfInterest) throws PrismException
 	{
 		StateValues res = null;
 
 		// Check whether this is a simple path formula (i.e. CTL, not LTL)
 		if (!expr.isSimplePathFormula()) {
-			throw new PrismException("(Non-probabilistic) LTL model checking is not supported");
+			JDD.Deref(statesOfInterest);
+			throw new PrismNotSupportedException("(Non-probabilistic) LTL model checking is not supported");
+		}
+
+		if (prism.getFairness()) {
+			JDD.Deref(statesOfInterest);
+			throw new PrismNotSupportedException("Non-probabilistic CTL model checking is not supported with fairness");
 		}
 
 		// Negation/parentheses
@@ -168,12 +184,12 @@ public class NonProbModelChecker extends StateModelChecker
 			// Parentheses
 			if (exprUnary.getOperator() == ExpressionUnaryOp.PARENTH) {
 				// Recurse
-				res = checkExpressionForAll(exprUnary.getOperand());
+				res = checkExpressionForAll(exprUnary.getOperand(), statesOfInterest);
 			}
 			// Negation
 			else if (exprUnary.getOperator() == ExpressionUnaryOp.NOT) {
 				// Compute, then negate 
-				res = checkExpressionExists(exprUnary.getOperand());
+				res = checkExpressionExists(exprUnary.getOperand(), statesOfInterest);
 				res.subtractFromOne();
 			}
 		}
@@ -181,29 +197,38 @@ public class NonProbModelChecker extends StateModelChecker
 		else if (expr instanceof ExpressionTemporal) {
 			ExpressionTemporal exprTemp = (ExpressionTemporal) expr;
 			if (exprTemp.hasBounds()) {
-				throw new PrismException("Model checking of bounded CTL operators is not supported");
+				JDD.Deref(statesOfInterest);
+				throw new PrismNotSupportedException("Model checking of bounded CTL operators is not supported");
 			}
 			// Next (AX)
 			if (exprTemp.getOperator() == ExpressionTemporal.P_X) {
-				// TODO
-				throw new PrismException("CTL model checking of the A X operator is not yet supported");
+				res = checkNext(exprTemp, true, statesOfInterest);
 			}
 			// Until (AU)
 			else if (exprTemp.getOperator() == ExpressionTemporal.P_U) {
-				throw new PrismException("CTL model checking of the A U operator is not yet supported");
+				// Reduce to ENF (i.e. phi1 AU phi2 == !E[!phi2 U !phi1&!phi2] & !EG !phi2)
+				Expression notPhi1 = Expression.Not(exprTemp.getOperand1().deepCopy());
+				Expression notPhi2 = Expression.Not(exprTemp.getOperand2().deepCopy());
+				Expression notBoth = Expression.And(notPhi1.deepCopy(), notPhi2.deepCopy());
+				Expression lhs = new ExpressionTemporal(ExpressionTemporal.P_U, notPhi2, notBoth);
+				lhs = Expression.Not(new ExpressionExists(lhs));
+				Expression rhs = new ExpressionTemporal(ExpressionTemporal.P_G, null, notPhi2);
+				rhs = Expression.Not(new ExpressionExists(rhs));
+				Expression enf = Expression.And(lhs, rhs);
+				res = checkExpression(enf, statesOfInterest);
 			}
 			// Eventually (AF)
 			else if (exprTemp.getOperator() == ExpressionTemporal.P_F) {
-				// Reduce to EG (AF phi = !AG !phi)
+				// Reduce to EG (i.e. AF phi == !EG !phi)
 				ExpressionTemporal exprCopy = (ExpressionTemporal) exprTemp.deepCopy();
 				exprCopy.setOperator(ExpressionTemporal.P_G);
 				exprCopy.setOperand2(Expression.Not(exprCopy.getOperand2()));
-				res = checkExpressionExists(exprCopy);
+				res = checkExpressionExists(exprCopy, statesOfInterest);
 				res.subtractFromOne();
 			}
 			// Anything else - convert to until and recurse
 			else {
-				res = checkExpressionForAll(exprTemp.convertToUntilForm());
+				res = checkExpressionForAll(exprTemp.convertToUntilForm(), statesOfInterest);
 			}
 		}
 
@@ -214,9 +239,51 @@ public class NonProbModelChecker extends StateModelChecker
 	}
 
 	/**
-	 * Model check a CTL exists until (EU) operator.
+	 * Model check a CTL exists/forall next (EX/AX) operator.
+	 * The result will have valid results at least for the states of interest (use model.getReach().copy() for all reachable states)
+	 * <br>[ REFS: <i>result</i>, DEREFS: statesOfInterest ]
 	 */
-	protected StateValues checkExistsUntil(ExpressionTemporal expr) throws PrismException
+	protected StateValues checkNext(ExpressionTemporal expr, boolean forall, JDDNode statesOfInterest) throws PrismException
+	{
+		JDDNode b, transRel, pre;
+
+		// currently, ignore statesOfInterest
+		JDD.Deref(statesOfInterest);
+
+		// Model check operands first, statesOfInterest = all
+		b = checkExpressionDD(expr.getOperand2(), model.getReach().copy());
+
+		// Get transition relation
+		if (model.getModelType() == ModelType.MDP) {
+			JDD.Ref(trans01);
+			transRel = JDD.ThereExists(trans01, ((NondetModel) model).getAllDDNondetVars());
+		} else {
+			JDD.Ref(trans01);
+			transRel = trans01;
+		}
+
+		// Find predecessors
+		JDD.Ref(b);
+		JDD.Ref(transRel);
+		if (forall) {
+			pre = JDD.ForAll(JDD.Implies(transRel, JDD.PermuteVariables(b, allDDRowVars, allDDColVars)), allDDColVars);
+		} else {
+			pre = JDD.ThereExists(JDD.And(JDD.PermuteVariables(b, allDDRowVars, allDDColVars), transRel), allDDColVars);
+		}
+
+		// Derefs
+		JDD.Deref(b);
+		JDD.Deref(transRel);
+
+		return new StateValuesMTBDD(pre, model);
+	}
+
+	/**
+	 * Model check a CTL exists until (EU) operator.
+	 * The result will have valid results at least for the states of interest (use model.getReach().copy() for all reachable states)
+	 * <br>[ REFS: <i>result</i>, DEREFS: statesOfInterest ]
+	 */
+	protected StateValues checkExistsUntil(ExpressionTemporal expr, JDDNode statesOfInterest) throws PrismException
 	{
 		JDDNode b1, b2, transRel, tmp, tmp2, tmp3, init = null;
 		ArrayList<JDDNode> cexDDs = null;
@@ -226,10 +293,13 @@ public class NonProbModelChecker extends StateModelChecker
 		int iters, i;
 		long l;
 
-		// Model check operands first
-		b1 = checkExpressionDD(expr.getOperand1());
+		// currently, ignore statesOfInterest
+		JDD.Deref(statesOfInterest);
+
+		// Model check operands first, statesOfInterest = all
+		b1 = checkExpressionDD(expr.getOperand1(), model.getReach().copy());
 		try {
-			b2 = checkExpressionDD(expr.getOperand2());
+			b2 = checkExpressionDD(expr.getOperand2(), model.getReach().copy());
 		} catch (PrismException e) {
 			JDD.Deref(b1);
 			throw e;
@@ -375,8 +445,10 @@ public class NonProbModelChecker extends StateModelChecker
 
 	/**
 	 * Model check a CTL exists globally (EG) operator.
+	 * The result will have valid results at least for the states of interest (use model.getReach().copy() for all reachable states)
+	 * <br>[ REFS: <i>result</i>, DEREFS: statesOfInterest ]
 	 */
-	protected StateValues checkExistsGlobally(ExpressionTemporal expr) throws PrismException
+	protected StateValues checkExistsGlobally(ExpressionTemporal expr, JDDNode statesOfInterest) throws PrismException
 	{
 		JDDNode b2, transRel, tmp, tmp2;
 		boolean done;
@@ -387,8 +459,11 @@ public class NonProbModelChecker extends StateModelChecker
 		JDDNode notInSCCs = null;
 		int numSCCs = 0;
 
-		// Model check operand first
-		b2 = checkExpressionDD(expr.getOperand2());
+		// currently, ignore statesOfInterest
+		JDD.Deref(statesOfInterest);
+
+		// Model check operand first, statesOfInterest = all
+		b2 = checkExpressionDD(expr.getOperand2(), model.getReach().copy());
 
 		l = System.currentTimeMillis();
 

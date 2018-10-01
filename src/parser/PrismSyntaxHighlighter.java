@@ -65,6 +65,8 @@ public class PrismSyntaxHighlighter
 		puncReplaceFrom_HTML.add("<"); puncReplaceTo_HTML.add("&lt;");
 		puncReplaceFrom_HTML.add(">"); puncReplaceTo_HTML.add("&gt;");
 		puncReplaceFrom_LATEX = new ArrayList<String>(); puncReplaceTo_LATEX = new ArrayList<String>();
+		puncReplaceFrom_LATEX.add("\\{"); puncReplaceTo_LATEX.add("\\\\{");
+		puncReplaceFrom_LATEX.add("\\}"); puncReplaceTo_LATEX.add("\\\\}");
 		puncReplaceFrom_LATEX.add("&"); puncReplaceTo_LATEX.add("\\\\&");
 		puncReplaceFrom_LATEX.add("_"); puncReplaceTo_LATEX.add("\\\\_");
 		puncReplaceFrom_LATEX.add("%"); puncReplaceTo_LATEX.add("\\\\%");
@@ -72,13 +74,13 @@ public class PrismSyntaxHighlighter
 		puncReplaceFrom_LATEX.add("<="); puncReplaceTo_LATEX.add("\\${\\\\leq}\\$");
 		puncReplaceFrom_LATEX.add("->"); puncReplaceTo_LATEX.add("\\$\\\\rightarrow\\$");
 		puncReplaceFrom_LATEX.add("=>"); puncReplaceTo_LATEX.add("\\$\\\\Rightarrow\\$");
-		puncReplaceFrom_LATEX.add("\\{"); puncReplaceTo_LATEX.add("\\\\{");
-		puncReplaceFrom_LATEX.add("\\}"); puncReplaceTo_LATEX.add("\\\\}");
 		puncReplaceFrom_LATEX.add("="); puncReplaceTo_LATEX.add("\\${=}\\$");
 		puncReplaceFrom_LATEX.add(">"); puncReplaceTo_LATEX.add("\\${>}\\$");
 		puncReplaceFrom_LATEX.add("<"); puncReplaceTo_LATEX.add("\\${<}\\$");
 		puncReplaceFrom_LATEX.add("#"); puncReplaceTo_LATEX.add("\\\\#");
 		puncReplaceFrom_LATEXMATHS = new ArrayList<String>(); puncReplaceTo_LATEXMATHS = new ArrayList<String>();
+		puncReplaceFrom_LATEXMATHS.add("\\{"); puncReplaceTo_LATEXMATHS.add("\\\\{");
+		puncReplaceFrom_LATEXMATHS.add("\\}"); puncReplaceTo_LATEXMATHS.add("\\\\}");
 		puncReplaceFrom_LATEXMATHS.add("&"); puncReplaceTo_LATEXMATHS.add("\\\\&");
 		puncReplaceFrom_LATEXMATHS.add("_"); puncReplaceTo_LATEXMATHS.add("\\\\_");
 		puncReplaceFrom_LATEXMATHS.add("%"); puncReplaceTo_LATEXMATHS.add("\\\\%");
@@ -86,8 +88,6 @@ public class PrismSyntaxHighlighter
 		puncReplaceFrom_LATEXMATHS.add("<="); puncReplaceTo_LATEXMATHS.add("{\\\\leq}");
 		puncReplaceFrom_LATEXMATHS.add("->"); puncReplaceTo_LATEXMATHS.add("\\\\rightarrow");
 		puncReplaceFrom_LATEXMATHS.add("=>"); puncReplaceTo_LATEXMATHS.add("\\\\Rightarrow");
-		puncReplaceFrom_LATEXMATHS.add("\\{"); puncReplaceTo_LATEXMATHS.add("\\\\{");
-		puncReplaceFrom_LATEXMATHS.add("\\}"); puncReplaceTo_LATEXMATHS.add("\\\\}");
 		puncReplaceFrom_LATEXMATHS.add("="); puncReplaceTo_LATEXMATHS.add("{=}");
 		puncReplaceFrom_LATEXMATHS.add(">"); puncReplaceTo_LATEXMATHS.add("{>}");
 		puncReplaceFrom_LATEXMATHS.add("<"); puncReplaceTo_LATEXMATHS.add("{<}");
@@ -291,8 +291,10 @@ public class PrismSyntaxHighlighter
 						output(t.image, KEYWORD, oType);
 					else if (t.kind == PrismParserConstants.REG_INT || t.kind == PrismParserConstants.REG_DOUBLE)
 						output(t.image, NUMERIC, oType);
-					else if (t.kind == PrismParserConstants.REG_IDENT /* REMOVED by SHANE:
-						|| t.kind == PrismParserConstants.REG_IDENTPRIME */ )
+					else if (t.kind == PrismParserConstants.REG_IDENT 
+// REMOVED BY SHANE  (because he has removed this from the Grammar Specification in PrismParser.jj - and replaced it with other items)
+//  					|| t.kind == PrismParserConstants.REG_IDENTPRIME 
+					)
 						output(t.image, IDENTIFIER, oType);
 					else if (t.kind == PrismParserConstants.PREPROC)
 						output(t.image, PREPROC, oType);

@@ -84,14 +84,21 @@ public class PrismSettings implements Observer
 	public static final	String PRISM_COMPACT						= "prism.compact";
 	public static final	String PRISM_LIN_EQ_METHOD					= "prism.linEqMethod";//"prism.iterativeMethod";
 	public static final	String PRISM_LIN_EQ_METHOD_PARAM			= "prism.linEqMethodParam";//"prism.overRelaxation";
+	public static final String PRISM_TOPOLOGICAL_VI					= "prism.topologicalVI";
+	public static final	String PRISM_PMAX_QUOTIENT					= "prism.pmaxQuotient";
+	public static final	String PRISM_INTERVAL_ITER					= "prism.intervalIter";
+	public static final	String PRISM_INTERVAL_ITER_OPTIONS			= "prism.intervalIterOptions";
 	public static final	String PRISM_MDP_SOLN_METHOD				= "prism.mdpSolnMethod";
 	public static final	String PRISM_MDP_MULTI_SOLN_METHOD			= "prism.mdpMultiSolnMethod";
 	public static final	String PRISM_TERM_CRIT						= "prism.termCrit";//"prism.termination";
 	public static final	String PRISM_TERM_CRIT_PARAM				= "prism.termCritParam";//"prism.terminationEpsilon";
 	public static final	String PRISM_MAX_ITERS						= "prism.maxIters";//"prism.maxIterations";
+	public static final String PRISM_EXPORT_ITERATIONS				= "prism.exportIterations";
 	
 	public static final	String PRISM_CUDD_MAX_MEM					= "prism.cuddMaxMem";
 	public static final	String PRISM_CUDD_EPSILON					= "prism.cuddEpsilon";
+	public static final	String PRISM_DD_EXTRA_STATE_VARS				= "prism.ddExtraStateVars";
+	public static final	String PRISM_DD_EXTRA_ACTION_VARS				= "prism.ddExtraActionVars";
 	public static final	String PRISM_NUM_SB_LEVELS					= "prism.numSBLevels";//"prism.hybridNumLevels";
 	public static final	String PRISM_SB_MAX_MEM						= "prism.SBMaxMem";//"prism.hybridMaxMemory";
 	public static final	String PRISM_NUM_SOR_LEVELS					= "prism.numSORLevels";//"prism.hybridSORLevels";
@@ -106,6 +113,7 @@ public class PrismSettings implements Observer
 	public static final String PRISM_TRANSIENT_METHOD				= "prism.transientMethod";
 	public static final String PRISM_AR_OPTIONS					= "prism.arOptions";
 	public static final String PRISM_PATH_VIA_AUTOMATA				= "prism.pathViaAutomata";
+	public static final String PRISM_NO_DA_SIMPLIFY				= "prism.noDaSimplify";
 	public static final String PRISM_EXPORT_ADV					= "prism.exportAdv";
 	public static final String PRISM_EXPORT_ADV_FILENAME			= "prism.exportAdvFilename";
 	
@@ -115,7 +123,9 @@ public class PrismSettings implements Observer
 	
 	public static final String PRISM_LTL2DA_TOOL					= "prism.ltl2daTool";
 	public static final String PRISM_LTL2DA_SYNTAX					= "prism.ltl2daSyntax";
-	
+
+	public static final	String PRISM_JDD_SANITY_CHECKS					= "prism.ddsanity";
+
 	public static final	String PRISM_PARAM_ENABLED					= "prism.param.enabled";
 	public static final	String PRISM_PARAM_PRECISION				= "prism.param.precision";
 	public static final	String PRISM_PARAM_SPLIT					= "prism.param.split";
@@ -235,6 +245,14 @@ public class PrismSettings implements Observer
 																			"Which iterative method to use when solving linear equation systems." },
 			{ DOUBLE_TYPE,		PRISM_LIN_EQ_METHOD_PARAM,				"Over-relaxation parameter",			"2.1",			new Double(0.9),															"",																							
 																			"Over-relaxation parameter for iterative numerical methods such as JOR/SOR." },
+			{ BOOLEAN_TYPE,		PRISM_TOPOLOGICAL_VI,				"Use topological value iteration",				"4.3.1",		false,																		"",
+																			"Use topological value iteration in iterative numerical methods."},
+			{ BOOLEAN_TYPE,		PRISM_PMAX_QUOTIENT,				"For Pmax computations, compute in the MEC quotient",				"4.3.1",		false,																		"",
+																				"For Pmax computations, compute in the MEC quotient."},
+			{ BOOLEAN_TYPE,		PRISM_INTERVAL_ITER,				"Use interval iteration",				"4.3.1",		false,																		"",
+																				"Use interval iteration (from above and below) in iterative numerical methods."},
+			{ STRING_TYPE,		PRISM_INTERVAL_ITER_OPTIONS,				"Interval iteration options",				"4.3.1",		"",																		"",
+																	"Interval iteration options, a comma-separated list of the following:\n" + OptionsIntervalIteration.getOptionsDescription() },
 			{ CHOICE_TYPE,		PRISM_MDP_SOLN_METHOD,					"MDP solution method",				"4.0",			"Value iteration",																"Value iteration,Gauss-Seidel,Policy iteration,Modified policy iteration,Linear programming",
 																			"Which method to use when solving Markov decision processes." },
 			{ CHOICE_TYPE,		PRISM_MDP_MULTI_SOLN_METHOD,			"MDP multi-objective solution method",				"4.0.3",			"Value iteration",											"Value iteration,Gauss-Seidel,Linear programming",
@@ -245,6 +263,8 @@ public class PrismSettings implements Observer
 																			"Epsilon value to use for checking termination of iterative numerical methods." },
 			{ INTEGER_TYPE,		PRISM_MAX_ITERS,						"Termination max. iterations",			"2.1",			new Integer(10000),															"0,",																						
 																			"Maximum number of iterations to perform if iterative methods do not converge." },
+			{ BOOLEAN_TYPE,		PRISM_EXPORT_ITERATIONS,				"Export iterations (debug/visualisation)",			"4.3.1",			false,														"",
+																			"Export solution vectors for iteration algorithms to iterations.html"},
 			// MODEL CHECKING OPTIONS:
 			{ BOOLEAN_TYPE,		PRISM_PRECOMPUTATION,					"Use precomputation",					"2.1",			new Boolean(true),															"",																							
 																			"Whether to use model checking precomputation algorithms (Prob0, Prob1, etc.), where optional." },
@@ -272,6 +292,9 @@ public class PrismSettings implements Observer
 																			"Various options passed to the asbtraction-refinement engine (e.g. for PTA model checking)." },
 			{ BOOLEAN_TYPE,		PRISM_PATH_VIA_AUTOMATA,				"All path formulas via automata",			"4.2.1",			new Boolean(false),									"",
 																			"Handle all path formulas via automata constructions." },
+			{ BOOLEAN_TYPE,		PRISM_NO_DA_SIMPLIFY,				"Do not simplify deterministic automata",			"4.3",			new Boolean(false),									"",
+																			"Do not attempt to simplify deterministic automata, acceptance conditions (for debugging)." },
+
 			// MULTI-OBJECTIVE MODEL CHECKING OPTIONS:
 			{ INTEGER_TYPE,		PRISM_MULTI_MAX_POINTS,					"Max. multi-objective corner points",			"4.0.3",			new Integer(50),															"0,",																						
 																			"Maximum number of corner points to explore if (value iteration based) multi-objective model checking does not converge." },
@@ -297,10 +320,16 @@ public class PrismSettings implements Observer
 																			"Number of MTBDD levels descended for hybrid engine data structures block division with GS/SOR." },
 			{ INTEGER_TYPE,		PRISM_SOR_MAX_MEM,						"Hybrid GS memory (KB)",				"2.1",			new Integer(1024),															"0,",																						
 																			"Maximum memory usage for hybrid engine data structures block division with GS/SOR (KB)." },
-			{ STRING_TYPE,		PRISM_CUDD_MAX_MEM,						"CUDD max. memory (KB)",				"4.2.1",			new String("1g"),														"",																						
+			{ STRING_TYPE,		PRISM_CUDD_MAX_MEM,						"CUDD max. memory",				"4.2.1",			new String("1g"),														"",																						
 																			"Maximum memory available to CUDD (underlying BDD/MTBDD library), e.g. 125k, 50m, 4g. Note: Restart PRISM after changing this." },
 			{ DOUBLE_TYPE,		PRISM_CUDD_EPSILON,						"CUDD epsilon",							"2.1",			new Double(1.0E-15),														"0.0,",																						
 																			"Epsilon value used by CUDD (underlying BDD/MTBDD library) for terminal cache comparisons." },
+			{ INTEGER_TYPE,		PRISM_DD_EXTRA_STATE_VARS,				"Extra DD state var allocation",		"4.3.1",			new Integer(20),														"",
+																			"Number of extra DD state variables preallocated for use in model transformation." },
+			{ INTEGER_TYPE,		PRISM_DD_EXTRA_ACTION_VARS,				"Extra DD action var allocation",		"4.3.1",			new Integer(20),														"",
+																			"Number of extra DD action variables preallocated for use in model transformation." },
+
+
 			// ADVERSARIES/COUNTEREXAMPLES:
 			{ CHOICE_TYPE,		PRISM_EXPORT_ADV,						"Adversary export",						"3.3",			"None",																	"None,DTMC,MDP",																
 																			"Type of adversary to generate and export during MDP model checking" },
@@ -313,6 +342,10 @@ public class PrismSettings implements Observer
 
 			{ CHOICE_TYPE,		PRISM_LTL2DA_SYNTAX,					"LTL syntax for external LTL->DA tool",		"4.2.1",			"LBT",		"LBT,Spin,Spot,Rabinizer",
 																			"The syntax for LTL formulas passed to the external LTL->DA tool."},
+
+			// DEBUG / SANITY CHECK OPTIONS:
+			{ BOOLEAN_TYPE,		PRISM_JDD_SANITY_CHECKS,					"Do BDD sanity checks",			"4.3.1",			new Boolean(false),		"",
+																			"Perform internal sanity checks during computations (can cause significant slow-down)." },
 
 			// PARAMETRIC MODEL CHECKING
 			{ BOOLEAN_TYPE,		PRISM_PARAM_ENABLED,					"Do parametric model checking",			"4.1",			new Boolean(false),															"",
@@ -594,10 +627,66 @@ public class PrismSettings implements Observer
 			listener.notifySettings(this);
 		}
 	}
-	
+
+	/**
+	 * Get the default location of the settings file.
+	 * <br>
+	 * There is a legacy location (filename '.prism' in the user's
+	 * home directory), and a modern location, which depends on the
+	 * operating system:
+	 * <ul>
+	 * <li>For macOS, the location is $HOME/Library/Preferences/prism.settings</li>
+	 * <li>For Linux, the location depends on the environment variable $XDG_CONFIG_HOME;
+	 * if set, the location is $XDG_CONFIG_HOME/prism.settings;
+	 * if not, it's $HOME/.config/prism.settings</li>
+	 * <li>On Windows, only the legacy location is supported</li>
+	 * </ul>
+	 * <br>
+	 * If the legacy settings file exists, this method returns that location.
+	 * Otherwise, the modern location is returned.
+	 * <br>
+	 * To support different settings files in derived tools (e.g. prism-games),
+	 * the filename is derived from the tool name (see Prism.getToolName()).
+	 */
 	public File getLocationForSettingsFile()
 	{
-		return new File(System.getProperty("user.home")+File.separator+".prism");
+		String toolName = Prism.getToolName().toLowerCase();
+		File legacyConfigFile = new File(System.getProperty("user.home") +
+				File.separator + "." + toolName);
+		if (legacyConfigFile.exists() && !legacyConfigFile.isDirectory()) {
+			return legacyConfigFile;
+		}
+		
+		// Check for operating system, try XDG base directory specification if
+		// UNIX-like system (except for MacOS) is found
+		String os = System.getProperty("os.name").toLowerCase();
+		File config;
+		if (os.indexOf("win") >= 0) { // Windows
+			// use "$HOME\.prism"
+			config = new File(System.getProperty("user.home") +
+					File.separator + "." + toolName);
+		} else if (os.indexOf("mac") >= 0) { // MacOS
+			// use "$HOME/Library/Preferences/prism/prism.settings"
+			config = new File(System.getProperty("user.home") +
+					"/Library/Preferences/" + toolName + ".settings");
+		} else if (os.indexOf("nix") >= 0 || os.indexOf("nux") >= 0 ||
+				os.indexOf("aix") >= 0 || os.indexOf("sunos") >= 0 ||
+				os.indexOf("bsd") >= 0) { // Linux, AIX, Solaris, *BSD
+			// check for $XDG_CONFIG_HOME
+			String configBase = System.getenv("XDG_CONFIG_HOME");
+			if (configBase == null) {
+				configBase = System.getProperty("user.home") + "/.config";
+			}
+			if (configBase.endsWith("/")) {
+				configBase = configBase.substring(0, configBase.length() - 1);
+			}
+			config = new File(configBase + "/" + toolName + ".settings");
+		} else { // unknown operating system
+			// use "$HOME\.prism"
+			config = new File(System.getProperty("user.home") +
+					File.separator + "." + toolName);
+		}
+		return config;
 	}
 	
 	public synchronized void saveSettingsFile() throws PrismException
@@ -607,11 +696,26 @@ public class PrismSettings implements Observer
 	
 	public synchronized void saveSettingsFile(File file) throws PrismException
 	{
-		try
-		{
-			FileWriter out = new FileWriter(file);
+		// first, we ensure the directories for the file that don't exist yet
+		// are created
+		File parent = null;
+		try {
+			parent = file.getAbsoluteFile().getParentFile();
+			if (parent != null && !parent.exists()) {
+				parent.mkdirs();
+			}
+		} catch (Exception e) {
+			if (parent != null) {
+				throw new PrismException("Error creating required directories (" + parent + ") for file " + file + ": " +e.getMessage());
+			} else {
+				throw new PrismException("Error creating required directories for file " + file + ": " +e.getMessage());
+			}
+		}
+
+		// and now, we write the settings to file
+		try (FileWriter out = new FileWriter(file)) {
 			
-			out.write("# PRISM settings file\n");
+			out.write("# " + Prism.getToolName() + " settings file\n");
 			out.write("# (created by version "+Prism.getVersion()+")\n");
 			
 			for(int i = 0; i < optionOwners.length; i++)
@@ -784,7 +888,7 @@ public class PrismSettings implements Observer
 		// If necessary, resave the preferences file
 		if (resaveNeeded) {
 			try {
-				saveSettingsFile();
+				saveSettingsFile(file);
 			}
 			catch (PrismException e) {
 			}
@@ -823,8 +927,8 @@ public class PrismSettings implements Observer
 	
 	// Export property automaton info?
 	protected boolean exportPropAut = false;
-	protected String exportPropAutType = null;
-	protected String exportPropAutFilename = null;
+	protected String exportPropAutType = "txt";
+	protected String exportPropAutFilename = "da.txt";
 	
 	public void setExportPropAut(boolean b) throws PrismException
 	{
@@ -871,9 +975,10 @@ public class PrismSettings implements Observer
 		double d;
 		
 		// Process string (remove - and extract any options) 
-		Pair<String, Map<String, String>> pair = splitSwitch(args[i]);
+		Pair<String, String> pair = splitSwitch(args[i]);
 		String sw = pair.first;
-		Map<String, String> options = pair.second; 
+		String optionsString = pair.second;
+		Map<String, String> options = splitOptionsString(optionsString);
 		
 		// Note: the order of these switches should match the -help output (just to help keep track of things).
 		
@@ -965,6 +1070,40 @@ public class PrismSettings implements Observer
 			set(PRISM_MDP_SOLN_METHOD, "Linear programming");
 			set(PRISM_MDP_MULTI_SOLN_METHOD, "Linear programming");
 		}
+
+		// Interval iterations
+		else if (sw.equals("intervaliter") ||
+		         sw.equals("ii")) {
+			set(PRISM_INTERVAL_ITER, true);
+
+			if (optionsString != null) {
+				optionsString = optionsString.trim();
+				try {
+					OptionsIntervalIteration.validate(optionsString);
+				} catch (PrismException e) {
+					throw new PrismException("In options for -" + sw + " switch: " + e.getMessage());
+				}
+
+				// append options to existing ones
+				String iiOptions = getString(PRISM_INTERVAL_ITER_OPTIONS);
+				if ("".equals(iiOptions))
+					iiOptions = optionsString;
+				else
+					iiOptions += "," + optionsString;
+				set(PRISM_INTERVAL_ITER_OPTIONS, iiOptions);
+			}
+		}
+
+		// Pmax quotient
+		else if (sw.equals("pmaxquotient")) {
+			set(PRISM_PMAX_QUOTIENT, true);
+		}
+
+		// Topological VI
+		else if (sw.equals("topological")) {
+			set(PRISM_TOPOLOGICAL_VI, true);
+		}
+
 		// Linear equation solver over-relaxation parameter
 		else if (sw.equals("omega")) {
 			if (i < args.length - 1) {
@@ -1014,6 +1153,10 @@ public class PrismSettings implements Observer
 			} else {
 				throw new PrismException("No value specified for -" + sw + " switch");
 			}
+		}
+		// export iterations
+		else if (sw.equals("exportiterations")) {
+			set(PRISM_EXPORT_ITERATIONS, true);
 		}
 		
 		// MODEL CHECKING OPTIONS:
@@ -1110,6 +1253,11 @@ public class PrismSettings implements Observer
 		else if (sw.equals("pathviaautomata")) {
 			set(PRISM_PATH_VIA_AUTOMATA, true);
 		}
+		// Don't simplify deterministic automata
+		else if (sw.equals("nodasimplify")) {
+			set(PRISM_NO_DA_SIMPLIFY, true);
+		}
+
 		
 		// MULTI-OBJECTIVE MODEL CHECKING OPTIONS:
 		
@@ -1252,6 +1400,32 @@ public class PrismSettings implements Observer
 			} else {
 				throw new PrismException("No value specified for -" + sw + " switch");
 			}
+		} else if (sw.equals("ddextrastatevars")) {
+			if (i < args.length - 1) {
+				try {
+					int v = Integer.parseInt(args[++i]);
+					if (v < 0)
+						throw new NumberFormatException("");
+					set(PRISM_DD_EXTRA_STATE_VARS, v);
+				} catch (NumberFormatException e) {
+					throw new PrismException("Invalid value for -" + sw + " switch");
+				}
+			} else {
+				throw new PrismException("No value specified for -" + sw + " switch");
+			}
+		} else if (sw.equals("ddextraactionvars")) {
+			if (i < args.length - 1) {
+				try {
+					int v = Integer.parseInt(args[++i]);
+					if (v < 0)
+						throw new NumberFormatException("");
+					set(PRISM_DD_EXTRA_ACTION_VARS, v);
+				} catch (NumberFormatException e) {
+					throw new PrismException("Invalid value for -" + sw + " switch");
+				}
+			} else {
+				throw new PrismException("No value specified for -" + sw + " switch");
+			}
 		}
 		
 		// ADVERSARIES/COUNTEREXAMPLES:
@@ -1281,7 +1455,6 @@ public class PrismSettings implements Observer
 			if (i < args.length - 1) {
 				String filename = args[++i];
 				set(PRISM_LTL2DA_TOOL, filename);
-				System.out.println(getString(PRISM_LTL2DA_TOOL));
 			} else {
 				throw new PrismException("The -" + sw + " switch requires one argument (path to the executable)");
 			}
@@ -1298,6 +1471,7 @@ public class PrismSettings implements Observer
 					break;
 				case "spot":
 					set(PRISM_LTL2DA_SYNTAX, "Spot");
+					break;
 				case "rabinizer":
 					set(PRISM_LTL2DA_SYNTAX, "Rabinizer");
 					break;
@@ -1307,6 +1481,11 @@ public class PrismSettings implements Observer
 			} else {
 				throw new PrismException("The -" + sw + " switch requires one argument (options are: lbt, spin, spot, rabinizer)");
 			}
+		}
+
+		// DEBUGGING / SANITY CHECKS
+		else if (sw.equals("ddsanity")) {
+			set(PRISM_JDD_SANITY_CHECKS, true);
 		}
 
 		// PARAMETRIC MODEL CHECKING:
@@ -1494,11 +1673,14 @@ public class PrismSettings implements Observer
 			if (i < args.length - 1) {
 				setExportPropAut(true);
 				setExportPropAutFilename(args[++i]);
+				setExportPropAutType("txt");  // default
 				for (Map.Entry<String, String> option : options.entrySet()) {
 				    if (option.getKey().equals("txt")) {
 						setExportPropAutType("txt");
 				    } else if (option.getKey().equals("dot")) {
 						setExportPropAutType("dot");
+				    } else if (option.getKey().equals("hoa")) {
+						setExportPropAutType("hoa");
 				    } else {
 				    		throw new PrismException("Unknown option \"" + option.getKey() + "\" for -" + sw + " switch"); 
 				    }
@@ -1522,9 +1704,9 @@ public class PrismSettings implements Observer
 	 * When present, the options is a comma-separated list of "option" or "option=value" items.
 	 * The switch itself can be prefixed with either 1 or 2 hyphens.
 	 * 
-	 * @return a pair containing the switch name and a mapping from options to values.  
+	 * @return a pair containing the switch name and the (optional, may be null) options part
 	 */
-	private static Pair<String, Map<String, String>> splitSwitch(String sw) throws PrismException
+	private static Pair<String, String> splitSwitch(String sw)
 	{
 		// Remove "-"
 		sw = sw.substring(1);
@@ -1533,21 +1715,40 @@ public class PrismSettings implements Observer
 			sw = sw.substring(1);
 		// Extract options, if present
 		int i = sw.indexOf(':');
-		Map<String,String> map = new HashMap<String, String>();
+
+		String optionsString = null;
 		if (i != -1) {
-			String optionsString = sw.substring(i + 1);
+			optionsString = sw.substring(i + 1);
 			sw = sw.substring(0, i);
-			String options[] = optionsString.split(",");
-			for (String option : options) {
-				int j = option.indexOf("=");
-				if (j == -1) {
-					map.put(option, null);
-				} else {
-					map.put(option.substring(0,j), option.substring(j+1));
-				}
+		}
+
+		return new Pair<String, String>(sw, optionsString);
+	}
+
+	/**
+	 * Split an options string (see splitSwitch)
+	 * into a map from options to values.
+	 * <br>
+	 * For "option" options, the value is {@code null}.
+	 * @return a mapping from options to values.
+	 */
+	private static Map<String, String> splitOptionsString(String optionsString)
+	{
+		Map<String,String> map = new HashMap<String, String>();
+		if (optionsString == null || "".equals(optionsString))
+			return map;
+
+		String options[] = optionsString.split(",");
+		for (String option : options) {
+			int j = option.indexOf("=");
+			if (j == -1) {
+				map.put(option, null);
+			} else {
+				map.put(option.substring(0,j), option.substring(j+1));
 			}
 		}
-		return new Pair<String, Map<String,String>>(sw, map);
+
+		return map;
 	}
 
 	/**
@@ -1585,12 +1786,15 @@ public class PrismSettings implements Observer
 		mainLog.println("-gaussseidel (or -gs) .......... Use Gauss-Seidel value iteration for solving MDPs");
 		mainLog.println("-politer ....................... Use policy iteration for solving MDPs");
 		mainLog.println("-modpoliter .................... Use modified policy iteration for solving MDPs");
+		mainLog.println("-intervaliter (or -ii) ......... Use interval iteration to solve MDPs/MCs (see -help -ii)");
+		mainLog.println("-topological ................... Use topological value iteration");
 		mainLog.println();
 		mainLog.println("SOLUTION METHOD SETTINGS");
 		mainLog.println("-relative (or -rel) ............ Use relative error for detecting convergence [default]");
 		mainLog.println("-absolute (or -abs) ............ Use absolute error for detecting convergence");
 		mainLog.println("-epsilon <x> (or -e <x>) ....... Set value of epsilon (for convergence check) [default: 1e-6]");
 		mainLog.println("-maxiters <n> .................. Set max number of iterations [default: 10000]");
+		
 		mainLog.println();
 		mainLog.println("MODEL CHECKING OPTIONS:");
 		mainLog.println("-nopre ......................... Skip precomputation algorithms (where optional)");
@@ -1609,10 +1813,13 @@ public class PrismSettings implements Observer
 		mainLog.println("-symm <string> ................. Symmetry reduction options string");
 		mainLog.println("-aroptions <string> ............ Abstraction-refinement engine options string");
 		mainLog.println("-pathviaautomata ............... Handle all path formulas via automata constructions");
+		mainLog.println("-nodasimplify .................. Do not attempt to simplify deterministic automata, acceptance conditions");
 		mainLog.println("-exportadv <file> .............. Export an adversary from MDP model checking (as a DTMC)");
 		mainLog.println("-exportadvmdp <file> ........... Export an adversary from MDP model checking (as an MDP)");
 		mainLog.println("-ltl2datool <exec> ............. Run executable <exec> to convert LTL formulas to deterministic automata");
 		mainLog.println("-ltl2dasyntax <x> .............. Specify output format for -ltl2datool switch (lbt, spin, spot, rabinizer)");
+		mainLog.println("-exportiterations .............. Export vectors for iteration algorithms to file");
+		mainLog.println("-pmaxquotient .................. For Pmax computations in MDPs, compute in the MEC quotient");
 		
 		mainLog.println();
 		mainLog.println("MULTI-OBJECTIVE MODEL CHECKING:");
@@ -1634,6 +1841,9 @@ public class PrismSettings implements Observer
 		mainLog.println("-gsmax <n> (or sormax <n>) ..... Set memory limit (KB) for hybrid GS/SOR [default: 1024]");
 		mainLog.println("-cuddmaxmem <n> ................ Set max memory for CUDD package, e.g. 125k, 50m, 4g [default: 1g]");
 		mainLog.println("-cuddepsilon <x> ............... Set epsilon value for CUDD package [default: 1e-15]");
+		mainLog.println("-ddsanity ...................... Enable internal sanity checks (causes slow-down)");
+		mainLog.println("-ddextrastatevars <n> .......... Set the number of preallocated state vars [default: 20]");
+		mainLog.println("-ddextraactionvars <n> ......... Set the number of preallocated action vars [default: 20]");
 		mainLog.println();
 		mainLog.println("PARAMETRIC MODEL CHECKING OPTIONS:");
 		mainLog.println("-param <vals> .................. Do parametric model checking with parameters (and ranges) <vals>");
@@ -1667,6 +1877,14 @@ public class PrismSettings implements Observer
 			QuantAbstractRefine.printOptions(mainLog);
 			return true;
 		}
+		else if (sw.equals("ii") || sw.equals("intervaliter")) {
+			mainLog.println("Switch: -intervaliter (or -ii) optionally takes a comma-separated list of options:\n");
+			mainLog.println(" -intervaliter:option1,option2,...\n");
+			mainLog.println("where the options are one of the following:\n");
+			mainLog.println(OptionsIntervalIteration.getOptionsDescription());
+			return true;
+		}
+
 		return false;
 	}
 	

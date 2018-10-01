@@ -27,7 +27,7 @@
 
 // includes
 #include "PrismSparse.h"
-#include <math.h>
+#include <cmath>
 #include <util.h>
 #include <cudd.h>
 #include <dd.h>
@@ -185,19 +185,19 @@ JNIEXPORT jdouble __jlongpointer JNICALL Java_sparse_PrismSparse_PS_1NondetMulti
     PS_PrintToMainLog(env, "%d Target combinations:\n", num_combinations);
     for (i = 0; i < num_combinations; i++) {
       PS_PrintToMainLog(env, "#%d: ", i);
-      PS_PrintToMainLog(env, "%d ", combinationIDs[i]);
+      PS_PrintToMainLog(env, "%d ", (int)combinationIDs[i]);
       PS_PrintToMainLog(env, " (%.0f states)\n", DD_GetNumMinterms(ddman, combinations[i], num_rvars));
     }
 
     // Display some info about the rewards
     PS_PrintToMainLog(env, "\n%d Rewards:\n", num_rewards);
-    //bool disable_selfloop = true;
+    bool disable_selfloop = true;
     for (i = 0; i < num_rewards; i++) {
       PS_PrintToMainLog(env, "#%d: ", i);
       switch (relopsReward[i]) {
-      case 3: PS_PrintToMainLog(env, "Rmax=?\n"); /*disable_selfloop = false;*/ break;
+      case 3: PS_PrintToMainLog(env, "Rmax=?\n"); disable_selfloop = false; break;
       case 8: PS_PrintToMainLog(env, "Rmin=?\n"); break;
-      case 4: PS_PrintToMainLog(env, "R>=%g\n", boundsReward[i]); /*disable_selfloop = false;*/ break;
+      case 4: PS_PrintToMainLog(env, "R>=%g\n", boundsReward[i]); disable_selfloop = false; break;
       case 9: PS_PrintToMainLog(env, "R<=%g\n", boundsReward[i]); break;
       }
     }
@@ -219,11 +219,13 @@ JNIEXPORT jdouble __jlongpointer JNICALL Java_sparse_PrismSparse_PS_1NondetMulti
 
     // For efficiency, remove any probability 1 self-loops from the model.
     // For multi-objective, we always do maximum reachability, so these do not matter.
-    Cudd_Ref(a);
-    loops = DD_And(ddman, DD_Equals(ddman, a, 1.0), DD_Identity(ddman, rvars, cvars, num_rvars));
-    loops = DD_ThereExists(ddman, loops, cvars, num_rvars);
-    Cudd_Ref(loops);
-    a = DD_ITE(ddman, loops, DD_Constant(ddman, 0), a);
+    if(!disable_selfloop) {
+	    Cudd_Ref(a);
+	    loops = DD_And(ddman, DD_Equals(ddman, a, 1.0), DD_Identity(ddman, rvars, cvars, num_rvars));
+	    loops = DD_ThereExists(ddman, loops, cvars, num_rvars);
+	    Cudd_Ref(loops);
+	    a = DD_ITE(ddman, loops, DD_Constant(ddman, 0), a);
+    }
     
     // Get number of states
     n = odd->eoff + odd->toff;
@@ -237,7 +239,7 @@ JNIEXPORT jdouble __jlongpointer JNICALL Java_sparse_PrismSparse_PS_1NondetMulti
     kb = ndsm->mem;
     kbt = kb;
     // print out info
-    PS_PrintToMainLog(env, "[n=%d, nc=%d, nnz=%d, k=%d] ", n, nc, nnz, ndsm->k);
+    PS_PrintToMainLog(env, "[n=%d, nc=%d, nnz=%ld, k=%d] ", n, nc, nnz, ndsm->k);
     PS_PrintMemoryToMainLog(env, "[", kb, "]\n");
 
     // If needed, and if info is available, build a vector of action indices for the MDP
@@ -259,7 +261,7 @@ JNIEXPORT jdouble __jlongpointer JNICALL Java_sparse_PrismSparse_PS_1NondetMulti
         // also extract list of action names from 'synchs'
         get_string_array_from_java(env, synchs, action_names_jstrings, action_names, num_actions);
       } else {
-        PS_PrintWarningToMainLog(env, "Action labels are not available for adversary generation.", export_adv_filename);
+        PS_PrintWarningToMainLog(env, "Action labels are not available for adversary generation.");
       }
     }
   
@@ -424,18 +426,18 @@ JNIEXPORT jdouble __jlongpointer JNICALL Java_sparse_PrismSparse_PS_1NondetMulti
     int *constraints_sp;
     int *constraints_ints;
     double *constraints_reals;
-    unsigned long *constraints_int_ptr;
-    unsigned long *constraints_real_ptr;
+    int **constraints_int_ptr;
+    double **constraints_real_ptr;
     constraints_sp = new int[n];
-    constraints_int_ptr = new unsigned long[n];
-    constraints_real_ptr = new unsigned long[n];
+    constraints_int_ptr = new int*[n];
+    constraints_real_ptr = new double*[n];
     for(i=0; i<n; i++)
       if(maybe_vec[i]> 0 || yes_vec[i]> 0) {
         constraints_ints = new int[arr_ints[i]];
         constraints_reals = new REAL[arr_ints[i]];
         constraints_sp[i] = map_var[i+1]-map_var[i];
-        constraints_int_ptr[i] = (unsigned long)constraints_ints;
-        constraints_real_ptr[i] = (unsigned long)constraints_reals;
+        constraints_int_ptr[i] = constraints_ints;
+        constraints_real_ptr[i] = constraints_reals;
         for(j=0; j<map_var[i+1]-map_var[i]; j++) {
           constraints_ints[j] = map_var[i] + j + 1;
           constraints_reals[j] = 1.0;
@@ -479,8 +481,8 @@ JNIEXPORT jdouble __jlongpointer JNICALL Java_sparse_PrismSparse_PS_1NondetMulti
             // get the index of the corresponding variable
             i = cols[k];
             if(maybe_vec[i]> 0 || yes_vec[i]> 0) {
-              constraints_ints = (int *)constraints_int_ptr[i];
-              constraints_reals = (double *)constraints_real_ptr[i];
+              constraints_ints = constraints_int_ptr[i];
+              constraints_reals = constraints_real_ptr[i];
               for(k_r=0; k_r<constraints_sp[i]; k_r++)
                 if(constraints_ints[k_r]==map_var[x]+j-l1-count + 1)
                   break;
@@ -514,8 +516,8 @@ JNIEXPORT jdouble __jlongpointer JNICALL Java_sparse_PrismSparse_PS_1NondetMulti
     
     for (i = 0; i < n; i++)
       if (maybe_vec[i]> 0 || yes_vec[i]> 0) {
-        constraints_ints = (int *)constraints_int_ptr[i];
-        constraints_reals = (double *)constraints_real_ptr[i];
+        constraints_ints = constraints_int_ptr[i];
+        constraints_reals = constraints_real_ptr[i];
         add_constraintex(lp, constraints_sp[i], constraints_reals, constraints_ints, EQ, (start_index==i ? 1.0 : 0.0));
         delete[] constraints_ints;
         delete[] constraints_reals;
@@ -651,7 +653,7 @@ JNIEXPORT jdouble __jlongpointer JNICALL Java_sparse_PrismSparse_PS_1NondetMulti
     // Set objective function for LP
     PS_PrintToMainLog(env, "Setting objective...\n");
     isMax = true;
-    if(relops[0] == 0) {
+    if(num_targets > 0 && relops[0] == 0) {
       x = 0;
       for(i=0; i<n; i++) {
         varsp = 0;

@@ -31,6 +31,8 @@ import java.util.BitSet;
 import java.util.List;
 import java.util.Map;
 
+import common.IterableBitSet;
+
 import parser.ast.Expression;
 import prism.PrismComponent;
 import prism.PrismException;
@@ -68,7 +70,7 @@ public class STPGModelChecker extends ProbModelChecker
 	 * i.e. compute the probability of being in a state in {@code target} in the next step.
 	 * @param stpg The STPG
 	 * @param target Target states
-	 * @param min1 Min or max probabilities for player 1 (true=lower bound, false=upper bound)
+	 * @param min1 Min or max probabilities for player 1 (true=min, false=max)
 	 * @param min2 Min or max probabilities for player 2 (true=min, false=max)
 	 */
 	public ModelCheckerResult computeNextProbs(STPG stpg, BitSet target, boolean min1, boolean min2) throws PrismException
@@ -103,7 +105,7 @@ public class STPGModelChecker extends ProbModelChecker
 	 * i.e. compute the min/max probability of reaching a state in {@code target}.
 	 * @param stpg The STPG
 	 * @param target Target states
-	 * @param min1 Min or max probabilities for player 1 (true=lower bound, false=upper bound)
+	 * @param min1 Min or max probabilities for player 1 (true=min, false=max)
 	 * @param min2 Min or max probabilities for player 2 (true=min, false=max)
 	 */
 	public ModelCheckerResult computeReachProbs(STPG stpg, BitSet target, boolean min1, boolean min2) throws PrismException
@@ -114,11 +116,11 @@ public class STPGModelChecker extends ProbModelChecker
 	/**
 	 * Compute until probabilities.
 	 * i.e. compute the min/max probability of reaching a state in {@code target},
-	 * while remaining in those in @{code remain}.
+	 * while remaining in those in {@code remain}.
 	 * @param stpg The STPG
 	 * @param remain Remain in these states (optional: null means "all")
 	 * @param target Target states
-	 * @param min1 Min or max probabilities for player 1 (true=lower bound, false=upper bound)
+	 * @param min1 Min or max probabilities for player 1 (true=min, false=max)
 	 * @param min2 Min or max probabilities for player 2 (true=min, false=max)
 	 */
 	public ModelCheckerResult computeUntilProbs(STPG stpg, BitSet remain, BitSet target, boolean min1, boolean min2) throws PrismException
@@ -129,11 +131,11 @@ public class STPGModelChecker extends ProbModelChecker
 	/**
 	 * Compute reachability/until probabilities.
 	 * i.e. compute the min/max probability of reaching a state in {@code target},
-	 * while remaining in those in @{code remain}.
+	 * while remaining in those in {@code remain}.
 	 * @param stpg The STPG
 	 * @param remain Remain in these states (optional: null means "all")
 	 * @param target Target states
-	 * @param min1 Min or max probabilities for player 1 (true=lower bound, false=upper bound)
+	 * @param min1 Min or max probabilities for player 1 (true=min, false=max)
 	 * @param min2 Min or max probabilities for player 2 (true=min, false=max)
 	 * @param init Optionally, an initial solution vector (may be overwritten) 
 	 * @param known Optionally, a set of states for which the exact answer is known
@@ -144,7 +146,7 @@ public class STPGModelChecker extends ProbModelChecker
 	{
 		ModelCheckerResult res = null;
 		BitSet no, yes;
-		int i, n, numYes, numNo;
+		int n, numYes, numNo;
 		long timer, timerProb0, timerProb1;
 		boolean genAdv;
 
@@ -168,10 +170,12 @@ public class STPGModelChecker extends ProbModelChecker
 		n = stpg.getNumStates();
 
 		// Optimise by enlarging target set (if more info is available)
-		if (init != null && known != null) {
-			BitSet targetNew = new BitSet(n);
-			for (i = 0; i < n; i++) {
-				targetNew.set(i, target.get(i) || (known.get(i) && init[i] == 1.0));
+		if (init != null && known != null && !known.isEmpty()) {
+			BitSet targetNew = (BitSet) target.clone();
+			for (int i : new IterableBitSet(known)) {
+				if (init[i] == 1.0) {
+					targetNew.set(i);
+				}
 			}
 			target = targetNew;
 		}
@@ -226,12 +230,12 @@ public class STPGModelChecker extends ProbModelChecker
 	/**
 	 * Prob0 precomputation algorithm.
 	 * i.e. determine the states of an STPG which, with min/max probability 0,
-	 * reach a state in {@code target}, while remaining in those in @{code remain}.
+	 * reach a state in {@code target}, while remaining in those in {@code remain}.
 	 * {@code min}=true gives Prob0E, {@code min}=false gives Prob0A. 
 	 * @param stpg The STPG
 	 * @param remain Remain in these states (optional: null means "all")
 	 * @param target Target states
-	 * @param min1 Min or max probabilities for player 1 (true=lower bound, false=upper bound)
+	 * @param min1 Min or max probabilities for player 1 (true=min, false=max)
 	 * @param min2 Min or max probabilities for player 2 (true=min, false=max)
 	 */
 	public BitSet prob0(STPG stpg, BitSet remain, BitSet target, boolean min1, boolean min2)
@@ -299,11 +303,11 @@ public class STPGModelChecker extends ProbModelChecker
 	/**
 	 * Prob1 precomputation algorithm.
 	 * i.e. determine the states of an STPG which, with min/max probability 1,
-	 * reach a state in {@code target}, while remaining in those in @{code remain}.
+	 * reach a state in {@code target}, while remaining in those in {@code remain}.
 	 * @param stpg The STPG
 	 * @param remain Remain in these states (optional: null means "all")
 	 * @param target Target states
-	 * @param min1 Min or max probabilities for player 1 (true=lower bound, false=upper bound)
+	 * @param min1 Min or max probabilities for player 1 (true=min, false=max)
 	 * @param min2 Min or max probabilities for player 2 (true=min, false=max)
 	 */
 	public BitSet prob1(STPG stpg, BitSet remain, BitSet target, boolean min1, boolean min2)
@@ -381,7 +385,7 @@ public class STPGModelChecker extends ProbModelChecker
 	 * @param stpg The STPG
 	 * @param no Probability 0 states
 	 * @param yes Probability 1 states
-	 * @param min1 Min or max probabilities for player 1 (true=lower bound, false=upper bound)
+	 * @param min1 Min or max probabilities for player 1 (true=min, false=max)
 	 * @param min2 Min or max probabilities for player 2 (true=min, false=max)
 	 * @param init Optionally, an initial solution vector (will be overwritten) 
 	 * @param known Optionally, a set of states for which the exact answer is known
@@ -498,7 +502,7 @@ public class STPGModelChecker extends ProbModelChecker
 	 * @param stpg The STPG
 	 * @param no Probability 0 states
 	 * @param yes Probability 1 states
-	 * @param min1 Min or max probabilities for player 1 (true=lower bound, false=upper bound)
+	 * @param min1 Min or max probabilities for player 1 (true=min, false=max)
 	 * @param min2 Min or max probabilities for player 2 (true=min, false=max)
 	 * @param init Optionally, an initial solution vector (will be overwritten) 
 	 * @param known Optionally, a set of states for which the exact answer is known
@@ -606,7 +610,7 @@ public class STPGModelChecker extends ProbModelChecker
 	 * @param stpg The STPG
 	 * @param target Target states
 	 * @param k Bound
-	 * @param min1 Min or max probabilities for player 1 (true=lower bound, false=upper bound)
+	 * @param min1 Min or max probabilities for player 1 (true=min, false=max)
 	 * @param min2 Min or max probabilities for player 2 (true=min, false=max)
 	 */
 	public ModelCheckerResult computeBoundedReachProbs(STPG stpg, BitSet target, int k, boolean min1, boolean min2) throws PrismException
@@ -617,12 +621,12 @@ public class STPGModelChecker extends ProbModelChecker
 	/**
 	 * Compute bounded until probabilities.
 	 * i.e. compute the min/max probability of reaching a state in {@code target},
-	 * within k steps, and while remaining in states in @{code remain}.
+	 * within k steps, and while remaining in states in {@code remain}.
 	 * @param stpg The STPG
 	 * @param remain Remain in these states (optional: null means "all")
 	 * @param target Target states
 	 * @param k Bound
-	 * @param min1 Min or max probabilities for player 1 (true=lower bound, false=upper bound)
+	 * @param min1 Min or max probabilities for player 1 (true=min, false=max)
 	 * @param min2 Min or max probabilities for player 2 (true=min, false=max)
 	 */
 	public ModelCheckerResult computeBoundedUntilProbs(STPG stpg, BitSet remain, BitSet target, int k, boolean min1, boolean min2) throws PrismException
@@ -633,12 +637,12 @@ public class STPGModelChecker extends ProbModelChecker
 	/**
 	 * Compute bounded reachability/until probabilities.
 	 * i.e. compute the min/max probability of reaching a state in {@code target},
-	 * within k steps, and while remaining in states in @{code remain}.
+	 * within k steps, and while remaining in states in {@code remain}.
 	 * @param stpg The STPG
 	 * @param remain Remain in these states (optional: null means "all")
 	 * @param target Target states
 	 * @param k Bound
-	 * @param min1 Min or max probabilities for player 1 (true=lower bound, false=upper bound)
+	 * @param min1 Min or max probabilities for player 1 (true=min, false=max)
 	 * @param min2 Min or max probabilities for player 2 (true=min, false=max)
 	 * @param init Initial solution vector - pass null for default
 	 * @param results Optional array of size k+1 to store (init state) results for each step (null if unused)
@@ -746,7 +750,7 @@ public class STPGModelChecker extends ProbModelChecker
 	{
 		ModelCheckerResult res = null;
 		BitSet inf;
-		int i, n, numTarget, numInf;
+		int n, numTarget, numInf;
 		long timer, timerProb1;
 
 		// Start expected reachability
@@ -761,10 +765,12 @@ public class STPGModelChecker extends ProbModelChecker
 		n = stpg.getNumStates();
 
 		// Optimise by enlarging target set (if more info is available)
-		if (init != null && known != null) {
-			BitSet targetNew = new BitSet(n);
-			for (i = 0; i < n; i++) {
-				targetNew.set(i, target.get(i) || (known.get(i) && init[i] == 0.0));
+		if (init != null && known != null && !known.isEmpty()) {
+			BitSet targetNew = (BitSet) target.clone();
+			for (int i : new IterableBitSet(known)) {
+				if (init[i] == 1.0) {
+					targetNew.set(i);
+				}
 			}
 			target = targetNew;
 		}
@@ -912,8 +918,9 @@ public class STPGModelChecker extends ProbModelChecker
 			mc = new STPGModelChecker(null);
 			stpg = new STPGAbstrSimple();
 			stpg.buildFromPrismExplicit(args[0]);
+			stpg.addInitialState(0);
 			//System.out.println(stpg);
-			labels = mc.loadLabelsFile(args[1]);
+			labels = StateModelChecker.loadLabelsFile(args[1]);
 			//System.out.println(labels);
 			target = labels.get(args[2]);
 			if (target == null)

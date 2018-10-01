@@ -68,7 +68,7 @@ public class Modules2PTA extends PrismComponent
 	public PTA translate() throws PrismLangException
 	{
 		int i, numModules;
-		Module module, moduleNew;
+		parser.ast.Module module, moduleNew;
 		ArrayList<String> nonClocks;
 		ArrayList<String> allNonClocks = new ArrayList<String>();
 		ArrayList<ArrayList<State>> pcStates;
@@ -85,15 +85,15 @@ public class Modules2PTA extends PrismComponent
 		// Check for inter-module variable references 
 		modulesFile.accept(new ASTTraverse()
 		{
-			private Module inModule = null;
+			private parser.ast.Module inModule = null;
 
-			public void visitPre(Module e) throws PrismLangException
+			public void visitPre(parser.ast.Module e) throws PrismLangException
 			{
 				// Register the fact we are entering a module
 				inModule = e;
 			}
 
-			public void visitPost(Module e) throws PrismLangException
+			public void visitPost(parser.ast.Module e) throws PrismLangException
 			{
 				// Register the fact we are leaving a module
 				inModule = null;
@@ -165,7 +165,7 @@ public class Modules2PTA extends PrismComponent
 	 * Translate a single module.
 	 * (Which has been transformed using convertModuleToPCForm)
 	 */
-	private PTA translateModule(Module module, ArrayList<State> pcStates) throws PrismLangException
+	private PTA translateModule(parser.ast.Module module, ArrayList<State> pcStates) throws PrismLangException
 	{
 		// Clocks and PC variable stuff
 		ArrayList<String> clocks;
@@ -186,9 +186,6 @@ public class Modules2PTA extends PrismComponent
 		double prob, probSum;
 
 		// Determine PC variable and clock variables in module
-			// NOTE: Due to the convertModuleToPCForm method having been called already, 
-			// This means that the 0th declaration in the module, will be a DeclarationInt, whose meaning
-			// is that it is the PC.
 		pc = module.getDeclaration(0).getName();
 		pcMax = ((DeclarationInt) module.getDeclaration(0).getDeclType()).getHigh().evaluateInt();
 		numVars = module.getNumDeclarations();
@@ -198,7 +195,7 @@ public class Modules2PTA extends PrismComponent
 		}
 
 		// Create new PTA and add a clock for each clock variable
-		pta = new PTA();
+		pta = new PTA(new ArrayList<String>(module.getAllSynchs()));
 		for (String clockName : clocks)
 			pta.addClock(clockName);
 
@@ -489,7 +486,7 @@ public class Modules2PTA extends PrismComponent
 	 * @param pcVars: The variables that should be converted to a PC.
 	 * @param pcStates: An empty ArrayList into which PC value states will be stored.
 	 */
-	private Module convertModuleToPCForm(Module module, List<String> pcVars, ArrayList<State> pcStates) throws PrismLangException
+	private parser.ast.Module convertModuleToPCForm(parser.ast.Module module, List<String> pcVars, ArrayList<State> pcStates) throws PrismLangException
 	{
 		// Info about variables in model to be used as program counter
 		int pcNumVars;
@@ -497,7 +494,7 @@ public class Modules2PTA extends PrismComponent
 		// info about new program counter var
 		String pc;
 		// Components of old and new module 
-		Module moduleNew;
+		parser.ast.Module moduleNew;
 		Declaration decl, declNew;
 		Command command, commandNew;
 		Expression guard, guardNew;
@@ -548,7 +545,10 @@ public class Modules2PTA extends PrismComponent
 		}
 
 		// Create a new module
-		moduleNew = new Module(module.getName());
+		moduleNew = new parser.ast.Module(module.getName());
+		
+		// Preserve alphabet of old module (might change if some commands are not enabled)
+		moduleNew.setAlphabet(module.getAllSynchs());
 
 		// Create invariant - will be constructed below
 		invarNew = null;
@@ -609,7 +609,15 @@ public class Modules2PTA extends PrismComponent
 									updateNew.addElement(update.getVarIdent(k), update.getExpression(k));
 								}
 							}
-							updatesNew.addUpdate(updates.getProbability(j), updateNew);
+							// we translate the probability as well, as it may reference states
+							Expression probNew = updates.getProbability(j);
+							if (probNew != null) {
+								// if probability expression is null, it implicitly encodes probability 1,
+								// so we don't have to change anything
+								probNew = probNew.deepCopy();
+								probNew = (Expression) probNew.evaluatePartially(state, varMap).simplify();
+							}
+							updatesNew.addUpdate(probNew, updateNew);
 						}
 						// Add new stuff to new module
 						commandNew.setUpdates(updatesNew);
@@ -643,7 +651,7 @@ public class Modules2PTA extends PrismComponent
 		moduleNew.setInvariant(invarNew);
 
 		// Add variables to module
-		// (First one for PC, then all original non-PC variables)
+		// (one for PC, then all original non-PC variables)
 		declNew = new Declaration(pc, new DeclarationInt(Expression.Int(0), Expression.Int(states.size() - 1)));
 		moduleNew.addDeclaration(declNew);
 		for (Declaration d : module.getDeclarations()) {

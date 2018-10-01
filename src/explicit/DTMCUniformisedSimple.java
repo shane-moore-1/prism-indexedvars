@@ -26,6 +26,7 @@
 
 package explicit;
 
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Iterator;
 import java.util.List;
@@ -42,6 +43,10 @@ import explicit.rewards.MCRewards;
 /**
 * Simple explicit-state representation of a DTMC, constructed (implicitly) as the uniformised DTMC of a CTMC.
 * This class is read-only: most of data is pointers to other model info.
+* <br>
+* Note: This implicitly constructed DTMC does not provide implementations for
+* all methods of a full DTMCExplicit model. See {@link CTMCSimple#buildUniformisedDTMC} for
+* a method to obtain an explicit uniformised DTMC.
 */
 public class DTMCUniformisedSimple extends DTMCExplicit
 {
@@ -114,6 +119,31 @@ public class DTMCUniformisedSimple extends DTMCExplicit
 		return ctmc.isInitialState(i);
 	}
 
+	@Override
+	public int getNumDeadlockStates()
+	{
+		return ctmc.getNumDeadlockStates();
+	}
+
+	@Override
+	public Iterable<Integer> getDeadlockStates()
+	{
+		return ctmc.getDeadlockStates();
+	}
+
+	@Override
+	public StateValues getDeadlockStatesList()
+	{
+		return ctmc.getDeadlockStatesList();
+	}
+
+	@Override
+	public int getFirstDeadlockState()
+	{
+		return ctmc.getFirstDeadlockState();
+	}
+
+	@Override
 	public boolean isDeadlockState(int i)
 	{
 		return ctmc.isDeadlockState(i);
@@ -134,25 +164,7 @@ public class DTMCUniformisedSimple extends DTMCExplicit
 		return ctmc.getNumTransitions() + numExtraTransitions;
 	}
 
-	public Iterator<Integer> getSuccessorsIterator(final int s)
-	{
-		// TODO
-		throw new Error("Not yet supported");
-	}
-	
-	public boolean isSuccessor(int s1, int s2)
-	{
-		// TODO
-		throw new Error("Not yet supported");
-	}
-
-	public boolean allSuccessorsInSet(int s, BitSet set)
-	{
-		// TODO
-		throw new Error("Not yet supported");
-	}
-
-	public boolean someSuccessorsInSet(int s, BitSet set)
+	public SuccessorsIterator getSuccessors(final int s)
 	{
 		// TODO
 		throw new Error("Not yet supported");
@@ -209,18 +221,6 @@ public class DTMCUniformisedSimple extends DTMCExplicit
 	{
 		// TODO
 		throw new RuntimeException("Not implemented yet");
-	}
-
-	public void prob0step(BitSet subset, BitSet u, BitSet result)
-	{
-		// TODO
-		throw new Error("Not yet supported");
-	}
-
-	public void prob1step(BitSet subset, BitSet u, BitSet v, BitSet result)
-	{
-		// TODO
-		throw new Error("Not yet supported");
 	}
 
 	@Override
@@ -282,29 +282,23 @@ public class DTMCUniformisedSimple extends DTMCExplicit
 	@Override
 	public void vmMult(double vect[], double result[])
 	{
-		int i, j;
-		double prob, sum;
-		Distribution distr;
-		
 		// Initialise result to 0
-		for (j = 0; j < numStates; j++) {
-			result[j] = 0;
-		}
+		Arrays.fill(result, 0);
 		// Go through matrix elements (by row)
-		for (i = 0; i < numStates; i++) {
-			distr = ctmc.getTransitions(i);
-			sum = 0.0;
-			for (Map.Entry<Integer, Double> e : distr) {
-				j = (Integer) e.getKey();
-				prob = (Double) e.getValue();
+		for (int state = 0; state < numStates; state++) {
+			double sum = 0.0;
+			for (Iterator<Entry<Integer, Double>> transitions = ctmc.getTransitionsIterator(state); transitions.hasNext();) {
+				Entry<Integer, Double> trans = transitions.next();
+				int target  = trans.getKey();
+				double prob = trans.getValue() / q;
 				// Non-diagonal entries only
-				if (j != i) {
+				if (target != state) {
 					sum += prob;
-					result[j] += (prob / q) * vect[i];
+					result[target] += prob * vect[state];
 				}
 			}
-			// Diagonal entry is 1 - sum/q
-			result[i] += (1 - sum / q) * vect[i];
+			// Diagonal entry is 1 - sum
+			result[state] += (1 - sum) * vect[state];
 		}
 	}
 

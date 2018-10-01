@@ -26,9 +26,12 @@
 
 package acceptance;
 
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.BitSet;
 
+import prism.PrismException;
+import prism.PrismNotSupportedException;
 import jdd.JDDVars;
 
 /**
@@ -58,7 +61,10 @@ public class AcceptanceRabin
 		/** State set K (should be visited infinitely often) */
 		private BitSet K;
 
-		/** Constructor with L and K state sets */
+		/**
+		 * Constructor with L and K state sets.
+		 *  (F G !"L")  &  (G F "K")
+		 */
 		public RabinPair(BitSet L, BitSet K) {
 			this.L = L;
 			this.K = K;
@@ -175,18 +181,36 @@ public class AcceptanceRabin
 	 * any word that is accepted by this condition is rejected by the returned Streett condition.
 	 * @return the complement Streett acceptance condition
 	 */
-	public AcceptanceStreett complement()
+	public AcceptanceStreett complementToStreett()
 	{
-		AcceptanceStreett accRabin = new AcceptanceStreett();
+		AcceptanceStreett accStreett = new AcceptanceStreett();
 
 		for (RabinPair accPairRabin : this) {
 			BitSet R = (BitSet) accPairRabin.getK().clone();
 			BitSet G = (BitSet) accPairRabin.getL().clone();
 			AcceptanceStreett.StreettPair accPairStreett = new AcceptanceStreett.StreettPair(R, G);
-			accRabin.add(accPairStreett);
+			accStreett.add(accPairStreett);
 		}
 
-		return accRabin;
+		return accStreett;
+	}
+
+	/** Complement this acceptance condition, return as AcceptanceGeneric. */
+	public AcceptanceGeneric complementToGeneric()
+	{
+		return toAcceptanceGeneric().complementToGeneric();
+	}
+
+	@Override
+	public AcceptanceOmega complement(int numStates, AcceptanceType... allowedAcceptance) throws PrismException
+	{
+		if (AcceptanceType.contains(allowedAcceptance, AcceptanceType.STREETT)) {
+			return complementToStreett();
+		}
+		if (AcceptanceType.contains(allowedAcceptance, AcceptanceType.GENERIC)) {
+			return complementToGeneric();
+		}
+		throw new PrismNotSupportedException("Can not complement " + getType() + " acceptance to a supported acceptance type");
 	}
 
 	/**
@@ -247,6 +271,28 @@ public class AcceptanceRabin
 		return result;
 	}
 
+	@Override
+	public String getSignatureForStateHOA(int stateIndex)
+	{
+		String result = "";
+
+		for (int pairIndex=0; pairIndex<size(); pairIndex++) {
+			RabinPair pair = get(pairIndex);
+			if (pair.getL().get(stateIndex)) {
+				result += (result.isEmpty() ? "" : " ") + pairIndex*2;
+			}
+			if (pair.getK().get(stateIndex)) {
+				result += (result.isEmpty() ? "" : " ") + (pairIndex*2+1);
+			}
+		}
+
+		if (!result.isEmpty())
+			result = "{"+result+"}";
+
+		return result;
+	}
+
+	
 	/** Returns a textual representation of this acceptance condition. */
 	@Override
 	public String toString()
@@ -271,14 +317,31 @@ public class AcceptanceRabin
 	}
 
 	@Override
-	public String getTypeAbbreviated()
-	{
-		return "R";
+	@Deprecated
+	public String getTypeAbbreviated() {
+		return getType().getNameAbbreviated();
 	}
 
 	@Override
-	public String getTypeName()
+	@Deprecated
+	public String getTypeName() {
+		return getType().getName();
+	}
+
+	@Override
+	public void outputHOAHeader(PrintStream out)
 	{
-		return "Rabin";
+		out.println("acc-name: Rabin "+size());
+		out.print("Acceptance: " + (size()*2)+" ");
+		if (size() == 0) {
+			out.println("f");
+			return;
+		}
+
+		for (int pair = 0; pair < size(); pair++) {
+			if (pair > 0) out.print(" | ");
+			out.print("( Fin(" + 2*pair + ") & Inf(" + (2*pair+1) +") )");
+		}
+		out.println();
 	}
 }

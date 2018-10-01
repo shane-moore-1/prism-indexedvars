@@ -26,7 +26,7 @@
 
 // includes
 #include "PrismHybrid.h"
-#include <math.h>
+#include <cmath>
 #include <util.h>
 #include <cudd.h>
 #include <dd.h>
@@ -235,7 +235,7 @@ jboolean min		// min or max probabilities (true = min, false = max)
 		
 		// print occasional status update
 		if ((util_cpu_time() - start3) > UPDATE_DELAY) {
-			PH_PrintToMainLog(env, "Iteration %d (of %d): ", iters, bound);
+			PH_PrintToMainLog(env, "Iteration %d (of %d): ", iters, (int)bound);
 			PH_PrintToMainLog(env, "%.2f sec so far\n", ((double)(util_cpu_time() - start2)/1000));
 			start3 = util_cpu_time();
 		}
@@ -266,8 +266,8 @@ jboolean min		// min or max probabilities (true = min, false = max)
 	if (hddms) delete hddms;
 	if (yes_vec) delete[] yes_vec;
 	if (yes_dist) delete yes_dist;
-	if (soln2) delete soln2;
-	if (soln3) delete soln3;
+	if (soln2) delete[] soln2;
+	if (soln3) delete[] soln3;
 	
 	return ptr_to_jlong(soln);
 }

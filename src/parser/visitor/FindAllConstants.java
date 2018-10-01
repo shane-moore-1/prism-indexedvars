@@ -34,6 +34,8 @@ import prism.PrismLangException;
  */
 public class FindAllConstants extends ASTTraverseModify
 {
+public static boolean DEBUG = ShaneDebugControls.DEBUG_VISITORS;
+
 	private ConstantList constantList;
 	
 	public FindAllConstants(ConstantList constantList)
@@ -43,7 +45,9 @@ public class FindAllConstants extends ASTTraverseModify
 	
 	public Object visit(ExpressionIdent e) throws PrismLangException
 	{
-System.out.println("FindAllConst.visit(ExprIdent) for "+ e + " [" + e.getClass().getName() + "]");
+if (DEBUG) {
+	System.out.println("FindAllConst.visit(ExprIdent) for "+ e + " [" + e.getClass().getName() + "]");
+}
 
 if (e instanceof ExpressionIndexedSetAccess)
 System.out.println("Are you considering FindAllConstants for IndexedSet Access for this: " + e);
@@ -64,7 +68,7 @@ System.out.println("Are you considering FindAllConstants for IndexedSet Access f
 	{
 		int i, j, n;
 		String s;
-System.out.println("FindAllConstants.visit(Update) for : " + e);
+if (DEBUG) System.out.println("\nFindAllConstants.visit(Update) for : " + e);
 		
 		boolean sawAnIndexedSet = false;		// May not need, now. - shane
 		
@@ -72,28 +76,30 @@ System.out.println("FindAllConstants.visit(Update) for : " + e);
 		n = e.getNumElements();
 		for (i = 0; i < n; i++) {
 			ExpressionIdent targetOfUpdate = e.getVarIdent(i);
-if (DEBUG) System.out.println("Considering update element "+ (i+1) + "/"+n+"'s target: " + targetOfUpdate);			
+if (DEBUG) System.out.println("\n Considering update element "+ (i+1) + "/"+n+"'s target: " + targetOfUpdate);
 			if (targetOfUpdate instanceof ExpressionIndexedSetAccess)	// A constant may occur during the index access expression
 			{
 				ExpressionIndexedSetAccess detail = (ExpressionIndexedSetAccess) targetOfUpdate;
-if (DEBUG) System.out.println("\nDealing with indexed-set access for: " + e.getVarIdent(i));
+if (DEBUG) System.out.println("\n  Dealing with indexed-set access for: " + e.getVarIdent(i));
 				// Consider the Access part's validity - is it an int value.
 				Expression indexExp = detail.getIndexExpression();
+if (DEBUG) System.out.println("  It's access expression is: " + indexExp + " [currently a: " + indexExp.getClass().getName() + "]");
 
-if (DEBUG) System.out.println("Going to call visit() on the access expression: " + indexExp);
 				// Delve in so that the expression might be resolved.
 				Expression revisedTarget = (Expression) indexExp.accept(this);
-if (DEBUG) System.out.println("Completed call visit() on the access expression: " + indexExp + " which is now " + revisedTarget + " - (and its type is " + revisedTarget.getType() +")");
+if (DEBUG) System.out.println("  Completed call of accept() on the access expression: " + indexExp + " which is now " + revisedTarget + " - (and its type is " + revisedTarget.getType() +")");
+if (DEBUG) System.out.println("  The object " + ( (revisedTarget == indexExp) ? "is unchanged" : "has changed.") + " [" + indexExp.getClass().getName() + "]" );
 				detail.setIndexExpression(revisedTarget);
 	
 				//refresh it (in case it just got changed by above line)
 				indexExp = detail.getIndexExpression();
 			}
+else if (DEBUG) System.out.println(" It was not accessing an indexed set, so no further processing of it.");
 
 			Expression calcExpr = e.getExpression(i);
-if (DEBUG) System.out.println("Considering update element "+ (i+1) + "/"+n+"'s calculation: " + calcExpr);
+if (DEBUG) System.out.println("\n Considering update element "+ (i+1) + "/"+n+"'s calculation: " + calcExpr);
 			Expression newCalcExpr = (Expression) calcExpr.accept(this);
-if (DEBUG) System.out.println("After accept, the calculation is now: " + newCalcExpr);
+if (DEBUG) System.out.println("  After accept(), the calculation is now: " + newCalcExpr + " which is " + ((newCalcExpr == calcExpr) ? "the same" : "changed"));
 			e.setExpression(i, newCalcExpr);
 		}
 

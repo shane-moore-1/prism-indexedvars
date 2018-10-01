@@ -3,7 +3,7 @@
 //	Copyright (c) 2002-
 //	Authors:
 //	* Vojtech Forejt <vojtech.forejt@cs.ox.ac.uk> (University of Oxford)
-//	* Dave Parker <david.parker@comlab.ox.ac.uk> (University of Oxford, formerly University of Birmingham)
+//	* Dave Parker <d.a.parker@cs.bham.ac.uk> (University of Birmingham/Oxford)
 //	
 //------------------------------------------------------------------------------
 //	
@@ -27,7 +27,7 @@
 
 // includes
 #include "PrismSparse.h"
-#include <math.h>
+#include <cmath>
 #include <util.h>
 #include <cudd.h>
 #include <dd.h>
@@ -62,6 +62,7 @@ JNIEXPORT jdoubleArray __jlongpointer JNICALL Java_sparse_PrismSparse_PS_1Nondet
  jlong __jlongpointer _start, // initial state(s)
  jlong _adversary,
  jlong __jlongpointer _ndsm, //pointer to trans sparse matrix
+ jobject synchs,
  jlongArray _yes_vec, //pointer to yes vector array
  jintArray _prob_step_bounds, //step bounds for probabilistic operators
  jlongArray  _ndsm_r, //pointer to reward sparse matrix array
@@ -94,13 +95,12 @@ JNIEXPORT jdoubleArray __jlongpointer JNICALL Java_sparse_PrismSparse_PS_1Nondet
 	double time_taken, time_for_setup, time_for_iters;
 	// adversary stuff
 	int export_adv_enabled = export_adv;
-	bool adv_loop = false;
 	FILE *fp_adv = NULL;
 	int adv_j;
-	//int *adv = NULL;
+	int *adv = NULL;
 	// action info
-	int *actions;
 	jstring *action_names_jstrings;
+	const char** action_names = NULL;
 	int num_actions;
 	// misc
 	int i, j, k, l1, h1, l2, h2, iters;
@@ -108,39 +108,39 @@ JNIEXPORT jdoubleArray __jlongpointer JNICALL Java_sparse_PrismSparse_PS_1Nondet
 	double d1, d2, kb, kbt;
 	double *pd1 = NULL, *pd2 = NULL;
 	bool done, weightedDone, first;
-	const char** action_names = NULL;
 	int num_yes = 0;
 	int start_index;
 	unsigned int *row_starts1, *predecessors;
 	unsigned int extra_node;
-
-	//in this we will store the result array, 0 returned means error
+	// storage for result array (0 means error)
 	jdoubleArray ret = 0;
+	// local copy of max_iters, since we will change it
+	int max_iters_local = max_iters;
 	
+	// Extract some info about objectives
 	bool has_rewards = _ndsm_r != 0;
 	bool has_yes_vec = _yes_vec != 0;
-    
-	//we will change maximal number of iters, so make sure we don't change the global number
-	int max_iters_local = max_iters;
-    
 	jsize lenRew = (has_rewards) ? env->GetArrayLength(_ndsm_r) : 0;
 	jsize lenProb = (has_yes_vec) ? env->GetArrayLength(_yes_vec) : 0;
-    
+	jlong *ptr_ndsm_r = (has_rewards) ? env->GetLongArrayElements(_ndsm_r, 0) : NULL;
+	jlong *ptr_yes_vec = (has_yes_vec) ? env->GetLongArrayElements(_yes_vec, 0) : NULL;
 	double* weights = env->GetDoubleArrayElements(_weights, 0);
+	int* step_bounds_r = (has_rewards) ? (int*)env->GetIntArrayElements(_ndsm_r_step_bounds, 0) : NULL;
+	int* step_bounds = (has_yes_vec) ? (int*)env->GetIntArrayElements(_prob_step_bounds, 0) : NULL;
 	
-	//We will ignore one of the rewards and compute it's value from the other ones and
-	//from the combined value. We must make sure that this reward has nonzero weight,
-	//otherwise we can't compute it.
+	// We will ignore one of the rewards and compute its value from the other ones and
+	// from the combined value. We must make sure that this reward has nonzero weight,
+	// otherwise we can't compute it.
 	int ignoredWeight = -1;
-
-	/* HOTFIX: not used for numerical problems	
+	
+	/* HOTFIX: not used for numerical problems
 	for (i = lenProb + lenRew - 1; i>=0; i--) {
 		if (weights[i] > 0) {
 			ignoredWeight = i;
 			break;
 		}
 	}*/
-
+	
 	//determine the minimal nonzero weight
 	double min_weight = 1;
 	for (i = 0; i < lenProb + lenRew; i++)
@@ -159,25 +159,23 @@ JNIEXPORT jdoubleArray __jlongpointer JNICALL Java_sparse_PrismSparse_PS_1Nondet
 		// build sparse matrix
 		ndsm = (NDSparseMatrix *) jlong_to_NDSparseMatrix(_ndsm);
 		
+		// if needed, and if info is available, get action names
+		if (export_adv_enabled != EXPORT_ADV_NONE) {
+			if (synchs != NULL) {
+				get_string_array_from_java(env, synchs, action_names_jstrings, action_names, num_actions);
+			}
+		}
+	
 		// get number of transitions/choices
 		nnz = ndsm->nnz;
 		nc = ndsm->nc;
 		kb = ndsm->mem;
 		kbt = kb;
 		
-		jlong *ptr_ndsm_r = (has_rewards) ? env->GetLongArrayElements(_ndsm_r, 0) : NULL;
-		jlong *ptr_yes_vec = (has_yes_vec) ? env->GetLongArrayElements(_yes_vec, 0) : NULL;
-		
 		NDSparseMatrix *ndsm_r[lenRew];
 		
 		for(int rewi = 0; rewi < lenRew; rewi++)
 			ndsm_r[rewi] = (NDSparseMatrix *) jlong_to_NDSparseMatrix(ptr_ndsm_r[rewi]);
-		
-		double* weights = env->GetDoubleArrayElements(_weights, 0);
-		
-		int* step_bounds_r = (has_rewards) ? (int*)env->GetIntArrayElements(_ndsm_r_step_bounds, 0) : NULL;
-		int* step_bounds = (has_yes_vec) ? (int*)env->GetIntArrayElements(_prob_step_bounds, 0) : NULL;
-
 		
 		int max_step_bound = 0;
 		for(int rewi = 0; rewi < lenRew; rewi++) {
@@ -195,9 +193,6 @@ JNIEXPORT jdoubleArray __jlongpointer JNICALL Java_sparse_PrismSparse_PS_1Nondet
 				max_step_bound = step_bounds[probi];
 			}
 		}
-		
-		// if needed, and if info is available, build a vector of action indices for the MDP
-		actions = NULL;
 		
 		// get vector for yes
 		yes_vec = new double *[lenProb];
@@ -217,7 +212,6 @@ JNIEXPORT jdoubleArray __jlongpointer JNICALL Java_sparse_PrismSparse_PS_1Nondet
 		// create solution/iteration vectors
 		soln = new double[n];
 		soln2 = new double[n];
-		
 		psoln = new double *[lenProb + lenRew];
 		psoln2 = new double *[lenProb + lenRew];
 		for (int it = 0; it < lenProb + lenRew ; it++) {
@@ -226,43 +220,55 @@ JNIEXPORT jdoubleArray __jlongpointer JNICALL Java_sparse_PrismSparse_PS_1Nondet
 				psoln2[it] = new double[n];
 			}
 		}
-		
 		pd1 = new double[lenProb + lenRew];
 		pd2 = new double[lenProb + lenRew];
 		
 		kb = n*8.0/1024.0;
 		kbt += 2*kb;
 		
+		// if required, create storage for adversary and initialise
+		if (export_adv_enabled != EXPORT_ADV_NONE) {
+			adv = new int[n];
+			// Initialise all entries to -1 ("don't know")
+			for (i = 0; i < n; i++) {
+				adv[i] = -1;
+			}
+		}
+	
 		// Get index of single (first) initial state
 		start_index = get_index_of_first_from_bdd(ddman, start, rvars, num_rvars, odd);
 		
-		// initial solution is yes
+		// initial solution
 		for (i = 0; i < n; i++) {
+			// combined value initialised to weighted sum of yes vectors (for unbounded probability objectives)
+			// or 0 (for anything else: step-bounded probabilities, or cumulative rewards)
 			soln[i] = 0;
-			soln2[i] = 0;
 			for (int probi = 0; probi < lenProb; probi++) {
-				if (step_bounds[probi] == max_iters_local)
+				if (step_bounds[probi] == max_iters_local) {
 					soln[i] += weights[probi] * yes_vec[probi][i];
-				//PS_PrintToMainLog(env, "s: %d %d %f %f %f\n", i, probi, soln[i], weights[probi], yes_vec[probi][i]);
+				}
 			}
+			// individual objectives
 			for (int probi = 0; probi < lenProb; probi++) {
 				if (probi != ignoredWeight) {
 					if (step_bounds[probi] == max_iters_local) {
-						//PS_PrintToMainLog(env, "setting %d psoln to some number\n", probi);
 						psoln[probi][i] = 0;//yes_vec[probi][i];
 					}
 					else {
 						psoln[probi][i] = 0;
-						//PS_PrintToMainLog(env, "setting %d psoln to 0\n", probi);
 					}
-					psoln2[probi][i] = 0;
 				}
 			}
 			for (int rewi = 0; rewi < lenRew; rewi++) {
-				//soln[rewi + lenProb][i] = 0;
 				if (lenProb + rewi != ignoredWeight) {
 					psoln[rewi + lenProb][i] = 0;
-					psoln2[rewi + lenProb][i] = 0;
+				}
+			}
+			// soln2 vector(s) just initialised to zero (not read until updated again)
+			soln2[i] = 0;
+			for (int it = 0; it < lenRew + lenProb; it++) {
+				if (it != ignoredWeight) {
+					psoln2[it][i] = 0;
 				}
 			}
 		}
@@ -275,11 +281,14 @@ JNIEXPORT jdoubleArray __jlongpointer JNICALL Java_sparse_PrismSparse_PS_1Nondet
 		
 		
 		for (int it = 0; it < lenRew + lenProb; it++) {
-			PS_PrintToMainLog(env, "Initial psoln: ");
-			if (ignoredWeight != it)
+			if (it != ignoredWeight) {
+				PS_PrintToMainLog(env, "psoln: ");
 				for (int o = 0; o < n; o++)
 					PS_PrintToMainLog(env, "%f, ", psoln[it][o]);
-			PS_PrintToMainLog(env, "\n");  
+				PS_PrintToMainLog(env, "\n");
+			} else {
+				PS_PrintToMainLog(env, "psoln: (ignored)\n");
+			}
 		}
 #endif
 		// get setup time
@@ -293,6 +302,15 @@ JNIEXPORT jdoubleArray __jlongpointer JNICALL Java_sparse_PrismSparse_PS_1Nondet
 		weightedDone = false;
 		//PS_PrintToMainLog(env, "Starting iterations...\n");
 		
+		// open file to store adversary (if required)
+		if (export_adv_enabled != EXPORT_ADV_NONE) {
+			fp_adv = fopen(export_adv_filename, "w");
+			if (!fp_adv) {
+				PS_PrintWarningToMainLog(env, "Adversary generation cancelled (could not open file \"%s\").", export_adv_filename);
+				export_adv_enabled = EXPORT_ADV_NONE;
+			}
+		}
+
 		// store local copies of stuff
 		double *non_zeros = ndsm->non_zeros;
 		unsigned char *row_counts = ndsm->row_counts;
@@ -331,23 +349,32 @@ JNIEXPORT jdoubleArray __jlongpointer JNICALL Java_sparse_PrismSparse_PS_1Nondet
 			for (int rewi = 0; rewi < lenRew; rewi++)
 				h2_r[rewi] = 0;
 			
+			// loop through states
 			for (i = 0; i < n; i++) {
-				//first, get the decision of the adversary optimizing the combined reward
+				first = true;
+				
+				// first, get the decision of the adversary optimizing the combined reward
 				d1 = -INFINITY;
 				for (int it = 0; it < lenRew + lenProb; it++)
 					if (it != ignoredWeight)
 						pd1[it] = -INFINITY;
 				
-				first = true; // (because we also remember 'first')
+				// get pointers to nondeterministic choices for state i
 				if (!use_counts) { l1 = row_starts[i]; h1 = row_starts[i+1]; }
 				else { l1 = h1; h1 += row_counts[i]; }
+				// loop through those choices
 				for (j = l1; j < h1; j++) {
+					// compute, for state i for this iteration,
+					// the combined and individual reward values
+					// start with 0 (we don't have any state rewards)
 					d2 = 0;
 					for (int it = 0; it < lenRew + lenProb; it++)
 						if (it != ignoredWeight)
 							pd2[it] = 0;
+					// get pointers to transitions
 					if (!use_counts) { l2 = choice_starts[j]; h2 = choice_starts[j+1]; }
 					else { l2 = h2; h2 += choice_counts[j]; }
+					// and get pointers to transition rewards
 					for (int rewi = 0; rewi < lenRew; rewi++) {
 						if (!ndsm_r[rewi]->use_counts) {
 							l2_r[rewi] = choice_starts_r[rewi][j];
@@ -357,12 +384,14 @@ JNIEXPORT jdoubleArray __jlongpointer JNICALL Java_sparse_PrismSparse_PS_1Nondet
 							h2_r[rewi] += choice_counts_r[rewi][j];
 						}
 					}
+					// loop through transitions
 					for (k = l2; k < h2; k++) {
+						// for each reward structure
 						for (int rewi = 0; rewi < lenRew; rewi++) {
+							// find corresponding transition reward if any
 							k_r[rewi] = l2_r[rewi];
-							while (k_r[rewi] < h2_r[rewi] && cols_r[rewi][k_r[rewi]] != cols[k])
-								k_r[rewi]++;
-							// if there is one, add reward * prob to reward value
+							while (k_r[rewi] < h2_r[rewi] && cols_r[rewi][k_r[rewi]] != cols[k]) k_r[rewi]++;
+							// if there is one, add reward * prob to combined and individual reward values
 							if (k_r[rewi] < h2_r[rewi] && max_iters_local - iters < step_bounds_r[rewi]) {
 								d2 += weights[rewi + lenProb] * non_zeros_r[rewi][k_r[rewi]] * non_zeros[k];
 								if (lenProb + rewi != ignoredWeight) {
@@ -371,19 +400,20 @@ JNIEXPORT jdoubleArray __jlongpointer JNICALL Java_sparse_PrismSparse_PS_1Nondet
 								k_r[rewi]++;
 							}
 						}
-						
-						//add value of successors
+						// add prob * corresponding reward from previous iteration
+						// (for both combined and individual rewards)
 						for (int it = 0; it < lenRew + lenProb; it++) {
-							if (it != ignoredWeight)
+							if (it != ignoredWeight) {
 								pd2[it] += non_zeros[k] * psoln[it][cols[k]];
+							}
 						}
-						
 						d2 += non_zeros[k] * soln[cols[k]];
 					}
-					
+					// see if the combined reward value is the min/max so far
 					bool pickThis = first || (min&&(d2<d1)) || (!min&&(d2>d1));
-					
-					//HOTFIX for cumulative reward
+					// if it equals the min/max do far for the combined reward value,
+					// but it is better for some individual reward, we choose it.
+					// not sure why
 					if (!pickThis && (d2==d1)) {
 						for (int it = 0; it < lenProb + lenRew; it++) {
 							if (it != ignoredWeight) {
@@ -392,30 +422,45 @@ JNIEXPORT jdoubleArray __jlongpointer JNICALL Java_sparse_PrismSparse_PS_1Nondet
 									break;
 								}
 							}
-							
 						}
 					}
-					
 					if (pickThis) {
+						// store optimal values for combined and individual rewards
 						d1 = d2;
 						for (int it = 0; it < lenRew + lenProb; it++)
 							if (it != ignoredWeight)
 								pd1[it] = pd2[it];
+						// if adversary generation is enabled, remember optimal choice
+						if (export_adv_enabled != EXPORT_ADV_NONE) {
+							// for max, only remember strictly better choices
+							// (this resolves problems with end components)
+							if (!min) {
+								if (adv[i] == -1 || (d1>soln[i])) {
+									adv[i] = j;
+								}
+							}
+							// for min, this is straightforward
+							// (in fact, could do it at the end of value iteration, but we don't)
+							else {
+								adv[i] = j;
+							}
+						}
 					}
 					first = false;
+				}
+				
+				// HOTFIX: it seems that on self loops d1 can be unchanged because the other for cycle is not executed, which is not desirable
+				if (d1 == -INFINITY) {
+					d1 = 0;
+					for (int it = 0; it < lenRew + lenProb; it++) {
+						pd1[it] = 0;
+					}
 				}
 				
 				double val_yes = 0.0;
 				for (int probi = 0; probi < lenProb; probi++) {
 					if (max_iters_local - iters < step_bounds[probi])
 						val_yes += weights[probi] * yes_vec[probi][i];
-				}
-				
-				//HOTFIX: it seems that on self loops d1 can be unchanged because the other for cycle is not executed, which is not desirable
-				if (d1==-INFINITY) {
-					d1 = 0;
-					for (int it = 0; it < lenRew + lenProb; it++)
-						pd1[it] = 0;
 				}
 				
 				//TODO: we need to handle val_yes somehow
@@ -551,6 +596,47 @@ JNIEXPORT jdoubleArray __jlongpointer JNICALL Java_sparse_PrismSparse_PS_1Nondet
 			}
 		}
 		
+		// Traverse matrix to extract adversary
+		if (export_adv_enabled != EXPORT_ADV_NONE) {
+			// Do two passes: first to compute the number of transitions,
+			// the second to actually do the export
+			int num_trans = 0;
+			for (int pass = 1; pass <= 2; pass++) {
+				if (pass == 2) {
+					fprintf(fp_adv, "%d %d\n", n, num_trans);
+				}
+				h1 = h2 = 0;
+				for (i = 0; i < n; i++) {
+					if (!use_counts) { l1 = row_starts[i]; h1 = row_starts[i+1]; }
+					else { l1 = h1; h1 += row_counts[i]; }
+					// Have to loop through all choices (to compute offsets)
+					for (j = l1; j < h1; j++) {
+						if (!use_counts) { l2 = choice_starts[j]; h2 = choice_starts[j+1]; }
+						else { l2 = h2; h2 += choice_counts[j]; }
+						// But only output a choice if it is in the adversary
+						if (j == adv[i]) {
+							switch (pass) {
+							case 1:
+								num_trans += (h2-l2);
+								break;
+							case 2:
+								for (k = l2; k < h2; k++) {
+									switch (export_adv_enabled) {
+									case EXPORT_ADV_DTMC:
+										fprintf(fp_adv, "%d %d %g", i, cols[k], non_zeros[k]); break;
+									case EXPORT_ADV_MDP:
+										fprintf(fp_adv, "%d 0 %d %g", i, cols[k], non_zeros[k]); break;
+									}
+									if (ndsm->actions != NULL) fprintf(fp_adv, " %s", ndsm->actions[j]>0?action_names[ndsm->actions[j]-1]:"");
+									fprintf(fp_adv, "\n");
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	
 		// stop clocks
 		stop = util_cpu_time();
 		time_for_iters = (double)(stop - start2)/1000;
@@ -569,13 +655,20 @@ JNIEXPORT jdoubleArray __jlongpointer JNICALL Java_sparse_PrismSparse_PS_1Nondet
 		ret = env->NewDoubleArray(lenProb + lenRew);   
 		jdouble *retNative = env->GetDoubleArrayElements(ret, 0);
 		
+		// Display result
+		PS_PrintToMainLog(env, "Optimal value for weights [");
+		for (int it = 0; it < lenRew + lenProb; it++) {
+			PS_PrintToMainLog(env, "%s%f", (it>0?",":""), weights[it]);
+		}
+		PS_PrintToMainLog(env, "] from initial state: %f\n", soln[start_index]);
+		
 		//copy all computed elements
 		for (int it = 0; it < lenRew + lenProb; it++)
 			if (it != ignoredWeight)
-				retNative[it] = max_double_vector_over_bdd(ddman, psoln[it], start, rvars, num_rvars, odd);
+				retNative[it] = psoln[it][start_index];
 		//compute the last element
 		if (ignoredWeight != -1) {
-			double last = max_double_vector_over_bdd(ddman, soln, start, rvars, num_rvars, odd);
+			double last = soln[start_index];
 			for (int it = 0; it < lenRew + lenProb; it++)
 				if (it != ignoredWeight)
 					last -= weights[it] * retNative[it];
@@ -584,6 +677,12 @@ JNIEXPORT jdoubleArray __jlongpointer JNICALL Java_sparse_PrismSparse_PS_1Nondet
 		
 		env->ReleaseDoubleArrayElements(ret, retNative, 0);
 
+		// close file to store adversary (if required)
+		if (export_adv_enabled != EXPORT_ADV_NONE) {
+			fclose(fp_adv);
+			PS_PrintToMainLog(env, "\nAdversary written to file \"%s\".\n", export_adv_filename);
+		}
+	
 	// catch exceptions: register error, free memory
 	} catch (std::bad_alloc e) {
 		PS_SetErrorMessage("Out of memory");
@@ -610,12 +709,10 @@ JNIEXPORT jdoubleArray __jlongpointer JNICALL Java_sparse_PrismSparse_PS_1Nondet
 			if (psoln[it]) delete[] psoln[it];
 		}
 	}
-	
 	if (psoln2) delete[] psoln2;
 	if (psoln) delete[] psoln;
-	    
-	if (actions != NULL) {
-		delete[] actions;
+	if (adv) delete[] adv;
+	if (action_names != NULL) {
 		release_string_array_from_java(env, action_names_jstrings, action_names, num_actions);
 	}
 

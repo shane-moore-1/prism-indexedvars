@@ -26,17 +26,23 @@
 
 package prism;
 
-import hybrid.PrismHybrid;
-
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import dv.DoubleVector;
+import explicit.CTMC;
+import explicit.CTMCModelChecker;
+import explicit.ConstructModel;
+import explicit.DTMC;
+import explicit.DTMCModelChecker;
+import explicit.ExplicitFiles2Model;
+import explicit.FastAdaptiveUniformisation;
+import explicit.FastAdaptiveUniformisationModelChecker;
+import hybrid.PrismHybrid;
 import jdd.JDD;
 import jdd.JDDNode;
 import jdd.JDDVars;
@@ -44,16 +50,15 @@ import mtbdd.PrismMTBDD;
 import odd.ODDUtils;
 import param.BigRational;
 import param.ModelBuilder;
+import param.ParamModel;
 import param.ParamModelChecker;
-import param.RegionValues;
+import param.ParamResult;
 import parser.ExplicitFiles2ModulesFile;
 import parser.PrismParser;
 import parser.State;
 import parser.Values;
-import parser.ast.ConstantList;
 import parser.ast.Expression;
 import parser.ast.ForLoop;
-import parser.ast.FormulaList;
 import parser.ast.LabelList;
 import parser.ast.ModulesFile;
 import parser.ast.PropertiesFile;
@@ -61,19 +66,12 @@ import parser.ast.Property;
 import pta.DigitalClocks;
 import pta.PTAModelChecker;
 import simulator.GenerateSimulationPath;
-import simulator.PrismModelExplorer;
+import simulator.ModulesFileModelGenerator;
+import simulator.ModulesFileModelGeneratorSymbolic;
 import simulator.SimulatorEngine;
 import simulator.method.SimulationMethod;
 import sparse.PrismSparse;
 import strat.Strategy;
-import dv.DoubleVector;
-import explicit.CTMC;
-import explicit.CTMCModelChecker;
-import explicit.ConstructModel;
-import explicit.DTMC;
-import explicit.DTMCModelChecker;
-import explicit.FastAdaptiveUniformisation;
-import explicit.FastAdaptiveUniformisationModelChecker;
 
 /**
  * Main class for all PRISM's core functionality.
@@ -81,11 +79,14 @@ import explicit.FastAdaptiveUniformisationModelChecker;
  */
 public class Prism extends PrismComponent implements PrismSettingsListener
 {
+// ADDED BY SHANE to enable debugging to be switched on or off
+private static boolean DEBUG = true;
 	/** PRISM version (e.g. "4.0.3"). Read from prism.Version. */
 	private static String version = prism.Version.versionString;
 
 	/** Optional PRISM version suffix (e.g. "dev", "beta"). Read from prism.Version. */
-	private static String versionSuffix = prism.Version.versionSuffixString;
+	private static String versionSuffix = prism.Version.versionSuffixString
+			+ "-SHANE";
 
 	/** Build number (e.g. "6667"). Defaults to "" (undefined), read from prism.Revision class if present. */
 	private static String buildNumber = "";
@@ -174,7 +175,7 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 			}
 		}
 	}
-	
+
 	//------------------------------------------------------------------------------
 	// Settings / flags / options
 	//------------------------------------------------------------------------------
@@ -195,10 +196,14 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	protected String exportProductTransFilename = null;
 	protected boolean exportProductStates = false;
 	protected String exportProductStatesFilename = null;
+	protected boolean exportProductVector = false;
+	protected String exportProductVectorFilename = null;
 	// Store the final results vector after model checking?
-	protected boolean storeVector = false; 
+	protected boolean storeVector = false;
 	// Generate/store a strategy during model checking?
-	protected boolean genStrat = false; 
+	protected boolean genStrat = false;
+	// Should any generated strategies should be restricted to the states reachable under them?
+	protected boolean restrictStratToReach = true;
 	// Do bisimulation minimisation before model checking?
 	protected boolean doBisim = false;
 
@@ -224,12 +229,6 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	private int reachMethod = REACH_BFS;
 
 	//------------------------------------------------------------------------------
-	// Logs
-	//------------------------------------------------------------------------------
-
-	private PrismLog techLog; // log for technical/diagnostic output
-
-	//------------------------------------------------------------------------------
 	// Parsers/translators/model checkers/simulators/etc.
 	//------------------------------------------------------------------------------
 
@@ -250,7 +249,7 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	//------------------------------------------------------------------------------
 
 	private enum ModelSource {
-		PRISM_MODEL, EXPLICIT_FILES, BUILT_MODEL
+		PRISM_MODEL, MODEL_GENERATOR, EXPLICIT_FILES, BUILT_MODEL
 	}
 
 	// Info about currently loaded model, if any
@@ -258,10 +257,16 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	private ModelSource currentModelSource = ModelSource.PRISM_MODEL;
 	// Model type
 	private ModelType currentModelType = null;
-	// PRISM model (null if none loaded, or built model given directly)
+	// Model info
+	private ModelInfo currentModelInfo = null;
+	// PRISM model (null if none loaded)
 	private ModulesFile currentModulesFile = null;
+	// Model generator (null if none loaded)
+	private ModelGenerator currentModelGenerator = null;
 	// Constants to be defined for PRISM model
 	private Values currentDefinedMFConstants = null;
+	// Was currentDefinedMFConstants evaluated exactly?
+	private boolean currentDefinedMFConstantsAreExact = false;
 	// Built model storage - symbolic or explicit - at most one is non-null
 	private Model currentModel = null;
 	private explicit.Model currentModelExpl = null;
@@ -272,6 +277,7 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	private File explicitFilesStatesFile = null;
 	private File explicitFilesTransFile = null;
 	private File explicitFilesLabelsFile = null;
+	private File explicitFilesStateRewardsFile = null;
 	private int explicitFilesNumStates = -1;
 
 	// Has the CUDD library been initialised yet?
@@ -287,20 +293,8 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	 */
 	public Prism(PrismLog mainLog)
 	{
-		this(mainLog, mainLog);
-	}
-
-	/**
-	 * Construct a new Prism object.
-	 * @param mainLog PrismLog where messages and model checking output will be sent.
-	 * @param techLog PrismLog for output of detailed technical info (not really used).
-	 */
-	public Prism(PrismLog mainLog, PrismLog techLog)
-	{
-		// set up logs
+		// set up log
 		this.mainLog = mainLog;
-		this.techLog = techLog;
-
 		// set up some default options
 		settings = new PrismSettings();
 		// add this Prism object as a results listener
@@ -310,7 +304,16 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	}
 
 	/**
-	 * Read in PRISM settings from the default file (.prism in user's home directory).
+	 * Construct a new Prism object.
+	 * @deprecated ({@code techLog} is no longer used, use the {@link #prism.Prism(PrismLog)} constructor instead).
+	 */
+	public Prism(PrismLog mainLog, PrismLog techLog)
+	{
+		this(mainLog);
+	}
+
+	/**
+	 * Read in PRISM settings from the default file (see PrismSettings.getLocationForSettingsFile()).
 	 * If no file exists, attempt to create a new one with default settings.
 	 */
 	public void loadUserSettingsFile()
@@ -320,7 +323,7 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 
 	/**
 	 * Read in PRISM settings from a specified file.
-	 * If the file is null, use the default (.prism in user's home directory).
+	 * If the file is null, use the default (see PrismSettings.getLocationForSettingsFile()).
 	 * If no file exists, attempt to create a new one with default settings.
 	 */
 	public void loadUserSettingsFile(File settingsFile)
@@ -354,23 +357,10 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 		// store new log
 		mainLog = l;
 		// pass to other components
+		JDD.SetOutputStream(mainLog.getFilePointer());
 		PrismMTBDD.setMainLog(mainLog);
 		PrismSparse.setMainLog(mainLog);
 		PrismHybrid.setMainLog(mainLog);
-	}
-
-	/**
-	 * Set the PrismLog for output of detailed technical info (not really used).
-	 */
-	public void setTechLog(PrismLog l)
-	{
-		// store new log
-		techLog = l;
-		// pass to other components
-		JDD.SetOutputStream(techLog.getFilePointer());
-		PrismMTBDD.setTechLog(techLog);
-		PrismSparse.setTechLog(techLog);
-		PrismHybrid.setTechLog(techLog);
 	}
 
 	// Set methods for main prism settings
@@ -592,6 +582,16 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 		exportProductStatesFilename = s;
 	}
 
+	public void setExportProductVector(boolean b) throws PrismException
+	{
+		exportProductVector = b;
+	}
+
+	public void setExportProductVectorFilename(String s) throws PrismException
+	{
+		exportProductVectorFilename = s;
+	}
+
 	/**
 	 * Specify whether or not to store the final results vector after model checking.
 	 */
@@ -606,6 +606,14 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	public void setGenStrat(boolean genStrat)
 	{
 		this.genStrat = genStrat;
+	}
+
+	/**
+	 * Specify whether or not any generated strategies should be restricted to the states reachable under them.
+	 */
+	public void setRestrictStratToReach(boolean restrictStratToReach)
+	{
+		this.restrictStratToReach = restrictStratToReach;
 	}
 
 	/**
@@ -641,6 +649,20 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 		ordering = i;
 	}
 
+// SHANE ADDED THESE (temporarily)
+// How frequently should output go to the log, in terms of iterations, during reachability...
+private int SHANE_FREQ_OF_OUTPUT = 20;
+
+public void setShaneFreqOfOutput(int iterations)
+{
+	SHANE_FREQ_OF_OUTPUT = iterations;
+}
+
+public int getShaneFreqOfOutput()
+{
+	return SHANE_FREQ_OF_OUTPUT; 
+}
+
 	public static int REACH_BFS = 1;
 	public static int REACH_FRONTIER = 2;
 
@@ -650,6 +672,24 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	}
 
 	// Get methods
+
+	/**
+	 * Get the name of this tool.
+	 * ("PRISM" by default, extensions might override) 
+	 */
+	public static String getToolName()
+	{
+		return "PRISM";
+	}
+
+	/**
+	 * Get the name of the command-line version of this tool.
+	 * ("prism" by default, extensions might override) 
+	 */
+	public static String getCommandLineName()
+	{
+		return "prism";
+	}
 
 	/**
 	 * Get current version number, as a string. 
@@ -678,11 +718,6 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	public PrismLog getMainLog()
 	{
 		return mainLog;
-	}
-
-	public PrismLog getTechLog()
-	{
-		return techLog;
 	}
 
 	public PrismSettings getSettings()
@@ -775,7 +810,7 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	{
 		return settings.getBoolean(PrismSettings.PRISM_PROB1);
 	}
-	
+
 	public boolean getPreRel()
 	{
 		return settings.getBoolean(PrismSettings.PRISM_PRE_REL);
@@ -903,6 +938,16 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 		return exportProductStatesFilename;
 	}
 
+	public boolean getExportProductVector()
+	{
+		return exportProductVector;
+	}
+
+	public String getExportProductVectorFilename()
+	{
+		return exportProductVectorFilename;
+	}
+
 	/**
 	 * Whether or not to store the final results vector after model checking.
 	 */
@@ -917,6 +962,14 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	public boolean getGenStrat()
 	{
 		return genStrat;
+	}
+
+	/**
+	 * Whether or not any generated strategies should be restricted to the states reachable under them.
+	 */
+	public boolean getRestrictStratToReach()
+	{
+		return restrictStratToReach;
 	}
 
 	/**
@@ -957,6 +1010,30 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 		return reachMethod;
 	}
 
+	/**
+	 * Returns an integer containing flags for the C++ implementation of interval iteration,
+	 * derived from the current settings object.
+	 */
+	public int getIntervalIterationFlags() throws PrismException
+	{
+		int flags = 0;
+
+		OptionsIntervalIteration iiOptions = OptionsIntervalIteration.from(settings);
+
+		if (iiOptions.isEnforceMonotonicityFromBelow())
+			flags += 1;
+
+		if (iiOptions.isEnforceMonotonicityFromAbove())
+			flags += 2;
+
+		if (iiOptions.isSelectMidpointForResult())
+			flags += 4;  // select midpoint for result
+
+		return flags;
+	}
+
+
+
 	public void addModelListener(PrismModelListener listener)
 	{
 		modelListeners.add(listener);
@@ -983,6 +1060,10 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 				// Fail silently if memory string is invalid 
 			}
 		}
+		jdd.SanityJDD.enabled = settings.getBoolean(PrismSettings.PRISM_JDD_SANITY_CHECKS);
+		PrismSparse.SetExportIterations(settings.getBoolean(PrismSettings.PRISM_EXPORT_ITERATIONS));
+		PrismHybrid.SetExportIterations(settings.getBoolean(PrismSettings.PRISM_EXPORT_ITERATIONS));
+		PrismMTBDD.SetExportIterations(settings.getBoolean(PrismSettings.PRISM_EXPORT_ITERATIONS));
 	}
 
 	//------------------------------------------------------------------------------
@@ -1058,12 +1139,13 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 
 	/**
 	 * Get an SCCComputer object for the explicit engine.
+	 * @param consumer the SCCConsumer
 	 */
-	public explicit.SCCComputer getExplicitSCCComputer(explicit.Model model) throws PrismException
+	public explicit.SCCComputer getExplicitSCCComputer(explicit.Model model, explicit.SCCConsumer consumer) throws PrismException
 	{
-		return explicit.SCCComputer.createSCCComputer(this, model);
+		return explicit.SCCComputer.createSCCComputer(this, model, consumer);
 	}
-	
+
 	/**
 	 * Get an ECComputer object.
 	 */
@@ -1075,7 +1157,8 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	/**
 	 * Get an ECComputer object.
 	 */
-	public ECComputer getECComputer(JDDNode reach, JDDNode trans, JDDNode trans01, JDDVars allDDRowVars, JDDVars allDDColVars, JDDVars allDDNondetVars) throws PrismException
+	public ECComputer getECComputer(JDDNode reach, JDDNode trans, JDDNode trans01, JDDVars allDDRowVars, JDDVars allDDColVars, JDDVars allDDNondetVars)
+			throws PrismException
 	{
 		return ECComputer.createECComputer(this, reach, trans, trans01, allDDRowVars, allDDColVars, allDDNondetVars);
 	}
@@ -1087,7 +1170,7 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	{
 		return explicit.ECComputer.createECComputer(this, model);
 	}
-	
+
 	//------------------------------------------------------------------------------
 	// Utility methods
 	//------------------------------------------------------------------------------
@@ -1273,7 +1356,7 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	/**
 	 * Get access to the list of all PRISM language keywords.
 	 */
-	public static List<String> getListOfKeyords()
+	public static List<String> getListOfKeywords()
 	{
 		return PrismParser.getListOfKeywords();
 	}
@@ -1289,7 +1372,8 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	{
 		boolean verbose = this.getSettings().getBoolean("PRISM_VERBOSE");
 		mainLog.setVerbosityLevel(verbose ? PrismLog.VL_ALL : PrismLog.VL_DEFAULT);
-		mainLog.print("PRISM\n=====\n");
+		mainLog.print(getToolName() + "\n");
+		mainLog.print(new String(new char[getToolName().length()]).replace("\0", "=") + "\n");
 		mainLog.print("\nVersion: " + getVersion() + "\n");
 		mainLog.print("Date: " + new java.util.Date() + "\n");
 		try {
@@ -1304,13 +1388,13 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 		long cuddMaxMem = PrismUtils.convertMemoryStringtoKB(getCUDDMaxMem());
 		JDD.InitialiseCUDD(cuddMaxMem, getCUDDEpsilon());
 		cuddStarted = true;
-		JDD.SetOutputStream(techLog.getFilePointer());
+		JDD.SetOutputStream(mainLog.getFilePointer());
 
 		// initialise libraries/engines
 		PrismNative.initialise(this);
-		PrismMTBDD.initialise(mainLog, techLog);
-		PrismSparse.initialise(mainLog, techLog);
-		PrismHybrid.initialise(mainLog, techLog);
+		PrismMTBDD.initialise(mainLog, mainLog);
+		PrismSparse.initialise(mainLog, mainLog);
+		PrismHybrid.initialise(mainLog, mainLog);
 
 		// set cudd manager in other packages
 		DoubleVector.setCUDDManager();
@@ -1405,17 +1489,7 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	 */
 	public ModulesFile importPepaFile(File file) throws PrismException, PrismLangException
 	{
-		String modelString;
-
-		// compile pepa file to string
-		try {
-			modelString = pepa.compiler.Main.compile("" + file);
-		} catch (pepa.compiler.InternalError e) {
-			throw new PrismException("Could not import PEPA file:\n" + e.getMessage());
-		}
-
-		// parse string as prism model and return
-		return parseModelString(modelString);
+		return importModelFile("pepa", file);
 	}
 
 	/**
@@ -1424,32 +1498,66 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	 */
 	public ModulesFile importPepaString(String s) throws PrismException, PrismLangException
 	{
-		File pepaFile = null;
-		String modelString;
+		return importModelString("pepa", s);
+	}
 
-		// create temporary file containing pepa model
-		try {
-			pepaFile = File.createTempFile("tempPepa" + System.currentTimeMillis(), ".pepa");
-			FileWriter write = new FileWriter(pepaFile);
-			write.write(s);
-			write.close();
-		} catch (IOException e) {
-			if (pepaFile != null)
-				pepaFile.delete();
-			throw new PrismException("Couldn't create temporary file for PEPA conversion");
+	/**
+	 * Import a PRISM model from an SBML model in a file
+	 * @param file File to read in
+	 */
+	public ModulesFile importSBMLFile(File file) throws PrismException, PrismLangException
+	{
+		return importModelFile("sbml", file);
+	}
+
+	/**
+	 * Import a PRISM model from an SBML model in a string
+	 * @param file File to read in
+	 */
+	public ModulesFile importSBMLString(String s) throws PrismException, PrismLangException
+	{
+		return importModelString("sbml", s);
+	}
+
+	/**
+	 * Import a PRISM model by translating from another language
+	 */
+	public ModulesFile importModelFile(String lang, File file) throws PrismException, PrismLangException
+	{
+		PrismLanguageTranslator importer = createPrismLanguageTranslator(lang);
+		importer.load(file);
+		String prismModelString = importer.translateToString();
+		return parseModelString(prismModelString);
+	}
+
+	/**
+	 * Import a PRISM model by translating from another language
+	 */
+	public ModulesFile importModelString(String lang, String s) throws PrismException, PrismLangException
+	{
+		PrismLanguageTranslator importer = createPrismLanguageTranslator(lang);
+		importer.load(s);
+		String prismModelString = importer.translateToString();
+		return parseModelString(prismModelString);
+	}
+
+	/**
+	 * Create a translator to the PRISM language.
+	 */
+	private PrismLanguageTranslator createPrismLanguageTranslator(String lang) throws PrismException
+	{
+		PrismLanguageTranslator importer = null;
+		switch (lang) {
+		case "pepa":
+			importer = new PEPA2Prism();
+			break;
+		case "sbml":
+			importer = new SBML2Prism();
+			break;
+		default:
+			throw new PrismException("Unknown import language \"" + lang + "\"");
 		}
-
-		// compile pepa file to string
-		try {
-			modelString = pepa.compiler.Main.compile("" + pepaFile);
-		} catch (pepa.compiler.InternalError e) {
-			if (pepaFile != null)
-				pepaFile.delete();
-			throw new PrismException("Could not import PEPA file:\n" + e.getMessage());
-		}
-
-		// parse string as prism model and return
-		return parseModelString(modelString);
+		return importer;
 	}
 
 	/**
@@ -1474,26 +1582,26 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	}
 
 	/**
-	 * Parse a PRISM properties file. Typically, you need to pass in the corresponding PRISM model
-	 * (for access to constants, etc.) but if left null, a blank one is created automatically.
-	 * @param mf Accompanying ModulesFile (null if not needed)
+	 * Parse a PRISM properties file. Typically, you need to pass in some info about the corresponding model 
+	 * (for access to constants, etc.). This is in the form of a ModelInfo object (e.g. a ModulesFile). If not required, this can be null.
+	 * @param modelInfo Accompanying model info (null if not needed)
 	 * @param file File to read in
 	 */
-	public PropertiesFile parsePropertiesFile(ModulesFile mf, File file) throws FileNotFoundException, PrismLangException
+	public PropertiesFile parsePropertiesFile(ModelInfo modelInfo, File file) throws FileNotFoundException, PrismLangException
 	{
-		return parsePropertiesFile(mf, file, true);
+		return parsePropertiesFile(modelInfo, file, true);
 	}
 
 	/**
-	 * Parse a PRISM properties file. Typically, you need to pass in the corresponding PRISM model
-	 * (for access to constants, etc.) but if left null, a blank one is created automatically.
+	 * Parse a PRISM properties file. Typically, you need to pass in some info about the corresponding model 
+	 * (for access to constants, etc.). This is in the form of a ModelInfo object (e.g. a ModulesFile). If not required, this can be null.
 	 * You can also choose whether to do "tidy", i.e. post-parse checks and processing
 	 * (this must be done at some point but may want to postpone to allow parsing of files with errors). 
-	 * @param mf Accompanying ModulesFile (null if not needed)
+	 * @param modelInfo Accompanying model info (null if not needed)
 	 * @param file File to read in
 	 * @param tidy Whether or not to do "tidy" (post-parse checks and processing)
 	 */
-	public PropertiesFile parsePropertiesFile(ModulesFile mf, File file, boolean tidy) throws FileNotFoundException, PrismLangException
+	public PropertiesFile parsePropertiesFile(ModelInfo modelInfo, File file, boolean tidy) throws FileNotFoundException, PrismLangException
 	{
 		FileInputStream strProperties;
 		PrismParser prismParser;
@@ -1502,20 +1610,13 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 		// open file
 		strProperties = new FileInputStream(file);
 
-		// if null modules file passed, create a blank one
-		if (mf == null) {
-			mf = new ModulesFile();
-			mf.setFormulaList(new FormulaList());
-			mf.setConstantList(new ConstantList());
-		}
-
 		try {
 			// obtain exclusive access to the prism parser
 			// (don't forget to release it afterwards)
 			prismParser = getPrismParser();
 			try {
 				// parse file
-				propertiesFile = prismParser.parsePropertiesFile(mf, strProperties);
+				propertiesFile = prismParser.parsePropertiesFile(modelInfo, strProperties);
 			} finally {
 				// release prism parser
 				releasePrismParser();
@@ -1531,22 +1632,15 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	}
 
 	/**
-	 * Parse a PRISM properties file from a string. Typically, you need to pass in the corresponding PRISM model
-	 * (for access to constants, etc.) but if left null, a blank one is created automatically.
-	 * @param mf Accompanying ModulesFile (null if not needed)
+	 * Parse a PRISM properties file form a string. Typically, you need to pass in some info about the corresponding model 
+	 * (for access to constants, etc.). This is in the form of a ModelInfo object (e.g. a ModulesFile). If not required, this can be null.
+	 * @param modelInfo Accompanying model info (null if not needed)
 	 * @param s String to parse
 	 */
-	public PropertiesFile parsePropertiesString(ModulesFile mf, String s) throws PrismLangException
+	public PropertiesFile parsePropertiesString(ModelInfo modelInfo, String s) throws PrismLangException
 	{
 		PrismParser prismParser;
 		PropertiesFile propertiesFile = null;
-
-		// if null modules file passed, create a blank one
-		if (mf == null) {
-			mf = new ModulesFile();
-			mf.setFormulaList(new FormulaList());
-			mf.setConstantList(new ConstantList());
-		}
 
 		try {
 			// obtain exclusive access to the prism parser
@@ -1554,7 +1648,7 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 			prismParser = getPrismParser();
 			try {
 				// parse string
-				propertiesFile = prismParser.parsePropertiesFile(mf, new ByteArrayInputStream(s.getBytes()));
+				propertiesFile = prismParser.parsePropertiesFile(modelInfo, new ByteArrayInputStream(s.getBytes()));
 			} finally {
 				// release prism parser
 				releasePrismParser();
@@ -1572,7 +1666,7 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	 * Parse a single PRISM expression from a string.
 	 * @param s String to parse
 	 */
-	public Expression parseSingleExpressionString(String s) throws PrismLangException
+	public static Expression parseSingleExpressionString(String s) throws PrismLangException
 	{
 		PrismParser prismParser;
 		Expression expr;
@@ -1628,18 +1722,21 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	 * Pass in null to clear storage of the current PRISM model.
 	 * @param modulesFile The PRISM model
 	 */
-	public void loadPRISMModel(ModulesFile modulesFile)
+	public void loadPRISMModel(ModulesFile modulesFile) throws PrismException
 	{
 		currentModelSource = ModelSource.PRISM_MODEL;
 		// Store PRISM model
 		currentModulesFile = modulesFile;
+		// Create a model generator for the PRISM model if appropriate - we will use that where possible
+		if (currentModulesFile.getModelType() != ModelType.PTA && currentModulesFile.getSystemDefn() == null) {
+			currentModelGenerator = new ModulesFileModelGenerator(currentModulesFile, this);
+		}
 		// Clear any existing built model(s)
 		clearBuiltModel();
 		// Reset dependent info
 		currentModelType = currentModulesFile == null ? null : currentModulesFile.getModelType();
+		currentModelInfo = currentModulesFile;
 		currentDefinedMFConstants = null;
-		currentModel = null;
-		currentModelExpl = null;
 
 		// Print basic model info
 		mainLog.println("\nType:        " + currentModulesFile.getModelType());
@@ -1669,25 +1766,70 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	}
 
 	/**
+	 * Load a model generator, which will be stored and used for subsequent model checking etc.
+	 * Some model constants can still be undefined at this stage.
+	 * Pass in null to clear storage of the current model.
+	 * @param modelGen The model generator
+	 */
+	public void loadModelGenerator(ModelGenerator modelGen)
+	{
+		currentModelSource = ModelSource.MODEL_GENERATOR;
+		// Store model generator
+		currentModelGenerator = modelGen;
+		// Clear any existing built model(s)
+		clearBuiltModel();
+		// Reset dependent info
+		currentModelType = currentModelGenerator == null ? null : currentModelGenerator.getModelType();
+		currentModelInfo = currentModelGenerator;
+		currentDefinedMFConstants = null;
+
+		// Print basic model info
+		mainLog.println("\nGenerator:   " + currentModelGenerator.getClass().getName());
+		mainLog.println("Type:        " + currentModelGenerator.getModelType());
+		// TODO: print more info 
+		//mainLog.println();
+	}
+
+	/**
+	 * Set (some or all) undefined constants for the currently loaded PRISM model
+	 * (assuming they have changed since the last time this was called).
+	 * <br>
+	 * Constants are evaluated using standard (integer, floating-point) arithmetic.
+	 * @param definedMFConstants The constant values
+	 */
+	public void setPRISMModelConstants(Values definedMFConstants) throws PrismException
+	{
+		setPRISMModelConstants(definedMFConstants, false);
+	}
+
+	/**
 	 * Set (some or all) undefined constants for the currently loaded PRISM model
 	 * (assuming they have changed since the last time this was called).
 	 * @param definedMFConstants The constant values
+	 * @param exact if true, do exact evaluation of constants (using BigRational)
 	 */
-	public void setPRISMModelConstants(Values definedMFConstants) throws PrismLangException
+	public void setPRISMModelConstants(Values definedMFConstants, boolean exact) throws PrismException
 	{
-		if (currentDefinedMFConstants == null && definedMFConstants == null)
+		if (currentDefinedMFConstants == null && definedMFConstants == null && currentDefinedMFConstantsAreExact == exact)
 			return;
-		if (currentDefinedMFConstants != null && currentDefinedMFConstants.equals(definedMFConstants))
+		if (currentDefinedMFConstants != null &&
+		    currentDefinedMFConstants.equals(definedMFConstants) &&
+		    currentDefinedMFConstantsAreExact == exact) {
+			// no change in constants and evaluation mode, nothing to do
 			return;
+		}
 
 		// Clear any existing built model(s)
 		clearBuiltModel();
 		// Store constants here and in ModulesFile
 		currentDefinedMFConstants = definedMFConstants;
-		currentModulesFile.setSomeUndefinedConstants(definedMFConstants);
-		// Reset dependent info
-		currentModel = null;
-		currentModelExpl = null;
+		currentDefinedMFConstantsAreExact = exact;
+		if (currentModulesFile != null) {
+			currentModulesFile.setSomeUndefinedConstants(definedMFConstants, exact);
+		}
+		if (currentModelGenerator != null) {
+			currentModelGenerator.setSomeUndefinedConstants(definedMFConstants, exact);
+		}
 
 		// If required, export parsed PRISM model, with constants expanded
 		if (exportPrismConst) {
@@ -1719,8 +1861,8 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 		currentModel = model;
 		// Reset dependent info
 		currentModelType = currentModulesFile == null ? null : currentModulesFile.getModelType();
+		currentModelInfo = currentModulesFile;
 		currentDefinedMFConstants = null;
-		currentModelExpl = null;
 	}
 
 	/**
@@ -1740,7 +1882,6 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 		// Reset dependent info
 		currentModelType = currentModel == null ? null : currentModel.getModelType();
 		currentDefinedMFConstants = null;
-		currentModelExpl = null;
 	}
 
 	/**
@@ -1749,26 +1890,27 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	 * @param statesFile File containing a list of states (optional, can be null)
 	 * @param transFile File containing the list of transitions (required)
 	 * @param labelsFile File containing label definitions (optional, can be null)
+	 * @param stateRewardsFile File containing state reward definitions (optional, can be null)
 	 * @param typeOverride Type of model to be built (optional, use null if not required)
 	 */
-	public ModulesFile loadModelFromExplicitFiles(File statesFile, File transFile, File labelsFile, ModelType typeOverride) throws PrismException
+	public ModulesFile loadModelFromExplicitFiles(File statesFile, File transFile, File labelsFile, File stateRewardsFile, ModelType typeOverride) throws PrismException
 	{
 		currentModelSource = ModelSource.EXPLICIT_FILES;
 		// Clear any existing built model(s)
 		clearBuiltModel();
 		// Construct ModulesFile
 		ExplicitFiles2ModulesFile ef2mf = new ExplicitFiles2ModulesFile(this);
-		currentModulesFile = ef2mf.buildModulesFile(statesFile, transFile, typeOverride);
+		currentModulesFile = ef2mf.buildModulesFile(statesFile, transFile, labelsFile, stateRewardsFile, typeOverride);
 		// Store explicit files info for later
 		explicitFilesStatesFile = statesFile;
 		explicitFilesTransFile = transFile;
 		explicitFilesLabelsFile = labelsFile;
+		explicitFilesStateRewardsFile = stateRewardsFile;
 		explicitFilesNumStates = ef2mf.getNumStates();
 		// Reset dependent info
 		currentModelType = currentModulesFile == null ? null : currentModulesFile.getModelType();
+		currentModelInfo = currentModulesFile;
 		currentDefinedMFConstants = null;
-		currentModel = null;
-		currentModelExpl = null;
 
 		return currentModulesFile;
 	}
@@ -1859,18 +2001,16 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	private void doBuildModel() throws PrismException
 	{
 		long l; // timer
-		
+
 		// Clear any existing built model(s)
 		clearBuiltModel();
 
 		try {
-			if (currentModulesFile == null)
-				throw new PrismException("There is no currently loaded PRISM model to build");
-
 			if (currentModelType == ModelType.PTA) {
 				throw new PrismException("You cannot build a PTA model explicitly, only perform model checking");
 			}
 
+if (DEBUG) System.out.print("<doBuildModel where='prism.Prism.java'>");
 			mainLog.print("\nBuilding model...\n");
 			if (currentDefinedMFConstants != null && currentDefinedMFConstants.getNumValues() > 0)
 				mainLog.println("Model constants: " + currentDefinedMFConstants);
@@ -1879,25 +2019,44 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 			l = System.currentTimeMillis();
 			switch (currentModelSource) {
 			case PRISM_MODEL:
+				if (currentModulesFile == null)
+					throw new PrismException("There is no currently loaded PRISM model to build");
 				if (!getExplicit()) {
 					Modules2MTBDD mod2mtbdd = new Modules2MTBDD(this, currentModulesFile);
 					currentModel = mod2mtbdd.translate();
 					currentModelExpl = null;
 				} else {
-					ConstructModel constructModel = new ConstructModel(this, getSimulator());
+					if (currentModulesFile.getSystemDefn() != null) {
+						throw new PrismNotSupportedException("Explicit engine does not currently support the system...endsystem construct");
+					}
+					ConstructModel constructModel = new ConstructModel(this);
 					constructModel.setFixDeadlocks(getFixDeadlocks());
-					currentModelExpl = constructModel.constructModel(currentModulesFile, false, true);
+					currentModelExpl = constructModel.constructModel(currentModelGenerator);
 					currentModel = null;
 				}
 				// if (...) ... currentModel = buildModelExplicit(currentModulesFile);
 				break;
+			case MODEL_GENERATOR:
+				if (currentModelGenerator == null)
+					throw new PrismException("There is no currently loaded model generator to build");
+				if (!getExplicit()) {
+					ModelGenerator2MTBDD modelGen2mtbdd = new ModelGenerator2MTBDD(this);
+					currentModel = modelGen2mtbdd.build(currentModelGenerator);
+					currentModelExpl = null;
+				} else {
+					ConstructModel constructModel = new ConstructModel(this);
+					constructModel.setFixDeadlocks(getFixDeadlocks());
+					currentModelExpl = constructModel.constructModel(currentModelGenerator);
+					currentModel = null;
+				}
+				break;
 			case EXPLICIT_FILES:
 				if (!getExplicit()) {
 					expf2mtbdd = new ExplicitFiles2MTBDD(this);
-					currentModel = expf2mtbdd.build(explicitFilesStatesFile, explicitFilesTransFile, explicitFilesLabelsFile, currentModulesFile,
-							explicitFilesNumStates);
+					currentModel = expf2mtbdd.build(explicitFilesStatesFile, explicitFilesTransFile, explicitFilesLabelsFile, explicitFilesStateRewardsFile,
+							currentModulesFile, explicitFilesNumStates);
 				} else {
-					throw new PrismNotSupportedException("Explicit import not yet supported for explicit engine");
+					currentModelExpl = new ExplicitFiles2Model(this).build(explicitFilesStatesFile, explicitFilesTransFile, explicitFilesLabelsFile, currentModulesFile, explicitFilesNumStates);
 				}
 				break;
 			default:
@@ -1969,6 +2128,7 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 				if (listener != null)
 					listener.notifyModelBuildSuccessful();
 			}
+if (DEBUG) System.out.println("</doBuildModel>");
 		} catch (PrismException e) {
 			// Notify model listeners of build failure
 			for (PrismModelListener listener : modelListeners) {
@@ -1991,13 +2151,13 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 		} else {
 			if (currentModelExpl.getNumDeadlockStates() > 0) {
 				int dl = currentModelExpl.getFirstDeadlockState();
-				String dls = currentModelExpl.getStatesList().get(dl).toString(currentModulesFile);
+				String dls = currentModelExpl.getStatesList().get(dl).toString(currentModelInfo);
 				throw new PrismException("Timelock in PTA, e.g. in state " + dls);
 			}
 		}
 
 		/*// Create new model checker object and do model checking
-		PropertiesFile pf = parsePropertiesString(currentModulesFile, "filter(exists,!\"invariants\"); E[F!\"invariants\"]");
+		PropertiesFile pf = parsePropertiesString(currentModelInfo, "filter(exists,!\"invariants\"); E[F!\"invariants\"]");
 		if (!getExplicit()) {
 			ModelChecker mc = new NondetModelChecker(this, currentModel, pf);
 			if (((Boolean) mc.check(pf.getProperty(0)).getResult()).booleanValue()) {
@@ -2037,8 +2197,8 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 		if (currentDefinedMFConstants != null && currentDefinedMFConstants.getNumValues() > 0)
 			mainLog.println("Model constants: " + currentDefinedMFConstants);
 
-		constructModel = new ConstructModel(this, getSimulator());
-		modelExpl = constructModel.constructModel(modulesFile);
+		constructModel = new ConstructModel(this);
+		modelExpl = constructModel.constructModel(new ModulesFileModelGenerator(modulesFile, this));
 		statesList = constructModel.getStatesList();
 
 		// create Explicit2MTBDD object
@@ -2135,9 +2295,12 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 		// Build model, if necessary
 		buildModelIfRequired();
 
+		// Check again (in case engine was switched)
+		if (getExplicit())
+			throw new PrismNotSupportedException("Export to Dot file not yet supported by explicit engine");
+		
+		// Export to dot file
 		mainLog.println("\nExporting to dot file \"" + file + "\"...");
-
-		// export to dot file
 		JDD.ExportDDToDotFileLabelled(currentModel.getTrans(), file.getPath(), currentModel.getDDVarNames());
 	}
 
@@ -2222,7 +2385,9 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	}
 
 	/**
-	 * Export the currently loaded model's state rewards to a file
+	 * Export the currently loaded model's state rewards to a file (or files, or stdout).
+	 * If there is more than 1 reward structure, then multiple files are generated
+	 * (e.g. "rew.sta" becomes "rew1.sta", "rew2.sta", ...)
 	 * @param exportType Type of export; one of: <ul>
 	 * <li> {@link #EXPORT_PLAIN} 
 	 * <li> {@link #EXPORT_MATLAB}
@@ -2232,29 +2397,52 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	 */
 	public void exportStateRewardsToFile(int exportType, File file) throws FileNotFoundException, PrismException
 	{
-		String s;
-
-		if (getExplicit())
-			throw new PrismNotSupportedException("Export of state rewards not yet supported by explicit engine");
-
-		// rows format does not apply to vectors
+		int numRewardStructs = currentModelInfo.getNumRewardStructs();
+		if (numRewardStructs == 0) {
+			mainLog.println("\nOmitting state reward export as there are no reward structures");
+			return;
+		}
+		
+		if (currentModelSource == ModelSource.EXPLICIT_FILES && getExplicit()) {
+			mainLog.println("\nOmitting state reward export (not supported when importing files using the explicit engine)");
+			return;
+		}
+		
+		// Rows format does not apply to vectors
 		if (exportType == EXPORT_ROWS)
 			exportType = EXPORT_PLAIN;
 
 		// Build model, if necessary
 		buildModelIfRequired();
 
-		// print message
-		mainLog.print("\nExporting state rewards vector ");
+		mainLog.print("\nExporting state rewards ");
 		mainLog.print(getStringForExportType(exportType) + " ");
 		mainLog.println(getDestinationStringForFile(file));
 
-		// do export
-		s = currentModel.exportStateRewardsToFile(exportType, file);
-		if (s != null)
-			mainLog.println("Rewards exported to files: " + s);
+		// Do export, writing to multiple files if necessary
+		List <String> files = new ArrayList<>();
+		for (int r = 0; r < numRewardStructs; r++) {
+			String filename = (file != null) ? file.getPath() : null;
+			if (filename != null && numRewardStructs > 1) {
+				filename = PrismUtils.addCounterSuffixToFilename(filename, r + 1);
+				files.add(filename);
+			}
+			File fileToUse = (filename == null) ? null : new File(filename);
+			if (!getExplicit()) {
+				currentModel.exportStateRewardsToFile(r, exportType, fileToUse);
+			} else {
+				PrismLog out = getPrismLogForFile(fileToUse);
+				explicit.StateModelChecker mcExpl = createModelCheckerExplicit(null);
+				((explicit.ProbModelChecker) mcExpl).exportStateRewardsToFile(currentModelExpl, r, exportType, out);
+				out.close();
+			}
+		}
+		
+		if (files.size() > 1) {
+			mainLog.println("Rewards were exported to multiple files: " + PrismUtils.joinString(files, ","));
+		}
 	}
-
+	
 	/**
 	 * Export the currently loaded model's transition rewards to a file
 	 * @param ordered Ensure that (source) states are in ascending order?
@@ -2268,24 +2456,28 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	 */
 	public void exportTransRewardsToFile(boolean ordered, int exportType, File file) throws FileNotFoundException, PrismException
 	{
-		String s;
-
+		int numRewardStructs = currentModelInfo.getNumRewardStructs();
+		if (numRewardStructs == 0) {
+			mainLog.println("\nOmitting transition reward export as there are no reward structures");
+			return;
+		}
+		
 		if (getExplicit())
 			throw new PrismException("Export of transition rewards not yet supported by explicit engine");
 
-		// can only do ordered version of export for MDPs
+		// Can only do ordered version of export for MDPs
 		if (currentModelType == ModelType.MDP) {
 			if (!ordered)
 				mainLog.printWarning("Cannot export unordered transition reward matrix for MDPs; using ordered.");
 			ordered = true;
 		}
-		// can only do ordered version of export for MRMC
+		// Can only do ordered version of export for MRMC
 		if (exportType == EXPORT_MRMC) {
 			if (!ordered)
 				mainLog.printWarning("Cannot export unordered transition reward matrix in MRMC format; using ordered.");
 			ordered = true;
 		}
-		// can only do ordered version of export for rows format
+		// Can only do ordered version of export for rows format
 		if (exportType == EXPORT_ROWS) {
 			if (!ordered)
 				mainLog.printWarning("Cannot export unordered transition matrix in rows format; using ordered.");
@@ -2295,15 +2487,29 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 		// Build model, if necessary
 		buildModelIfRequired();
 
-		// print message
-		mainLog.print("\nExporting transition rewards matrix ");
+		mainLog.print("\nExporting transition rewards ");
 		mainLog.print(getStringForExportType(exportType) + " ");
 		mainLog.println(getDestinationStringForFile(file));
 
-		// do export
-		s = currentModel.exportTransRewardsToFile(exportType, ordered, file);
-		if (s != null)
-			mainLog.println("Rewards exported to files: " + s);
+		// Do export, writing to multiple files if necessary
+		List <String> files = new ArrayList<>();
+		for (int r = 0; r < numRewardStructs; r++) {
+			String filename = (file != null) ? file.getPath() : null;
+			if (filename != null && numRewardStructs > 1) {
+				filename = PrismUtils.addCounterSuffixToFilename(filename, r + 1);
+				files.add(filename);
+			}
+			File fileToUse = (filename == null) ? null : new File(filename);
+			if (!getExplicit()) {
+				currentModel.exportTransRewardsToFile(r, exportType, ordered, fileToUse);
+			} else {
+				// Not implemented yet
+			}
+		}
+		
+		if (files.size() > 1) {
+			mainLog.println("Rewards were exported to multiple files: " + PrismUtils.joinString(files, ","));
+		}
 	}
 
 	/**
@@ -2320,7 +2526,7 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 		long l; // timer
 		PrismLog tmpLog;
 		SCCComputer sccComputer = null;
-		explicit.SCCComputer sccComputerExpl = null;
+		explicit.SCCConsumerStore sccConsumerExpl = null;
 		//Vector<JDDNode> bsccs;
 		//JDDNode not, bscc;
 
@@ -2341,8 +2547,8 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 			sccComputer = getSCCComputer(currentModel);
 			sccComputer.computeBSCCs();
 		} else {
-			sccComputerExpl = getExplicitSCCComputer(currentModelExpl);
-			sccComputerExpl.computeBSCCs();
+			sccConsumerExpl = new explicit.SCCConsumerStore();
+			getExplicitSCCComputer(currentModelExpl, sccConsumerExpl).computeSCCs();
 		}
 		l = System.currentTimeMillis() - l;
 		mainLog.println("\nTime for BSCC computation: " + l / 1000.0 + " seconds.");
@@ -2359,9 +2565,9 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 		if (exportType == EXPORT_MATLAB)
 			tmpLog.print("% ");
 		tmpLog.print("Variables: (");
-		for (i = 0; i < currentModulesFile.getNumVars(); i++) {
-			tmpLog.print(currentModulesFile.getVarName(i));
-			if (i < currentModulesFile.getNumVars() - 1)
+		for (i = 0; i < currentModelInfo.getNumVars(); i++) {
+			tmpLog.print(currentModelInfo.getVarName(i));
+			if (i < currentModelInfo.getNumVars() - 1)
 				tmpLog.print(",");
 		}
 		tmpLog.println(")");
@@ -2370,7 +2576,7 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 		if (!getExplicit()) {
 			n = sccComputer.getBSCCs().size();
 		} else {
-			n = sccComputerExpl.getBSCCs().size();
+			n = sccConsumerExpl.getBSCCs().size();
 		}
 		for (i = 0; i < n; i++) {
 			tmpLog.println();
@@ -2386,7 +2592,7 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 					new StateListMTBDD(sccComputer.getBSCCs().get(i), currentModel).printMatlab(tmpLog);
 				JDD.Deref(sccComputer.getBSCCs().get(i));
 			} else {
-				explicit.StateValues.createFromBitSet(sccComputerExpl.getBSCCs().get(i), currentModelExpl).print(tmpLog, true, exportType == EXPORT_MATLAB, true, true);
+				explicit.StateValues.createFromBitSet(sccConsumerExpl.getBSCCs().get(i), currentModelExpl).print(tmpLog, true, exportType == EXPORT_MATLAB, true, true);
 			}
 			if (exportType == EXPORT_MATLAB)
 				tmpLog.println("];");
@@ -2452,9 +2658,9 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 		if (exportType == EXPORT_MATLAB)
 			tmpLog.print("% ");
 		tmpLog.print("Variables: (");
-		for (i = 0; i < currentModulesFile.getNumVars(); i++) {
-			tmpLog.print(currentModulesFile.getVarName(i));
-			if (i < currentModulesFile.getNumVars() - 1)
+		for (i = 0; i < currentModelInfo.getNumVars(); i++) {
+			tmpLog.print(currentModelInfo.getVarName(i));
+			if (i < currentModelInfo.getNumVars() - 1)
 				tmpLog.print(",");
 		}
 		tmpLog.println(")");
@@ -2479,7 +2685,8 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 					new StateListMTBDD(ecComputer.getMECStates().get(i), currentModel).printMatlab(tmpLog);
 				JDD.Deref(ecComputer.getMECStates().get(i));
 			} else {
-				explicit.StateValues.createFromBitSet(ecComputerExpl.getMECStates().get(i), currentModelExpl).print(tmpLog, true, exportType == EXPORT_MATLAB, true, true);
+				explicit.StateValues.createFromBitSet(ecComputerExpl.getMECStates().get(i), currentModelExpl).print(tmpLog, true, exportType == EXPORT_MATLAB,
+						true, true);
 			}
 			if (exportType == EXPORT_MATLAB)
 				tmpLog.println("];");
@@ -2489,7 +2696,7 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 		if (file != null)
 			tmpLog.close();
 	}
-	
+
 	/**
 	 * Export the (states of the) currently loaded model's strongly connected components (SCCs) to a file
 	 * @param exportType Type of export; one of: <ul>
@@ -2504,7 +2711,7 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 		long l; // timer
 		PrismLog tmpLog;
 		SCCComputer sccComputer = null;
-		explicit.SCCComputer sccComputerExpl = null;
+		explicit.SCCConsumerStore sccConsumerExpl = null;
 
 		// no specific states format for MRMC
 		if (exportType == EXPORT_MRMC)
@@ -2523,8 +2730,8 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 			sccComputer = getSCCComputer(currentModel);
 			sccComputer.computeSCCs();
 		} else {
-			sccComputerExpl = getExplicitSCCComputer(currentModelExpl);
-			sccComputerExpl.computeSCCs();
+			sccConsumerExpl = new explicit.SCCConsumerStore();
+			getExplicitSCCComputer(currentModelExpl, sccConsumerExpl).computeSCCs();
 		}
 		l = System.currentTimeMillis() - l;
 		mainLog.println("\nTime for SCC computation: " + l / 1000.0 + " seconds.");
@@ -2541,9 +2748,9 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 		if (exportType == EXPORT_MATLAB)
 			tmpLog.print("% ");
 		tmpLog.print("Variables: (");
-		for (i = 0; i < currentModulesFile.getNumVars(); i++) {
-			tmpLog.print(currentModulesFile.getVarName(i));
-			if (i < currentModulesFile.getNumVars() - 1)
+		for (i = 0; i < currentModelInfo.getNumVars(); i++) {
+			tmpLog.print(currentModelInfo.getVarName(i));
+			if (i < currentModelInfo.getNumVars() - 1)
 				tmpLog.print(",");
 		}
 		tmpLog.println(")");
@@ -2552,7 +2759,7 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 		if (!getExplicit()) {
 			n = sccComputer.getSCCs().size();
 		} else {
-			n = sccComputerExpl.getSCCs().size();
+			n = sccConsumerExpl.getSCCs().size();
 		}
 		for (i = 0; i < n; i++) {
 			tmpLog.println();
@@ -2568,7 +2775,7 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 					new StateListMTBDD(sccComputer.getSCCs().get(i), currentModel).printMatlab(tmpLog);
 				JDD.Deref(sccComputer.getSCCs().get(i));
 			} else {
-				explicit.StateValues.createFromBitSet(sccComputerExpl.getSCCs().get(i), currentModelExpl).print(tmpLog, true, exportType == EXPORT_MATLAB, true, true);
+				explicit.StateValues.createFromBitSet(sccConsumerExpl.getSCCs().get(i), currentModelExpl).print(tmpLog, true, exportType == EXPORT_MATLAB, true, true);
 			}
 			if (exportType == EXPORT_MATLAB)
 				tmpLog.println("];");
@@ -2595,18 +2802,6 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	 */
 	public void exportLabelsToFile(PropertiesFile propertiesFile, int exportType, File file) throws FileNotFoundException, PrismException
 	{
-		int numLabels;
-		LabelList ll;
-
-		// Get label list and size
-		if (propertiesFile == null) {
-			ll = currentModulesFile.getLabelList();
-			numLabels = ll.size();
-		} else {
-			ll = propertiesFile.getCombinedLabelList();
-			numLabels = ll.size();
-		}
-
 		// Build model, if necessary
 		buildModelIfRequired();
 
@@ -2615,14 +2810,20 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 		mainLog.print(getStringForExportType(exportType) + " ");
 		mainLog.println(getDestinationStringForFile(file));
 
-		// Collect labels to export
+		// Collect names of labels to export
 		List<String> labelNames = new ArrayList<String>();
 		labelNames.add("init");
 		labelNames.add("deadlock");
-		for (int i = 0; i < numLabels; i++) {
-			labelNames.add(ll.getLabelName(i));
+		if (propertiesFile == null) {
+			labelNames.addAll(currentModelInfo.getLabelNames());
+		} else {
+			LabelList ll = propertiesFile.getCombinedLabelList();
+			int numLabels = ll.size();
+			for (int i = 0; i < numLabels; i++) {
+				labelNames.add(ll.getLabelName(i));
+			}
 		}
-		
+
 		// Export
 		if (getExplicit()) {
 			PrismLog out = getPrismLogForFile(file);
@@ -2669,12 +2870,30 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 		if (!getExplicit()) {
 			currentModel.exportStates(exportType, tmpLog);
 		} else {
-			currentModelExpl.exportStates(exportType, currentModulesFile.createVarList(), tmpLog);
+			currentModelExpl.exportStates(exportType, currentModelInfo.createVarList(), tmpLog);
 		}
 
 		// Tidy up
 		if (file != null)
 			tmpLog.close();
+	}
+
+	/**
+	 * Perform model checking of a property on the currently loaded model and return result.
+	 * Here, the property is passed as a string and parsed first. Usually, you would use the other
+	 * model checking methods which assume you have already parsed the property separately.
+	 * This is just a simplified method for convenience. The property string can in fact be a whole
+	 * properties file, e.g. you can define labels/constants/etc. too, but an exception will be
+	 * thrown if there is more than one property present.    
+	 * @param propertyString The property (in fact properties file) to check as a string
+	 */
+	public Result modelCheck(String propertyString) throws PrismException
+	{
+		PropertiesFile propertiesFile = parsePropertiesString(currentModelInfo, propertyString);
+		if (propertiesFile.getNumProperties() != 1) {
+			throw new PrismException("There should be exactly one property to check (there are " + propertiesFile.getNumProperties() + ")");
+		}
+		return modelCheck(propertiesFile, propertiesFile.getPropertyObject(0));
 	}
 
 	/**
@@ -2701,45 +2920,69 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 
 		if (!digital)
 			mainLog.printSeparator();
+if (DEBUG) {
+	System.out.println("<ModelCheck prop=\'" + prop + "\'>");
+	System.out.println(" @ prism.Prism.modelCheck() - Place 1");
+	System.out.println("CSV-LONG CSV-BRIEF, Model checking: " + prop );		// REALLY need to 'escape' it, enclose in doubquot, ensure doubquots inside it are duplicated twice in a row.
+}
 		mainLog.println("\nModel checking: " + prop);
 		if (currentDefinedMFConstants != null && currentDefinedMFConstants.getNumValues() > 0)
 			mainLog.println("Model constants: " + currentDefinedMFConstants);
 		if (definedPFConstants != null && definedPFConstants.getNumValues() > 0)
 			mainLog.println("Property constants: " + definedPFConstants);
 
+if (DEBUG) System.out.println(" @ prism.Prism.modelCheck() - Place 2");
+
 		// Check that property is valid for the current model type
 		prop.getExpression().checkValid(currentModelType);
 
 		// For PTAs...
 		if (currentModelType == ModelType.PTA) {
+if (DEBUG) System.out.println(" @ prism.Prism.modelCheck() - Place 2-B - calling modelCheckPTA");
 			return modelCheckPTA(propertiesFile, prop.getExpression(), definedPFConstants);
 		}
 
 		// For exact model checking
 		if (settings.getBoolean(PrismSettings.PRISM_EXACT_ENABLED)) {
+if (DEBUG) System.out.println(" @ prism.Prism.modelCheck() - Place 2-C - calling modelCheckExact");
 			return modelCheckExact(propertiesFile, prop);
 		}
 		// For fast adaptive uniformisation
 		if (currentModelType == ModelType.CTMC && settings.getString(PrismSettings.PRISM_TRANSIENT_METHOD).equals("Fast adaptive uniformisation")) {
 			FastAdaptiveUniformisationModelChecker fauMC;
-			fauMC = new FastAdaptiveUniformisationModelChecker(this, currentModulesFile, propertiesFile, getSimulator());
+if (DEBUG) System.out.println(" @ prism.Prism.modelCheck() - Place 3-A - creating FastAdaptiveUniformisationModelChecker");
+			fauMC = new FastAdaptiveUniformisationModelChecker(this, currentModulesFile, propertiesFile);
 			return fauMC.check(prop.getExpression());
 		}
 		// Auto-switch engine if required
-		else if (currentModelType == ModelType.MDP && !Expression.containsMultiObjective(prop.getExpression())) {
+		if (currentModelType == ModelType.MDP && !Expression.containsMultiObjective(prop.getExpression())) {
+if (DEBUG) System.out.println(" @ prism.Prism.modelCheck() - Place 3-B-1");
 			if (getMDPSolnMethod() != Prism.MDP_VALITER && !getExplicit()) {
+if (DEBUG) System.out.println(" @ prism.Prism.modelCheck() - Place 3-B-2");
 				mainLog.printWarning("Switching to explicit engine to allow use of chosen MDP solution method.");
 				engineSwitch = true;
 				lastEngine = getEngine();
 				setEngine(Prism.EXPLICIT);
 			}
 		}
+
+		if (Expression.containsNonProbLTLFormula(prop.getExpression())) {
+if (DEBUG) System.out.println(" @ prism.Prism.modelCheck() - Place 4");
+			mainLog.printWarning("Switching to explicit engine to allow non-probabilistic LTL mocel checking.");
+			engineSwitch = true;
+			lastEngine = getEngine();
+			setEngine(Prism.EXPLICIT);
+		}
 		try {
 			// Build model, if necessary
+if (DEBUG) System.out.println(" @ prism.Prism.modelCheck() - Place 5-Pre - about to call 'buildModelIfRequired() [Note that modelIsBuilt() returns " + modelIsBuilt() + "]");
 			buildModelIfRequired();
+if (DEBUG) System.out.println(" @ prism.Prism.modelCheck() - Place 5-Post - after call to buildModelIfRequired()");
 
 			// Compatibility check
 			if (genStrat && currentModelType.nondeterministic() && !getExplicit()) {
+if (DEBUG) System.out.println(" @ prism.Prism.modelCheck() - Place 6");
+
 				if (!((NondetModel) currentModel).areAllChoiceActionsUnique())
 					throw new PrismException("Cannot generate strategies with the current engine "
 							+ "because some state of the model do not have unique action labels for each choice. "
@@ -2748,13 +2991,18 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 
 			// Create new model checker object and do model checking
 			if (!getExplicit()) {
-				ModelChecker mc = createModelChecker(propertiesFile); 
+if (DEBUG) System.out.println(" @ prism.Prism.modelCheck() - Place 7A-1 - about to call 'createModelChecker()'");
+				ModelChecker mc = createModelChecker(propertiesFile);
+if (DEBUG) System.out.println(" @ prism.Prism.modelCheck() - Place 7A-2 - about to call 'mc.check()' on result of 'prop.getExpression()')");
 				res = mc.check(prop.getExpression());
 			} else {
+if (DEBUG) System.out.println(" @ prism.Prism.modelCheck() - Place 7B-1 - about to call 'createModelCheckerExplicit()'");
 				explicit.StateModelChecker mc = createModelCheckerExplicit(propertiesFile);
+if (DEBUG) System.out.println(" @ prism.Prism.modelCheck() - Place 7B-2 - about to call 'mc.check()' on result of 'prop.getExpression()')");
 				res = mc.check(currentModelExpl, prop.getExpression());
 			}
 		} finally {
+if (DEBUG) System.out.println("</ModelCheck>\n");
 			// Undo auto-switch (if any)
 			if (engineSwitch) {
 				setEngine(lastEngine);
@@ -2785,11 +3033,11 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 				DigitalClocks dc = new DigitalClocks(this);
 				dc.translate(oldModulesFile, propertiesFile, expr);
 				currentModulesFile = dc.getNewModulesFile();
-				currentModulesFile.setUndefinedConstants(oldModulesFile.getConstantValues());
+				// evaluate constants (use exact evaluation if we are in exact computation mode)
+				currentModulesFile.setUndefinedConstants(oldModulesFile.getConstantValues(), settings.getBoolean(PrismSettings.PRISM_EXACT_ENABLED));
 				currentModelType = ModelType.MDP;
+				currentModelGenerator = new ModulesFileModelGenerator(currentModulesFile, this);
 				clearBuiltModel();
-				currentModel = null;
-				currentModelExpl = null;
 				// If required, export generated PRISM model
 				if (exportDigital) {
 					try {
@@ -2865,8 +3113,12 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 		if (definedPFConstants != null && definedPFConstants.getNumValues() > 0)
 			mainLog.println("Property constants: " + definedPFConstants);
 
+		if (currentModelType.nondeterministic() && currentModelType.removeNondeterminism() != currentModelType) {
+			mainLog.printWarning("For simulation, nondeterminism in " + currentModelType + " is resolved uniformly (resulting in " + currentModelType.removeNondeterminism() + ").");
+		}
+
 		// Check that property is valid for this model type
-		expr.checkValid(currentModelType);
+		expr.checkValid(currentModelType.removeNondeterminism());
 
 		// Do simulation
 		res = getSimulator().modelCheckSingleProperty(currentModulesFile, propertiesFile, expr, initialState, maxPathLength, simMethod);
@@ -2909,9 +3161,13 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 		if (definedPFConstants != null && definedPFConstants.getNumValues() > 0)
 			mainLog.println("Property constants: " + definedPFConstants);
 
+		if (currentModelType.nondeterministic() && currentModelType.removeNondeterminism() != currentModelType) {
+			mainLog.printWarning("For simulation, nondeterminism in " + currentModelType + " is resolved uniformly (resulting in " + currentModelType.removeNondeterminism() + ").");
+		}
+
 		// Check that properties are valid for this model type
 		for (Expression expr : exprs)
-			expr.checkValid(currentModelType);
+			expr.checkValid(currentModelType.removeNondeterminism());
 
 		// Do simulation
 		res = getSimulator().modelCheckMultipleProperties(currentModulesFile, propertiesFile, exprs, initialState, maxPathLength, simMethod);
@@ -2965,45 +3221,55 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	{
 		// Some checks
 		if (!(currentModelType == ModelType.DTMC || currentModelType == ModelType.CTMC || currentModelType == ModelType.MDP))
-			throw new PrismException("Exact model checking is only supported for DTMCs, CTMCs and MDPs");
+			throw new PrismNotSupportedException("Exact model checking is only supported for DTMCs, CTMCs and MDPs");
+
+		if (currentModelType == ModelType.MDP && getFairness())
+			throw new PrismNotSupportedException("Exact model checking does not support checking MDPs under fairness");
 
 		// Set up a dummy parameter (not used)
 		String[] paramNames = new String[] { "dummy" };
 		String[] paramLowerBounds = new String[] { "0" };
 		String[] paramUpperBounds = new String[] { "1" };
 		// And execute parameteric model checking
-		param.ModelBuilder builder = new ModelBuilder(this);
-		builder.setModulesFile(currentModulesFile);
-		builder.setParameters(paramNames, paramLowerBounds, paramUpperBounds);
-		builder.build();
-		explicit.Model modelExpl = builder.getModel();
-		ParamModelChecker mc = new ParamModelChecker(this);
+		param.ModelBuilder builder = new ModelBuilder(this, param.ParamMode.EXACT);
+		ParamModel modelExpl = builder.constructModel(new ModulesFileModelGeneratorSymbolic(currentModulesFile, this), paramNames, paramLowerBounds, paramUpperBounds);
+		ParamModelChecker mc = new ParamModelChecker(this, param.ParamMode.EXACT);
 		mc.setModelBuilder(builder);
 		mc.setParameters(paramNames, paramLowerBounds, paramUpperBounds);
 		mc.setModulesFileAndPropertiesFile(currentModulesFile, propertiesFile);
+
+		if (digital) {
+			// have to do deadlock checks, as we are in digital clock mode for PTA checking,
+			// cf. doBuildModelDigitalClocksChecks()
+			if (modelExpl.getNumDeadlockStates() > 0) {
+				int dl = modelExpl.getFirstDeadlockState();
+				String dls = modelExpl.getStatesList().get(dl).toString(currentModelInfo);
+				throw new PrismException("Timelock in PTA, e.g. in state " + dls);
+			}
+		}
+
 		Result result = mc.check(modelExpl, prop.getExpression());
-		
-		// Convert result of parametric model checking to just a rational
+
+		// Convert result of parametric model checking to a single value,
+		// either boolean for boolean properties or a rational for numeric properties
 		// There should be just one region since no parameters are used
-		RegionValues regVals = (RegionValues) result.getResult();
-		if (regVals.getNumRegions() != 1)
-			throw new PrismException("Unexpected result from paramteric model checker");
-		param.Function func = regVals.getResult(0).getInitStateValueAsFunction();
-		// Evaluate the function at an arbitrary point (should not depend on parameter values)
-		BigRational rat = func.evaluate(new param.Point(new BigRational[] { new BigRational(0) }));
-		// Restore in result object
-		result.setResult(rat);
-		
+		ParamResult paramResult = (ParamResult) result.getResult();
+		result.setResult(paramResult.getSimpleResult(prop.getType()));
+
 		// Print result to log
 		String resultString = "Result";
 		if (!("Result".equals(prop.getExpression().getResultName())))
 			resultString += " (" + prop.getExpression().getResultName().toLowerCase() + ")";
 		resultString += ": " + result.getResultString();
-		mainLog.print("\n" + resultString);
-		
+		mainLog.println("\n" + resultString);
+
+		if (result.getResult() instanceof BigRational) {
+			mainLog.println(" As floating point: " + ((BigRational)result.getResult()).toApproximateString());
+		}
+
 		return result;
 	}
-	
+
 	/**
 	 * Perform parametric model checking on the currently loaded model.
 	 * @param propertiesFile parent properties file
@@ -3020,7 +3286,10 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 			throw new PrismException("Must specify some parameters when using " + "the parametric analysis");
 		}
 		if (!(currentModelType == ModelType.DTMC || currentModelType == ModelType.CTMC || currentModelType == ModelType.MDP))
-			throw new PrismException("Parametric model checking is only supported for DTMCs, CTMCs and MDPs");
+			throw new PrismNotSupportedException("Parametric model checking is only supported for DTMCs, CTMCs and MDPs");
+
+		if (currentModelType == ModelType.MDP && getFairness())
+			throw new PrismNotSupportedException("Parametric model checking does not support checking MDPs under fairness");
 
 		Values definedPFConstants = propertiesFile.getConstantValues();
 		Values constlist = currentModulesFile.getConstantValues();
@@ -3036,27 +3305,24 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 		if (definedPFConstants != null && definedPFConstants.getNumValues() > 0)
 			mainLog.println("Property constants: " + definedPFConstants);
 
-		param.ModelBuilder builder = new ModelBuilder(this);
-		builder.setModulesFile(currentModulesFile);
-		builder.setParameters(paramNames, paramLowerBounds, paramUpperBounds);
-		builder.build();
-		explicit.Model modelExpl = builder.getModel();
-		ParamModelChecker mc = new ParamModelChecker(this);
+		param.ModelBuilder builder = new ModelBuilder(this, param.ParamMode.PARAMETRIC);
+		ParamModel modelExpl = builder.constructModel(new ModulesFileModelGeneratorSymbolic(currentModulesFile, this), paramNames, paramLowerBounds, paramUpperBounds);
+		ParamModelChecker mc = new ParamModelChecker(this, param.ParamMode.PARAMETRIC);
 		mc.setModelBuilder(builder);
 		mc.setParameters(paramNames, paramLowerBounds, paramUpperBounds);
 		mc.setModulesFileAndPropertiesFile(currentModulesFile, propertiesFile);
 		Result result = mc.check(modelExpl, prop.getExpression());
-		
+
 		// Print result to log
 		String resultString = "Result";
 		if (!("Result".equals(prop.getExpression().getResultName())))
 			resultString += " (" + prop.getExpression().getResultName().toLowerCase() + ")";
 		resultString += ": " + result.getResultString();
 		mainLog.print("\n" + resultString);
-		
+
 		return result;
 	}
-	
+
 	/**
 	 * Export a strategy. The associated model should be attached to the strategy.
 	 * Strictly, speaking that does not need to be the currently loaded model,
@@ -3092,7 +3358,7 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 		if (file != null)
 			tmpLog.close();
 	}
-	
+
 	/**
 	 * Generate a random path through the model using the simulator.
 	 * @param modulesFile The model
@@ -3190,16 +3456,14 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 		ProbModelChecker mc;
 		if (model.getModelType() == ModelType.DTMC) {
 			mc = new ProbModelChecker(this, model, null);
-		}
-		else if (model.getModelType() == ModelType.CTMC) {
+		} else if (model.getModelType() == ModelType.CTMC) {
 			mc = new StochModelChecker(this, model, null);
-		}
-		else {
+		} else {
 			throw new PrismException("Steady-state probabilities only computed for DTMCs/CTMCs");
 		}
 		return mc.doSteadyState(fileIn);
 	}
-	
+
 	/**
 	 * Compute steady-state probabilities (for a DTMC or CTMC) using the explicit engine.
 	 * Optionally (if non-null), read in the initial probability distribution from a file.
@@ -3211,8 +3475,7 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 		explicit.StateValues probs;
 		if (model.getModelType() == ModelType.DTMC) {
 			mcDTMC = new DTMCModelChecker(this);
-			//TODO: probs = mcDTMC.doSteadyState((DTMC) model, fileIn);
-			probs = mcDTMC.doSteadyState((DTMC) model, (File) null);
+			probs = mcDTMC.doSteadyState((DTMC) model, fileIn);
 		} else if (model.getModelType() == ModelType.CTMC) {
 			throw new PrismException("Not implemented yet");
 		} else {
@@ -3261,14 +3524,14 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 		// Print message
 		mainLog.printSeparator();
 		String strTime = currentModelType.continuousTime() ? Double.toString(time) : Integer.toString((int) time);
-			mainLog.println("\nComputing transient probabilities (time = " + strTime + ")...");
+		mainLog.println("\nComputing transient probabilities (time = " + strTime + ")...");
 
 		l = System.currentTimeMillis();
 
 		// FAU
 		if (currentModelType == ModelType.CTMC && settings.getString(PrismSettings.PRISM_TRANSIENT_METHOD).equals("Fast adaptive uniformisation")) {
-			PrismModelExplorer modelExplorer = new PrismModelExplorer(getSimulator(), currentModulesFile);
-			FastAdaptiveUniformisation fau = new FastAdaptiveUniformisation(this, modelExplorer);
+			ModulesFileModelGenerator prismModelGen = new ModulesFileModelGenerator(currentModulesFile, this);
+			FastAdaptiveUniformisation fau = new FastAdaptiveUniformisation(this, prismModelGen);
 			fau.setConstantValues(currentModulesFile.getConstantValues());
 			probsExpl = fau.doTransient(time, fileIn, currentModel);
 		}
@@ -3287,7 +3550,8 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 		else {
 			buildModelIfRequired();
 			if (currentModelType == ModelType.DTMC) {
-				throw new PrismException("Not implemented yet");
+				DTMCModelChecker mcDTMC = new DTMCModelChecker(this);
+				probsExpl = mcDTMC.doTransient((DTMC) currentModelExpl, (int) time, fileIn);
 			} else if (currentModelType == ModelType.CTMC) {
 				CTMCModelChecker mcCTMC = new CTMCModelChecker(this);
 				probsExpl = mcCTMC.doTransient((CTMC) currentModelExpl, time, fileIn);
@@ -3374,8 +3638,8 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 
 			// FAU
 			if (currentModelType == ModelType.CTMC && settings.getString(PrismSettings.PRISM_TRANSIENT_METHOD).equals("Fast adaptive uniformisation")) {
-				PrismModelExplorer modelExplorer = new PrismModelExplorer(getSimulator(), currentModulesFile);
-				FastAdaptiveUniformisation fau = new FastAdaptiveUniformisation(this, modelExplorer);
+				ModulesFileModelGenerator prismModelGen = new ModulesFileModelGenerator(currentModulesFile, this);
+				FastAdaptiveUniformisation fau = new FastAdaptiveUniformisation(this, prismModelGen);
 				fau.setConstantValues(currentModulesFile.getConstantValues());
 				if (i == 0) {
 					probsExpl = fau.doTransient(timeDouble, fileIn, currentModel);
@@ -3414,7 +3678,12 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 					}
 					probsExpl = mc.doTransient((CTMC) currentModelExpl, timeDouble - initTimeDouble, initDistExpl);
 				} else {
-					throw new PrismException("Not implemented yet");
+					DTMCModelChecker mc = new DTMCModelChecker(this);
+					if (i == 0) {
+						initDistExpl = mc.readDistributionFromFile(fileIn, currentModelExpl);
+						initTimeInt = 0;
+					}
+					probsExpl = mc.doTransient((DTMC) currentModelExpl, timeInt - initTimeInt, initDistExpl);
 				}
 			}
 
@@ -3502,13 +3771,16 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 
 	/**
 	 * Clear the built model if needed (free/deallocate memory etc)
+	 * <br>
+	 * Resets {@code currentModel} and {@code currentModelExpl} to {@code null}.
 	 */
 	private void clearBuiltModel()
 	{
-		if (currentModel != null)
+		if (currentModel != null) {
 			currentModel.clear();
-		/*if (currentModelExpl != null)
-			currentModelExpl.clear();*/
+			currentModel = null;
+		}
+		currentModelExpl = null;
 	}
 
 	/**
@@ -3536,6 +3808,8 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 		// Close down CUDD/JDD
 		if (cuddStarted) {
 			JDD.CloseDownCUDD(check);
+			// reset CUDD status
+			cuddStarted = false;
 		}
 	}
 
@@ -3548,16 +3822,16 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 		// Create a dummy properties file if none exist
 		// (the symbolic model checkers rely on this to store e.g. model labels)
 		if (propertiesFile == null) {
-			propertiesFile = parsePropertiesString(currentModulesFile, "");
+			propertiesFile = parsePropertiesString(currentModelInfo, "");
 		}
 		// Create model checker
 		StateModelChecker mc = StateModelChecker.createModelChecker(currentModelType, this, currentModel, propertiesFile);
 		// Pass any additional local settings
 		// TODO
-		
+
 		return mc;
 	}
-	
+
 	/**
 	 * Utility method to create and initialise an (explicit) model checker based on the current model.
 	 * @param propertiesFile Optional properties file for extra info needed during model checking (can be null)
@@ -3566,7 +3840,7 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	{
 		// Create model checker
 		explicit.StateModelChecker mc = explicit.StateModelChecker.createModelChecker(currentModelType, this);
-		mc.setModulesFileAndPropertiesFile(currentModulesFile, propertiesFile);
+		mc.setModulesFileAndPropertiesFile(currentModelInfo, propertiesFile, currentModelGenerator);
 		// Pass any additional local settings
 		mc.setExportTarget(exportTarget);
 		mc.setExportTargetFilename(exportTargetFilename);
@@ -3574,13 +3848,16 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 		mc.setExportProductTransFilename(exportProductTransFilename);
 		mc.setExportProductStates(exportProductStates);
 		mc.setExportProductStatesFilename(exportProductStatesFilename);
+		mc.setExportProductVector(exportProductVector);
+		mc.setExportProductVectorFilename(exportProductVectorFilename);
 		mc.setStoreVector(storeVector);
 		mc.setGenStrat(genStrat);
+		mc.setRestrictStratToReach(restrictStratToReach);
 		mc.setDoBisim(doBisim);
-		
+
 		return mc;
 	}
-	
+
 	/**
 	 * Either create a new PrismFileLog for {@code file} or,
 	 * if {@code file} is null, return {@code mainLog}.
@@ -3646,7 +3923,7 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	//------------------------------------------------------------------------------
 
 	/**
-	 * Old API: 
+	 * @deprecated
 	 * Load a PRISM model, build it, store for later use and return.
 	 * Reachability and model construction are done symbolically, i.e. using (MT)BDDs.
 	 * It is assumed that all constants in the PRISM model file have been defined by now.  
@@ -3660,7 +3937,7 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	}
 
 	/**
-	 * Old API:
+	 * @deprecated
 	 * Load a (built) model and export its transition matrix to a Spy file.
 	 * @param model The model
 	 * @param file File to export to
@@ -3672,7 +3949,7 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	}
 
 	/**
-	 * Old API:
+	 * @deprecated
 	 * Load a (built) model and export the MTBDD for its transition matrix to a Dot file.
 	 * @param model The model
 	 * @param file File to export to
@@ -3684,7 +3961,7 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	}
 
 	/**
-	 * Old API:
+	 * @deprecated
 	 * Load a (built) model and export its transition matrix to a file
 	 * @param model The model
 	 * @param ordered Ensure that (source) states are in ascending order?
@@ -3704,7 +3981,7 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	}
 
 	/**
-	 * Old API:
+	 * @deprecated
 	 * Load a (built) model and export its transition matrix to a file (or to the log)
 	 * @param model The model
 	 * @param ordered Ensure that (source) states are in ascending order?
@@ -3725,7 +4002,7 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	}
 
 	/**
-	 * Old API:
+	 * @deprecated
 	 * Load a (built) model and export its state rewards to a file
 	 * @param model The model
 	 * @param exportType Type of export; one of: <ul>
@@ -3742,7 +4019,7 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	}
 
 	/**
-	 * Old API:
+	 * @deprecated
 	 * Load a (built) model and export its transition rewards to a file
 	 * @param model The model
 	 * @param ordered Ensure that (source) states are in ascending order?
@@ -3761,7 +4038,7 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	}
 
 	/**
-	 * Old API:
+	 * @deprecated
 	 * Load a (built) model and export its bottom strongly connected components (BSCCs) to a file
 	 * @param model The model
 	 * @param exportType Type of export; one of: <ul>
@@ -3777,7 +4054,7 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	}
 
 	/**
-	 * Old API:
+	 * @deprecated
 	 * Load a (built) model and export the states satisfying labels from it and a properties file to a file
 	 * The PropertiesFile should correspond to the model. 
 	 * @param model The model
@@ -3797,7 +4074,7 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	}
 
 	/**
-	 * Old API:
+	 * @deprecated
 	 * Load a (built) model and export its states to a file
 	 * @param model The model
 	 * @param exportType Type of export; one of: <ul>
@@ -3813,7 +4090,7 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	}
 
 	/**
-	 * Old API:
+	 * @deprecated
 	 * Load a (built) model, perform model checking of a property on it and return result.
 	 * @param model The model to check
 	 * @param propertiesFile Parent property file of property (for labels/constants/...)
@@ -3826,7 +4103,7 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	}
 
 	/**
-	 * Old API:
+	 * @deprecated
 	 * Load a PRISM PTA model, perform model checking of a property on it and return result.
 	 * @param modulesFile The corresponding (parsed) PRISM model (for the labels)
 	 * @param propertiesFile Parent property file of property (for labels/constants/...)
@@ -3839,7 +4116,7 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	}
 
 	/**
-	 * Old API:
+	 * @deprecated
 	 */
 	public Result modelCheckSimulator(ModulesFile modulesFile, PropertiesFile propertiesFile, Expression expr, State initialState, long maxPathLength,
 			SimulationMethod simMethod) throws PrismException
@@ -3849,7 +4126,7 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	}
 
 	/**
-	 * Old API:
+	 * @deprecated
 	 */
 	public Result[] modelCheckSimulatorSimultaneously(ModulesFile modulesFile, PropertiesFile propertiesFile, List<Expression> exprs, State initialState,
 			long maxPathLength, SimulationMethod simMethod) throws PrismException
@@ -3859,7 +4136,7 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	}
 
 	/**
-	 * Old API:
+	 * @deprecated
 	 */
 	public void modelCheckSimulatorExperiment(ModulesFile modulesFile, PropertiesFile propertiesFile, UndefinedConstants undefinedConstants,
 			ResultsCollection results, Expression propertyToCheck, State initialState, long maxPathLength, SimulationMethod simMethod) throws PrismException,
@@ -3870,7 +4147,7 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	}
 
 	/**
-	 * Old API:
+	 * @deprecated
 	 * Load (built) model and compute steady-state probabilities (DTMCs/CTMCs only).
 	 * Output probability distribution to log. 
 	 */
@@ -3880,7 +4157,7 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	}
 
 	/**
-	 * Old API:
+	 * @deprecated
 	 * Load (built) model and compute steady-state probabilities (DTMCs/CTMCs only).
 	 * Output probability distribution to a file (or, if file is null, to log). 
 	 * The exportType should be EXPORT_PLAIN or EXPORT_MATLAB.
@@ -3892,7 +4169,7 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	}
 
 	/**
-	 * Old API:
+	 * @deprecated
 	 * Load (built) model and compute transient probabilities (DTMCs/CTMCs only).
 	 * Output probability distribution to log. 
 	 */
@@ -3902,7 +4179,7 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 	}
 
 	/**
-	 * Old API:
+	 * @deprecated
 	 * Load (built) model and compute transient probabilities (DTMCs/CTMCs only).
 	 * Output probability distribution to a file (or, if file is null, to log). 
 	 * The exportType should be EXPORT_PLAIN or EXPORT_MATLAB.

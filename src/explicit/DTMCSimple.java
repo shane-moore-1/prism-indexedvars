@@ -30,9 +30,6 @@ import java.util.*;
 import java.util.Map.Entry;
 import java.io.*;
 
-import common.IterableStateSet;
-
-import explicit.rewards.*;
 import prism.PrismException;
 
 /**
@@ -136,19 +133,16 @@ public class DTMCSimple extends DTMCExplicit implements ModelSimple
 	@Override
 	public void buildFromPrismExplicit(String filename) throws PrismException
 	{
-		BufferedReader in;
 		String s, ss[];
 		int i, j, n, lineNum = 0;
 		double prob;
 
-		try {
-			// Open file
-			in = new BufferedReader(new FileReader(new File(filename)));
+		// Open file for reading, automatic close when done
+		try (BufferedReader in = new BufferedReader(new FileReader(new File(filename)))) {
 			// Parse first line to get num states
 			s = in.readLine();
 			lineNum = 1;
 			if (s == null) {
-				in.close();
 				throw new PrismException("Missing first line of .tra file");
 			}
 			ss = s.split(" ");
@@ -170,16 +164,11 @@ public class DTMCSimple extends DTMCExplicit implements ModelSimple
 				s = in.readLine();
 				lineNum++;
 			}
-			// Close file
-			in.close();
 		} catch (IOException e) {
-			System.out.println(e);
-			System.exit(1);
+			throw new PrismException("File I/O error reading from \"" + filename + "\": " + e.getMessage());
 		} catch (NumberFormatException e) {
 			throw new PrismException("Problem in .tra file (line " + lineNum + ") for " + getModelType());
 		}
-		// Set initial state (assume 0)
-		initialStates.add(0);
 	}
 
 	// Mutators (other)
@@ -216,10 +205,17 @@ public class DTMCSimple extends DTMCExplicit implements ModelSimple
 		return numTransitions;
 	}
 
+	/** Get an iterator over the successors of state s */
 	@Override
 	public Iterator<Integer> getSuccessorsIterator(final int s)
 	{
 		return trans.get(s).getSupport().iterator();
+	}
+
+	@Override
+	public SuccessorsIterator getSuccessors(int s)
+	{
+		return SuccessorsIterator.from(getSuccessorsIterator(s), true);
 	}
 
 	@Override
@@ -273,110 +269,6 @@ public class DTMCSimple extends DTMCExplicit implements ModelSimple
 	public Iterator<Entry<Integer, Double>> getTransitionsIterator(int s)
 	{
 		return trans.get(s).iterator();
-	}
-
-	@Override
-	public void prob0step(BitSet subset, BitSet u, BitSet result)
-	{
-		Distribution distr;
-		for (int i : new IterableStateSet(subset, numStates)) {
-			distr = trans.get(i);
-			result.set(i, distr.containsOneOf(u));
-		}
-	}
-
-	@Override
-	public void prob1step(BitSet subset, BitSet u, BitSet v, BitSet result)
-	{
-		Distribution distr;
-		for (int i : new IterableStateSet(subset, numStates)) {
-			distr = trans.get(i);
-			result.set(i, distr.containsOneOf(v) && distr.isSubsetOf(u));
-		}
-	}
-
-	@Override
-	public double mvMultSingle(int s, double vect[])
-	{
-		int k;
-		double d, prob;
-		Distribution distr;
-
-		distr = trans.get(s);
-		d = 0.0;
-		for (Map.Entry<Integer, Double> e : distr) {
-			k = (Integer) e.getKey();
-			prob = (Double) e.getValue();
-			d += prob * vect[k];
-		}
-
-		return d;
-	}
-
-	@Override
-	public double mvMultJacSingle(int s, double vect[])
-	{
-		int k;
-		double diag, d, prob;
-		Distribution distr;
-
-		distr = trans.get(s);
-		diag = 1.0;
-		d = 0.0;
-		for (Map.Entry<Integer, Double> e : distr) {
-			k = (Integer) e.getKey();
-			prob = (Double) e.getValue();
-			if (k != s) {
-				d += prob * vect[k];
-			} else {
-				diag -= prob;
-			}
-		}
-		if (diag > 0)
-			d /= diag;
-
-		return d;
-	}
-
-	@Override
-	public double mvMultRewSingle(int s, double vect[], MCRewards mcRewards)
-	{
-		int k;
-		double d, prob;
-		Distribution distr;
-
-		distr = trans.get(s);
-		d = mcRewards.getStateReward(s);
-		for (Map.Entry<Integer, Double> e : distr) {
-			k = (Integer) e.getKey();
-			prob = (Double) e.getValue();
-			d += prob * vect[k];
-		}
-
-		return d;
-	}
-
-	@Override
-	public void vmMult(double vect[], double result[])
-	{
-		int i, j;
-		double prob;
-		Distribution distr;
-
-		// Initialise result to 0
-		for (j = 0; j < numStates; j++) {
-			result[j] = 0;
-		}
-		// Go through matrix elements (by row)
-		for (i = 0; i < numStates; i++) {
-			distr = trans.get(i);
-			for (Map.Entry<Integer, Double> e : distr) {
-				j = (Integer) e.getKey();
-				prob = (Double) e.getValue();
-				result[j] += prob * vect[i];
-			}
-
-		}
 	}
 
 	// Accessors (other)

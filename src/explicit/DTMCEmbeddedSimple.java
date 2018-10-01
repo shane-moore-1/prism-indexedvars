@@ -29,8 +29,6 @@ package explicit;
 import java.util.*;
 import java.util.Map.Entry;
 
-import common.IterableStateSet;
-
 import explicit.rewards.MCRewards;
 import parser.State;
 import parser.Values;
@@ -129,36 +127,43 @@ public class DTMCEmbeddedSimple extends DTMCExplicit
 	}
 
 	@Override
-	public Iterator<Integer> getSuccessorsIterator(final int s)
+	public SuccessorsIterator getSuccessors(final int s)
 	{
 		if (exitRates[s] == 0) {
-			List<Integer> list = new ArrayList<Integer>(1);
-			list.add(s);
-			return list.iterator();
+			return SuccessorsIterator.fromSingleton(s);
 		} else {
-			return ctmc.getSuccessorsIterator(s);
+			return ctmc.getSuccessors(s);
 		}
-	}
-	
-	public boolean isSuccessor(int s1, int s2)
-	{
-		return exitRates[s1] == 0 ? (s1 == s2) : ctmc.isSuccessor(s1, s2);
-	}
-
-	public boolean allSuccessorsInSet(int s, BitSet set)
-	{
-		return exitRates[s] == 0 ? set.get(s) : ctmc.allSuccessorsInSet(s, set); 
-	}
-
-	public boolean someSuccessorsInSet(int s, BitSet set)
-	{
-		return exitRates[s] == 0 ? set.get(s) : ctmc.someSuccessorsInSet(s, set); 
 	}
 
 	public int getNumChoices(int s)
 	{
 		// Always 1 for a DTMC
 		return 1;
+	}
+
+	@Override
+	public BitSet getLabelStates(String name)
+	{
+		return ctmc.getLabelStates(name);
+	}
+
+	@Override
+	public boolean hasLabel(String name)
+	{
+		return ctmc.hasLabel(name);
+	}
+
+	@Override
+	public Set<String> getLabels()
+	{
+		return ctmc.getLabels();
+	}
+
+	@Override
+	public void addLabel(String name, BitSet states)
+	{
+		throw new RuntimeException("Can not add label to DTMCEmbeddedSimple");
 	}
 
 	public void findDeadlocks(boolean fix) throws PrismException
@@ -209,9 +214,7 @@ public class DTMCEmbeddedSimple extends DTMCExplicit
 	{
 		if (exitRates[s] == 0) {
 			// return prob-1 self-loop
-			Map<Integer,Double> m = new TreeMap<Integer,Double>();
-			m.put(s, 1.0);
-			return m.entrySet().iterator();
+			return Collections.singletonMap(s, 1.0).entrySet().iterator();
 		} else {
 			final Iterator<Entry<Integer,Double>> ctmcIterator = ctmc.getTransitionsIterator(s);
 			
@@ -249,27 +252,21 @@ public class DTMCEmbeddedSimple extends DTMCExplicit
 						}
 					};
 				}
-
-				@Override
-				public void remove()
-				{
-					throw new UnsupportedOperationException();
-				}
 			};
 		}
 	}
 
-	public void prob0step(BitSet subset, BitSet u, BitSet result)
+	@Override
+	public void forEachTransition(int s, TransitionConsumer c)
 	{
-		for (int i : new IterableStateSet(subset, numStates)) {
-			result.set(i, someSuccessorsInSet(i, u));
-		}
-	}
-
-	public void prob1step(BitSet subset, BitSet u, BitSet v, BitSet result)
-	{
-		for (int i : new IterableStateSet(subset, numStates)) {
-			result.set(i, someSuccessorsInSet(i, v) && allSuccessorsInSet(i, u));
+		final double er = exitRates[s];
+		if (er == 0) {
+			// exit rate = 0 -> prob 1 self loop
+			c.accept(s, s, 1.0);
+		} else {
+			ctmc.forEachTransition(s, (s_,t,rate) -> {
+				c.accept(s_, t, rate / er);
+			});
 		}
 	}
 
@@ -400,29 +397,22 @@ public class DTMCEmbeddedSimple extends DTMCExplicit
 	@Override
 	public void vmMult(double vect[], double result[])
 	{
-		int i, j;
-		double prob, er;
-		Distribution distr;
-		
 		// Initialise result to 0
-		for (j = 0; j < numStates; j++) {
-			result[j] = 0;
-		}
+		Arrays.fill(result, 0);
 		// Go through matrix elements (by row)
-		for (i = 0; i < numStates; i++) {
-			distr = ctmc.getTransitions(i);
-			er = exitRates[i];
+		for (int state = 0; state < numStates; state++) {
+			double er = exitRates[state];
 			// Exit rate 0: prob 1 self-loop
 			if (er == 0) {
-				result[i] += vect[i];
+				result[state] += vect[state];
+				continue;
 			}
 			// Exit rate > 0
-			else {
-				for (Map.Entry<Integer, Double> e : distr) {
-					j = (Integer) e.getKey();
-					prob = (Double) e.getValue();
-					result[j] += (prob / er) * vect[i];
-				}
+			for (Iterator<Entry<Integer, Double>> transitions = ctmc.getTransitionsIterator(state); transitions.hasNext();) {
+				Entry<Integer, Double> trans = transitions.next();
+				int target  = trans.getKey();
+				double prob = trans.getValue() / er;
+				result[target] += prob * vect[state];
 			}
 		}
 	}

@@ -30,6 +30,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Vector;
 
+import param.BigRational;
 import parser.*;
 import parser.visitor.*;
 import prism.PrismLangException;
@@ -42,24 +43,35 @@ import parser.type.*;
 public class ConstantList extends ASTElement
 {
 	// Name/expression/type triples to define constants
-	private Vector<String> names;
-	private Vector<Expression> constants; // these can be null, i.e. undefined
-	private Vector<Type> types;
+	private Vector<String> names = new Vector<String>();
+	private Vector<Expression> constants = new Vector<Expression>(); // these can be null, i.e. undefined
+	private Vector<Type> types = new Vector<Type>();
 	// We also store an ExpressionIdent to match each name.
 	// This is to just to provide positional info.
-	private Vector<ExpressionIdent> nameIdents;
+	private Vector<ExpressionIdent> nameIdents = new Vector<ExpressionIdent>();
 	
-	// Constructor
-	
+	/** Constructor */
 	public ConstantList()
 	{
-		// initialise
-		names = new Vector<String>();
-		constants = new Vector<Expression>();
-		types = new Vector<Type>();
-		nameIdents = new Vector<ExpressionIdent>();
 	}
-	
+
+	/** Constructor from a Values object, i.e., a list of name=value tuples */
+	public ConstantList(Values constValues) throws PrismLangException
+	{
+		for (int i = 0; i < constValues.getNumValues(); i++) {
+			Type type = constValues.getType(i);
+			if (type.equals(TypeBool.getInstance()) ||
+			    type.equals(TypeInt.getInstance()) ||
+			    type.equals(TypeDouble.getInstance())) {
+				addConstant(new ExpressionIdent(constValues.getName(i)),
+				            new ExpressionLiteral(type, constValues.getValue(i)),
+				            type);
+			} else {
+				throw new PrismLangException("Unsupported type for constant " + constValues.getName(i));
+			}
+		}
+	}
+
 	// Set methods
 	
 	public void addConstant(ExpressionIdent n, Expression c, Type t)
@@ -111,8 +123,38 @@ public class ConstantList extends ASTElement
 	}
 
 	/**
+	 * Remove the constant with the given name.
+	 * @param name the name of the constant
+	 * @param ignoreNonexistent if true, don't throw an exception if the constant does not exist
+	 * @throws PrismLangException if the constant does not exist (if not ignoreNonexistent)
+	 */
+	public void removeConstant(String name, boolean ignoreNonexistent) throws PrismLangException
+	{
+		int constantIndex = getConstantIndex(name);
+		if (constantIndex == -1) {
+			if (ignoreNonexistent) {
+				return;
+			}
+			throw new PrismLangException("Can not remove nonexistent constant: " + name);
+		}
+		removeConstant(constantIndex);
+	}
+
+	/**
+	 * Remove the constant with the given index.
+	 * @param i the index
+	 */
+	public void removeConstant(int i)
+	{
+		names.remove(i);
+		constants.remove(i);
+		types.remove(i);
+		nameIdents.remove(i);
+	}
+
+	/**
 	 * Find cyclic dependencies.
-	*/
+	 */
 	public void findCycles() throws PrismLangException
 	{
 		// Create boolean matrix of dependencies
@@ -191,37 +233,66 @@ public class ConstantList extends ASTElement
 			return false;
 		return (getConstant(i) != null);
 	}
-	
+
 	/**
 	 * Set values for *all* undefined constants, evaluate values for *all* constants
 	 * and return a Values object with values for *all* constants.
 	 * Argument 'someValues' contains values for undefined ones, can be null if all already defined
 	 * Argument 'otherValues' contains any other values which may be needed, null if none
+	 * <br>
+	 * Uses standard (integer, floating-point) arithmetic for evaluating constants.
 	 */
 	public Values evaluateConstants(Values someValues, Values otherValues) throws PrismLangException
 	{
-		return evaluateSomeOrAllConstants(someValues, otherValues, true);
+		return evaluateConstants(someValues, otherValues, false);
 	}
-	
+
+	/**
+	 * Set values for *all* undefined constants, evaluate values for *all* constants
+	 * and return a Values object with values for *all* constants.
+	 * Argument 'someValues' contains values for undefined ones, can be null if all already defined
+	 * Argument 'otherValues' contains any other values which may be needed, null if none
+	 * If argument 'exact' is true, constants are evaluated using exact arithmetic (BigRational)
+	 */
+	public Values evaluateConstants(Values someValues, Values otherValues, boolean exact) throws PrismLangException
+	{
+		return evaluateSomeOrAllConstants(someValues, otherValues, true, exact);
+	}
+
 	/**
 	 * Set values for *some* undefined constants, evaluate values for constants where possible
 	 * and return a Values object with values for all constants that could be evaluated.
 	 * Argument 'someValues' contains values for undefined ones, can be null if all already defined
 	 * Argument 'otherValues' contains any other values which may be needed, null if none
+	 * <br>
+	 * Uses standard (integer, floating-point) arithmetic for evaluating constants.
 	 */
 	public Values evaluateSomeConstants(Values someValues, Values otherValues) throws PrismLangException
 	{
-		return evaluateSomeOrAllConstants(someValues, otherValues, false);
+		return evaluateSomeConstants(someValues, otherValues, false);
 	}
-	
+
+	/**
+	 * Set values for *some* undefined constants, evaluate values for constants where possible
+	 * and return a Values object with values for all constants that could be evaluated.
+	 * Argument 'someValues' contains values for undefined ones, can be null if all already defined
+	 * Argument 'otherValues' contains any other values which may be needed, null if none
+	 * If argument 'exact' is true, constants are evaluated using exact arithmetic (BigRational)
+	 */
+	public Values evaluateSomeConstants(Values someValues, Values otherValues, boolean exact) throws PrismLangException
+	{
+		return evaluateSomeOrAllConstants(someValues, otherValues, false, exact);
+	}
+
 	/**
 	 * Set values for *some* or *all* undefined constants, evaluate values for constants where possible
 	 * and return a Values object with values for all constants that could be evaluated.
 	 * Argument 'someValues' contains values for undefined ones, can be null if all already defined.
 	 * Argument 'otherValues' contains any other values which may be needed, null if none.
 	 * If argument 'all' is true, an exception is thrown if any undefined constant is not defined.
+	 * If argument 'exact' is true, constants are evaluated using exact arithmetic (BigRational)
 	 */
-	private Values evaluateSomeOrAllConstants(Values someValues, Values otherValues, boolean all) throws PrismLangException
+	private Values evaluateSomeOrAllConstants(Values someValues, Values otherValues, boolean all, boolean exact) throws PrismLangException
 	{
 		ConstantList cl;
 		Expression e;
@@ -281,8 +352,23 @@ public class ConstantList extends ASTElement
 		// Evaluate constants and store in new Values object (again, ignoring 'otherValues' ones)		
 		allValues = new Values();
 		for (i = 0; i < numToEvaluate; i++) {
-			if (cl.getConstant(i) != null) {
-				val = cl.getConstant(i).evaluate(null, otherValues);
+			Expression constant = cl.getConstant(i);
+			if (constant != null) {
+				if (exact) {
+					BigRational r = constant.evaluateExact(null, otherValues);
+					// handle differently, depending on constant type
+					if (constant.getType() instanceof TypeDouble) {
+						// we keep as BigRational for TypeDouble
+						val = r;
+					} else {
+						// we convert to Java int / boolean for TypeInt and TypeBool
+						// Note: throws exception if value can't be precisely represented
+						// using the corresponding Java data type
+						val = constant.getType().castFromBigRational(r);
+					}
+				} else {
+					val = constant.evaluate(null, otherValues);
+				}
 				allValues.addValue(cl.getConstantName(i), val);
 			}
 		}

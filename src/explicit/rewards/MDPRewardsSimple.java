@@ -29,6 +29,9 @@ package explicit.rewards;
 import java.util.ArrayList;
 import java.util.List;
 
+import explicit.Model;
+import explicit.Product;
+
 /**
  * Simple explicit-state storage of rewards for an MDP.
  * Like the related class MDPSimple, this is not especially efficient, but mutable (in terms of size).
@@ -184,9 +187,42 @@ public class MDPRewardsSimple implements MDPRewards
 		return list.get(i);
 	}
 
+	// Converters
+	
+	@Override
+	public MDPRewards liftFromModel(Product<? extends Model> product)
+	{
+		Model modelProd = product.getProductModel();
+		int numStatesProd = modelProd.getNumStates();		
+		MDPRewardsSimple rewardsProd = new MDPRewardsSimple(numStatesProd);
+		if (stateRewards != null) {
+			for (int s = 0; s < numStatesProd; s++) {
+				rewardsProd.setStateReward(s, stateRewards.get(product.getModelState(s)));
+			}
+		}
+		if (transRewards != null) {
+			for (int s = 0; s < numStatesProd; s++) {
+				List<Double> list = transRewards.get(product.getModelState(s));
+				if (list != null) {
+					int numChoices = list.size();
+					for (int i = 0; i < numChoices; i++) {
+						rewardsProd.setTransitionReward(s, i, list.get(i));
+					}
+				}
+			}
+		}
+		return rewardsProd;
+	}
+	
 	@Override
 	public String toString()
 	{
 		return "st: " + this.stateRewards + "; tr:" + this.transRewards;
+	}
+
+	@Override
+	public boolean hasTransitionRewards()
+	{
+		return transRewards != null;
 	}
 }

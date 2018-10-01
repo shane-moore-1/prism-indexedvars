@@ -121,24 +121,13 @@ public class DTMCFromMDPAndMDStrategy extends DTMCExplicit
 		return numTransitions;
 	}
 
-	public Iterator<Integer> getSuccessorsIterator(final int s)
+	public SuccessorsIterator getSuccessors(final int s)
 	{
-		throw new RuntimeException("Not implemented yet");
-	}
-
-	public boolean isSuccessor(int s1, int s2)
-	{
-		throw new RuntimeException("Not implemented yet");
-	}
-
-	public boolean allSuccessorsInSet(int s, BitSet set)
-	{
-		throw new RuntimeException("Not implemented yet");
-	}
-
-	public boolean someSuccessorsInSet(int s, BitSet set)
-	{
-		throw new RuntimeException("Not implemented yet");
+		if (strat.isChoiceDefined(s)) {
+			return mdp.getSuccessors(s, strat.getChoiceIndex(s));
+		} else {
+			return SuccessorsIterator.empty();
+		}
 	}
 
 	public int getNumChoices(int s)
@@ -187,39 +176,18 @@ public class DTMCFromMDPAndMDStrategy extends DTMCExplicit
 			return mdp.getTransitionsIterator(s, strat.getChoiceIndex(s));
 		} else {
 			// Empty iterator
-			return new Iterator<Entry<Integer, Double>>()
-			{
-				@Override
-				public boolean hasNext()
-				{
-					return false;
-				}
-
-				@Override
-				public Entry<Integer, Double> next()
-				{
-					return null;
-				}
-
-				@Override
-				public void remove()
-				{
-					throw new UnsupportedOperationException();
-				}
-			};
+			Map<Integer,Double> empty = Collections.emptyMap();
+			return empty.entrySet().iterator();
 		}
 	}
 
-	public void prob0step(BitSet subset, BitSet u, BitSet result)
+	@Override
+	public void forEachTransition(int s, TransitionConsumer c)
 	{
-		// TODO
-		throw new Error("Not yet supported");
-	}
-
-	public void prob1step(BitSet subset, BitSet u, BitSet v, BitSet result)
-	{
-		// TODO
-		throw new Error("Not yet supported");
+		if (!strat.isChoiceDefined(s)) {
+			return;
+		}
+		mdp.forEachTransition(s, strat.getChoiceIndex(s), c::accept);
 	}
 
 	@Override
@@ -237,8 +205,7 @@ public class DTMCFromMDPAndMDStrategy extends DTMCExplicit
 	@Override
 	public double mvMultRewSingle(int s, double vect[], MCRewards mcRewards)
 	{
-		throw new RuntimeException("Not implemented yet");
-		//return mdp.mvMultRewSingle(s, adv[s], vect);
+		return strat.isChoiceDefined(s) ? mdp.mvMultRewSingle(s, strat.getChoiceIndex(s), vect, mcRewards) : 0;
 	}
 
 	@Override

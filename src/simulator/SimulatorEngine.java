@@ -110,7 +110,7 @@ public class SimulatorEngine extends PrismComponent
 	private List<State> reachableStates;
 	// Strategy
 	private Strategy strategy;
-	
+
 	// Labels + properties info
 	protected List<Expression> labels;
 	private List<Expression> properties;
@@ -464,9 +464,7 @@ public class SimulatorEngine extends PrismComponent
 	 */
 	public void computeTransitionsForStep(int step) throws PrismException
 	{
-		updater.calculateTransitions(((PathFull) path).getState(step), transitionList);
-		transitionListBuilt = true;
-		transitionListState = new State(((PathFull) path).getState(step));
+		computeTransitionsForState(((PathFull) path).getState(step));
 	}
 
 	/**
@@ -474,9 +472,17 @@ public class SimulatorEngine extends PrismComponent
 	 */
 	public void computeTransitionsForCurrentState() throws PrismException
 	{
-		updater.calculateTransitions(path.getCurrentState(), transitionList);
+		computeTransitionsForState(path.getCurrentState());
+	}
+
+	/**
+	 * Re-compute the transition table for a particular state.
+	 */
+	private void computeTransitionsForState(State state) throws PrismException
+	{
+		updater.calculateTransitions(state, transitionList);
 		transitionListBuilt = true;
-		transitionListState = null;
+		transitionListState = state;
 	}
 
 	// ------------------------------------------------------------------------------
@@ -490,7 +496,7 @@ public class SimulatorEngine extends PrismComponent
 	{
 		this.reachableStates = reachableStates;
 	}
-	
+
 	/**
 	 * Load a strategy for the currently loaded model into the simulator.
 	 */
@@ -498,7 +504,7 @@ public class SimulatorEngine extends PrismComponent
 	{
 		this.strategy = strategy;
 	}
-	
+
 	/**
 	 * Construct a path through a model to match a supplied path,
 	 * specified as a PathFullInfo object.
@@ -513,7 +519,7 @@ public class SimulatorEngine extends PrismComponent
 		State state, nextState;
 		createNewPath(modulesFile);
 		long numStepsLong = newPath.size();
-		if (numStepsLong > Integer.MAX_VALUE)		// WHY NOT USE Long.MAX_VALUE ??? (or even minus a few from that).
+		if (numStepsLong > Integer.MAX_VALUE)
 			throw new PrismException("PathFull cannot deal with paths over length " + Integer.MAX_VALUE);
 		numSteps = (int) numStepsLong;
 		state = newPath.getState(0);
@@ -726,7 +732,7 @@ public class SimulatorEngine extends PrismComponent
 
 		// Clear storage for strategy
 		strategy = null;
-		
+
 		// Create storage for labels/properties
 		labels = new ArrayList<Expression>();
 		properties = new ArrayList<Expression>();
@@ -862,7 +868,7 @@ public class SimulatorEngine extends PrismComponent
 			strategy.initialise(s);
 		}
 	}
-	
+
 	/**
 	 * Update the state of the loaded strategy, if present, based on the last step that occurred.
 	 */
@@ -875,7 +881,7 @@ public class SimulatorEngine extends PrismComponent
 			strategy.update(action, s);
 		}
 	}
-	
+
 	// ------------------------------------------------------------------------------
 	// Queries regarding model
 	// ------------------------------------------------------------------------------
@@ -921,19 +927,30 @@ public class SimulatorEngine extends PrismComponent
 
 	/**
 	 * Returns the current list of available transitions, generating it first if this has not yet been done.
+	 * Usually, this is for the current (final) state of the path but, if you called {@link #computeTransitionsForStep(int step)}, it will be for this state instead.
 	 */
 	public TransitionList getTransitionList() throws PrismException
 	{
 		// Compute the current transition list, if required
 		if (!transitionListBuilt) {
-			updater.calculateTransitions(currentState, transitionList);
-			transitionListBuilt = true;
+			computeTransitionsForCurrentState();
 		}
 		return transitionList;
 	}
 
 	/**
+	 * Get the state for which the simulator is currently supplying information about its transitions. 
+	 * Usually, this is the current (final) state of the path but, if you called {@link #computeTransitionsForStep(int step)}, it will be this state instead.
+	 */
+	public State getTransitionListState()
+	{
+		return (transitionListState == null) ? path.getCurrentState() : transitionListState;
+		
+	}
+	
+	/**
 	 * Returns the current number of available choices.
+	 * Usually, this is for the current (final) state of the path but, if you called {@link #computeTransitionsForStep(int step)}, it will be for this state instead.
 	 */
 	public int getNumChoices() throws PrismException
 	{
@@ -942,6 +959,7 @@ public class SimulatorEngine extends PrismComponent
 
 	/**
 	 * Returns the current (total) number of available transitions.
+	 * Usually, this is for the current (final) state of the path but, if you called {@link #computeTransitionsForStep(int step)}, it will be for this state instead.
 	 */
 	public int getNumTransitions() throws PrismException
 	{
@@ -950,6 +968,7 @@ public class SimulatorEngine extends PrismComponent
 
 	/**
 	 * Returns the current number of available transitions in choice i.
+	 * Usually, this is for the current (final) state of the path but, if you called {@link #computeTransitionsForStep(int step)}, it will be for this state instead.
 	 */
 	public int getNumTransitions(int i) throws PrismException
 	{
@@ -958,6 +977,7 @@ public class SimulatorEngine extends PrismComponent
 
 	/**
 	 * Get the index of the choice containing a transition of a given index.
+	 * Usually, this is for the current (final) state of the path but, if you called {@link #computeTransitionsForStep(int step)}, it will be for this state instead.
 	 */
 	public int getChoiceIndexOfTransition(int index) throws PrismException
 	{
@@ -967,6 +987,7 @@ public class SimulatorEngine extends PrismComponent
 	/**
 	 * Get a string describing the action/module of a transition, specified by its index/offset.
 	 * (form is "module" or "[action]")
+	 * Usually, this is for the current (final) state of the path but, if you called {@link #computeTransitionsForStep(int step)}, it will be for this state instead.
 	 */
 	public String getTransitionModuleOrAction(int i, int offset) throws PrismException
 	{
@@ -977,6 +998,7 @@ public class SimulatorEngine extends PrismComponent
 	/**
 	 * Get a string describing the action/module of a transition, specified by its index.
 	 * (form is "module" or "[action]")
+	 * Usually, this is for the current (final) state of the path but, if you called {@link #computeTransitionsForStep(int step)}, it will be for this state instead.
 	 */
 	public String getTransitionModuleOrAction(int index) throws PrismException
 	{
@@ -987,6 +1009,7 @@ public class SimulatorEngine extends PrismComponent
 	 * Get the index of the action/module of a transition, specified by its index/offset.
 	 * (-i for independent in ith module, i for synchronous on ith action)
 	 * (in both cases, modules/actions are 1-indexed)
+	 * Usually, this is for the current (final) state of the path but, if you called {@link #computeTransitionsForStep(int step)}, it will be for this state instead.
 	 */
 	public int getTransitionModuleOrActionIndex(int i, int offset) throws PrismException
 	{
@@ -998,6 +1021,7 @@ public class SimulatorEngine extends PrismComponent
 	 * Get the index of the action/module of a transition, specified by its index.
 	 * (-i for independent in ith module, i for synchronous on ith action)
 	 * (in both cases, modules/actions are 1-indexed)
+	 * Usually, this is for the current (final) state of the path but, if you called {@link #computeTransitionsForStep(int step)}, it will be for this state instead.
 	 */
 	public int getTransitionModuleOrActionIndex(int index) throws PrismException
 	{
@@ -1008,6 +1032,7 @@ public class SimulatorEngine extends PrismComponent
 	 * Get the action label of a transition as a string, specified by its index/offset.
 	 * (null for asynchronous/independent transitions)
 	 * (see also {@link #getTransitionModuleOrAction(int, int)} and {@link #getTransitionModuleOrActionIndex(int, int)})
+	 * Usually, this is for the current (final) state of the path but, if you called {@link #computeTransitionsForStep(int step)}, it will be for this state instead.
 	 */
 	public String getTransitionAction(int i, int offset) throws PrismException
 	{
@@ -1020,6 +1045,7 @@ public class SimulatorEngine extends PrismComponent
 	 * Get the action label of a transition as a string, specified by its index.
 	 * (null for asynchronous/independent transitions)
 	 * (see also {@link #getTransitionModuleOrAction(int)} and {@link #getTransitionModuleOrActionIndex(int)})
+	 * Usually, this is for the current (final) state of the path but, if you called {@link #computeTransitionsForStep(int step)}, it will be for this state instead.
 	 */
 	public String getTransitionAction(int index) throws PrismException
 	{
@@ -1029,6 +1055,7 @@ public class SimulatorEngine extends PrismComponent
 
 	/**
 	 * Get the probability/rate of a transition within a choice, specified by its index/offset.
+	 * Usually, this is for the current (final) state of the path but, if you called {@link #computeTransitionsForStep(int step)}, it will be for this state instead.
 	 */
 	public double getTransitionProbability(int i, int offset) throws PrismException
 	{
@@ -1038,6 +1065,7 @@ public class SimulatorEngine extends PrismComponent
 
 	/**
 	 * Get the probability/rate of a transition, specified by its index.
+	 * Usually, this is for the current (final) state of the path but, if you called {@link #computeTransitionsForStep(int step)}, it will be for this state instead.
 	 */
 	public double getTransitionProbability(int index) throws PrismException
 	{
@@ -1050,13 +1078,11 @@ public class SimulatorEngine extends PrismComponent
 	 * This is in abbreviated form, i.e. x'=1, rather than x'=x+1.
 	 * Format is: x'=1, y'=0, with empty string for empty update.
 	 * Only variables updated are included in list (even if unchanged).
+	 * Usually, this is for the current (final) state of the path but, if you called {@link #computeTransitionsForStep(int step)}, it will be for this state instead.
 	 */
 	public String getTransitionUpdateString(int index) throws PrismException
 	{
-		// We need the state containing the transitions. Usually, this is the current (final) state
-		// of the path. But if the user called computeTransitionsForStep(int step), this is not so. 
-		State state = (transitionListState == null) ? path.getCurrentState() : transitionListState;
-		return getTransitionList().getTransitionUpdateString(index, state);
+		return getTransitionList().getTransitionUpdateString(index, getTransitionListState());
 	}
 
 	/**
@@ -1065,6 +1091,7 @@ public class SimulatorEngine extends PrismComponent
 	 * Format is: (x'=x+1) & (y'=y-1), with empty string for empty update.
 	 * Only variables updated are included in list.
 	 * Note that expressions may have been simplified from original model. 
+	 * Usually, this is for the current (final) state of the path but, if you called {@link #computeTransitionsForStep(int step)}, it will be for this state instead.
 	 */
 	public String getTransitionUpdateStringFull(int index) throws PrismException
 	{
@@ -1073,24 +1100,20 @@ public class SimulatorEngine extends PrismComponent
 
 	/**
 	 * Get the target (as a new State object) of a transition within a choice, specified by its index/offset.
+	 * Usually, this is for the current (final) state of the path but, if you called {@link #computeTransitionsForStep(int step)}, it will be for this state instead.
 	 */
 	public State computeTransitionTarget(int i, int offset) throws PrismException
 	{
-		// We need the state containing the transitions. Usually, this is the current (final) state
-		// of the path. But if the user called computeTransitionsForStep(int step), this is not so. 
-		State state = (transitionListState == null) ? path.getCurrentState() : transitionListState;
-		return getTransitionList().getChoice(i).computeTarget(offset, state);
+		return getTransitionList().getChoice(i).computeTarget(offset, getTransitionListState());
 	}
 
 	/**
 	 * Get the target of a transition (as a new State object), specified by its index.
+	 * Usually, this is for the current (final) state of the path but, if you called {@link #computeTransitionsForStep(int step)}, it will be for this state instead.
 	 */
 	public State computeTransitionTarget(int index) throws PrismException
 	{
-		// We need the state containing the transitions. Usually, this is the current (final) state
-		// of the path. But if the user called computeTransitionsForStep(int step), this is not so. 
-		State state = (transitionListState == null) ? path.getCurrentState() : transitionListState;
-		return getTransitionList().computeTransitionTarget(index, state);
+		return getTransitionList().computeTransitionTarget(index, getTransitionListState());
 	}
 
 	// ------------------------------------------------------------------------------
@@ -1585,7 +1608,8 @@ public class SimulatorEngine extends PrismComponent
 		for (int i = 0; i < n; i++) {
 			definedPFConstants = undefinedConstants.getPFConstantValues();
 			pfcs[i] = definedPFConstants;
-			propertiesFile.setSomeUndefinedConstants(definedPFConstants);
+			// for simulation, use non-exact constant evaluation
+			propertiesFile.setSomeUndefinedConstants(definedPFConstants, false);
 			try {
 				checkPropertyForSimulation(expr);
 				indices[i] = addProperty(expr, propertiesFile);
@@ -1700,7 +1724,7 @@ public class SimulatorEngine extends PrismComponent
 				break;
 
 			// Display progress (of slowest property)
-			percentageDone = 0;
+			percentageDone = 100;
 			for (Sampler sampler : propertySamplers) {
 				percentageDone = Math.min(percentageDone, sampler.getSimulationMethod().getProgress(iters, sampler));
 			}

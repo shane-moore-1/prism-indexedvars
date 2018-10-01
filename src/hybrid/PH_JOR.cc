@@ -26,7 +26,7 @@
 
 // includes
 #include "PrismHybrid.h"
-#include <math.h>
+#include <cmath>
 #include <util.h>
 #include <cudd.h>
 #include <dd.h>
@@ -37,7 +37,10 @@
 #include "PrismHybridGlob.h"
 #include "jnipointer.h"
 #include "prism.h"
+#include "Measures.h"
+#include "ExportIterations.h"
 #include <new>
+#include <memory>
 
 // local prototypes
 static void jor_rec(HDDNode *hdd, int level, int row_offset, int col_offset, bool transpose);
@@ -99,9 +102,11 @@ jdouble omega		// omega (over-relaxation parameter)
 	double time_taken, time_for_setup, time_for_iters;
 	// misc
 	int i, iters;
-	double x, sup_norm, kb, kbt;
+	double x, kb, kbt;
 	bool done;
-	
+	// measure for convergence termination check
+	MeasureSupNorm measure(term_crit == TERM_CRIT_RELATIVE);
+
 	// exception handling around whole function
 	try {
 	
@@ -214,7 +219,18 @@ jdouble omega		// omega (over-relaxation parameter)
 	
 	// print total memory usage
 	PH_PrintMemoryToMainLog(env, "TOTAL: [", kbt, "]\n");
-	
+
+	std::unique_ptr<ExportIterations> iterationExport;
+	if (PH_GetFlagExportIterations()) {
+		std::string title("PH_JOR (");
+		title += (omega == 1.0)?"Jacobi": ("JOR omega=" + std::to_string(omega));
+		title += ")";
+
+		iterationExport.reset(new ExportIterations(title.c_str()));
+		PH_PrintToMainLog(env, "Exporting iterations to %s\n", iterationExport->getFileName().c_str());
+		iterationExport->exportVector(soln, n, 0);
+	}
+
 	// get setup time
 	stop = util_cpu_time();
 	time_for_setup = (double)(stop - start2)/1000;
@@ -256,24 +272,21 @@ jdouble omega		// omega (over-relaxation parameter)
 			for (i = 0; i < n; i++) {
 				soln2[i] = ((1-omega) * soln[i]) + (omega * soln2[i]);
 			}
-		}	
-		
-		// check convergence
-		sup_norm = 0.0;
-		for (i = 0; i < n; i++) {
-			x = fabs(soln2[i] - soln[i]);
-			if (term_crit == TERM_CRIT_RELATIVE) {
-				x /= soln2[i];
-			}
-			if (x > sup_norm) sup_norm = x;
 		}
-		if (sup_norm < term_crit_param) {
+
+		if (iterationExport)
+			iterationExport->exportVector(soln2, n, 0);
+
+		// check convergence
+		measure.reset();
+		measure.measure(soln, soln2, n);
+		if (measure.value() < term_crit_param) {
 			done = true;
 		}
-		
+
 		// print occasional status update
 		if ((util_cpu_time() - start3) > UPDATE_DELAY) {
-			PH_PrintToMainLog(env, "Iteration %d: max %sdiff=%f", iters, (term_crit == TERM_CRIT_RELATIVE)?"relative ":"", sup_norm);
+			PH_PrintToMainLog(env, "Iteration %d: max %sdiff=%f", iters, measure.isRelative()?"relative ":"", measure.value());
 			PH_PrintToMainLog(env, ", %.2f sec so far\n", ((double)(util_cpu_time() - start2)/1000));
 			start3 = util_cpu_time();
 		}
@@ -293,7 +306,7 @@ jdouble omega		// omega (over-relaxation parameter)
 	PH_PrintToMainLog(env, "\n%s: %d iterations in %.2f seconds (average %.6f, setup %.2f)\n", (omega == 1.0)?"Jacobi":"JOR", iters, time_taken, time_for_iters/iters, time_for_setup);
 	
 	// if the iterative method didn't terminate, this is an error
-	if (!done) { delete soln; soln = NULL; PH_SetErrorMessage("Iterative method did not converge within %d iterations.\nConsider using a different numerical method or increasing the maximum number of iterations", iters); }
+	if (!done) { delete[] soln; soln = NULL; PH_SetErrorMessage("Iterative method did not converge within %d iterations.\nConsider using a different numerical method or increasing the maximum number of iterations", iters); }
 	
 	// catch exceptions: register error, free memory
 	} catch (std::bad_alloc e) {
@@ -311,7 +324,7 @@ jdouble omega		// omega (over-relaxation parameter)
 	if (diags_dist) delete diags_dist;
 	if (b_vec) delete[] b_vec;
 	if (b_dist) delete b_dist;
-	if (soln2) delete soln2;
+	if (soln2) delete[] soln2;
 	
 	return ptr_to_jlong(soln);
 }

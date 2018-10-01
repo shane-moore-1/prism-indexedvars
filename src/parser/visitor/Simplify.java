@@ -37,6 +37,8 @@ public class Simplify extends ASTTraverseModify
 {
 	public Object visit(ExpressionBinaryOp e) throws PrismLangException
 	{
+System.out.println("The Simplify visitor has reached a ExprBinaryOp: " + e);
+
 		// Apply recursively
 		e.setOperand1((Expression) (e.getOperand1().accept(this)));
 		e.setOperand2((Expression) (e.getOperand2().accept(this)));
@@ -105,15 +107,23 @@ public class Simplify extends ASTTraverseModify
 		case ExpressionBinaryOp.MINUS:
 			if (Expression.isInt(e.getOperand2()) && e.getOperand2().evaluateInt() == 0)
 				return e.getOperand1();
-			if (Expression.isInt(e.getOperand1()) && e.getOperand1().evaluateInt() == 0)
-				return new ExpressionUnaryOp(ExpressionUnaryOp.MINUS, e.getOperand2());
+			if (Expression.isInt(e.getOperand1()) && e.getOperand1().evaluateInt() == 0) {
+				ExpressionUnaryOp simplified = new ExpressionUnaryOp(ExpressionUnaryOp.MINUS, e.getOperand2());
+				// preserve type
+				simplified.setType(e.getType());
+				return simplified;
+			}
 			if (Expression.isDouble(e.getOperand2()) && e.getOperand2().evaluateDouble() == 0.0) {
 				// Need to be careful that type is preserved
 				e.getOperand1().setType(e.getType());
 				return e.getOperand1();
 			}
-			if (Expression.isDouble(e.getOperand1()) && e.getOperand1().evaluateDouble() == 0.0)
-				return new ExpressionUnaryOp(ExpressionUnaryOp.MINUS, e.getOperand2());
+			if (Expression.isDouble(e.getOperand1()) && e.getOperand1().evaluateDouble() == 0.0) {
+				ExpressionUnaryOp simplified = new ExpressionUnaryOp(ExpressionUnaryOp.MINUS, e.getOperand2());
+				// preserve type
+				simplified.setType(e.getType());
+				return simplified;
+			}
 			break;
 		case ExpressionBinaryOp.TIMES:
 			if (Expression.isInt(e.getOperand2()) && e.getOperand2().evaluateInt() == 1)
@@ -153,6 +163,7 @@ public class Simplify extends ASTTraverseModify
 
 	public Object visit(ExpressionUnaryOp e) throws PrismLangException
 	{
+System.out.println("The Simplify visitor has reached a ExprUnaryOp: " + e);
 		// Apply recursively
 		e.setOperand((Expression) (e.getOperand().accept(this)));
 		// If operand is a literal, replace with literal
@@ -166,8 +177,30 @@ public class Simplify extends ASTTraverseModify
 		return e;
 	}
 
+	public Object visit(ExpressionITE e) throws PrismLangException
+	{
+System.out.println("The Simplify visitor has reached an ExprITE: " + e);
+		// Apply recursively
+		e.setOperand1((Expression) (e.getOperand1().accept(this)));
+		e.setOperand2((Expression) (e.getOperand2().accept(this)));
+		e.setOperand3((Expression) (e.getOperand3().accept(this)));
+
+		// If 'if' operand is true, replace with 'then' part
+		if (Expression.isTrue(e.getOperand1())) {
+			return e.getOperand2();
+		}
+
+		// If 'if' operand is false, replace with 'else' part
+		if (Expression.isFalse(e.getOperand1())) {
+			return e.getOperand3();
+		}
+
+		return e;
+	}
+
 	public Object visit(ExpressionFunc e) throws PrismLangException
 	{
+System.out.println("The Simplify visitor has reached an ExprFunc: " + e);
 		int i, n;
 		boolean literal;
 		// Apply recursively
@@ -192,6 +225,7 @@ public class Simplify extends ASTTraverseModify
 	
 	public Object visit(ExpressionFormula e) throws PrismLangException
 	{
+System.out.println("The Simplify visitor has reached an ExprFormula: " + e);
 		// If formula has an attached definition, just replace it with that
 		return e.getDefinition() != null ? e.getDefinition() : e;
 	}

@@ -69,7 +69,7 @@ public class DeclTypeIndexedSet extends DeclarationType
 		return size;
 	}
 
-	// Not sure why you would want to allow this, but the ASTTraverseModify wants this method. (I don't understand the role of ASTTraverseModify class either)
+	// Required by the ASTTraverseModify (in case the expression specifying the size needs to be modified by the visitor)
 	public void setSize(Expression s)
 	{
 		size = s;
@@ -80,7 +80,7 @@ public class DeclTypeIndexedSet extends DeclarationType
 		return elementsType;
 	}
 
-	// Not sure why you would want to allow this, but the ASTTraverseModify wants this method. (I don't understand the role of ASTTraverseModify class either)
+	// Required by the ASTTraverseModify (in case the DeclarationType needs to be modified by the visitor)
 	public void setElementsType(DeclarationType type)
 	{
 		this.elementsType = type;
@@ -96,7 +96,7 @@ public class DeclTypeIndexedSet extends DeclarationType
 	
 	
 	/**
-	 * Visitor method. Not sure when it is called, but its behavior is the same as DeclarationInt and the unusable DeclarationArray.
+	 * Visitor method. In recursive traversal by visitors, this method will enable THIS DeclTypeIndexedSet to be processed by the visitor.
 	 */
 	public Object accept(ASTVisitor v) throws PrismLangException
 	{

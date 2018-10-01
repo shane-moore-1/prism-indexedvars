@@ -65,8 +65,8 @@ public class BuildModelThread extends GUIComputationThread
 		// Do build
 		try {
 			prism.buildModel();
-		} catch (PrismException e) {
-			error(e.getMessage());
+		} catch (Throwable e) {
+			error(e);
 			SwingUtilities.invokeLater(new Runnable()
 			{
 				public void run()

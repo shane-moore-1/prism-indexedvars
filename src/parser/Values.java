@@ -26,24 +26,25 @@
 
 package parser;
 
-import java.text.DecimalFormat;
-import java.text.NumberFormat;
 import java.util.ArrayList;
-import java.util.Locale;
 
-import parser.ast.ModulesFile;
+import param.BigRational;
 import parser.type.Type;
 import parser.type.TypeBool;
 import parser.type.TypeDouble;
 import parser.type.TypeInt;
+import prism.ModelInfo;
 import prism.PrismLangException;
+import prism.PrismUtils;
 
 /**
  * Class to store a list of typed constant/variable values.
  * (Basically, just a mapping from String to Object)
  */
-public class Values //implements Comparable
+public class Values implements Cloneable //implements Comparable
 {
+public static boolean DEBUG = true;
+
 	protected ArrayList<String> names;
 	protected ArrayList<Object> values;
 	
@@ -80,17 +81,17 @@ public class Values //implements Comparable
 	
 	/**
 	 * Construct a new Values object by copying existing State object.
-	 * Need access to a ModulesFile for variable names.
+	 * Need access to model info for variable names.
 	 * @param s State object to copy.
-	 * @param mf Corresponding ModulesFile (for variable info/ordering)
+	 * @param modelInfo Corresponding modelInfo (for variable info/ordering)
 	 */
-	public Values(State s, ModulesFile mf)
+	public Values(State s, ModelInfo modelInfo)
 	{
 		this();
 		int i, n;
 		n = s.varValues.length;
 		for (i = 0; i < n; i++) {
-			addValue(mf.getVarName(i), s.varValues[i]);
+			addValue(modelInfo.getVarName(i), s.varValues[i]);
 		}
 	}
 	
@@ -102,6 +103,7 @@ public class Values //implements Comparable
 	 */
 	public void addValue(String name, Object value)
 	{
+if (DEBUG) System.out.println("parser.Values::addValue() - Adding value named \'" + name + "\' to the set of known values");
 		names.add(name);
 		values.add(value);
 	}
@@ -117,6 +119,7 @@ public class Values //implements Comparable
 		if (v == null) return;
 		n = v.getNumValues();
 		for (i = 0; i < n; i ++) {
+if (DEBUG) System.out.println("parser.Values::addValues() - Adding value named \'" + v.getName(i) + "\' to the set of known values");
 			addValue(v.getName(i), v.getValue(i));
 		}
 	}
@@ -222,6 +225,7 @@ public class Values //implements Comparable
 		Object o = values.get(i);
 		if (o instanceof Integer) return TypeInt.getInstance();
 		if (o instanceof Double)  return TypeDouble.getInstance();
+		if (o instanceof BigRational) return TypeDouble.getInstance();
 		if (o instanceof Boolean) return TypeBool.getInstance();
 		else return null;
 	}
@@ -241,16 +245,19 @@ public class Values //implements Comparable
 	public int getIntValue(int i) throws PrismLangException
 	{
 		Object o;
-		
+
 		o = values.get(i);
-		
+
 		if (o instanceof Boolean) {
 			return ((Boolean)o).booleanValue() ? 1 : 0;
 		}
 		if (o instanceof Integer) {
 			return ((Integer)o).intValue();
 		}
-		
+		if (o instanceof BigRational) {
+			return ((BigRational)o).toInt();
+		}
+
 		throw new PrismLangException("Cannot get integer value for \"" + getName(i) + "\"");
 	}
 
@@ -273,6 +280,9 @@ public class Values //implements Comparable
 		if (o instanceof Double) {
 			return ((Double)o).doubleValue();
 		}
+		if (o instanceof BigRational) {
+			return ((BigRational)o).doubleValue();
+		}
 		
 		throw new PrismLangException("Cannot get double value for \"" + getName(i) + "\"");
 	}
@@ -283,14 +293,16 @@ public class Values //implements Comparable
 	public boolean getBooleanValue(int i) throws PrismLangException
 	{
 		Object o;
-		
+
 		o = values.get(i);
-		
-		if (!(o instanceof Boolean)) {
+
+		if (o instanceof Boolean) {
+			return ((Boolean)o).booleanValue();
+		} else if (o instanceof BigRational) {
+			return ((BigRational)o).toBoolean();
+		} else {
 			throw new PrismLangException("Cannot get boolean value for \"" + getName(i) + "\"");
 		}
-		
-		return ((Boolean)o).booleanValue();
 	}
 
 	/**
@@ -404,26 +416,19 @@ public class Values //implements Comparable
 // 		return 0;
 // 	}
 
+	@SuppressWarnings("unchecked")
 	@Override
-	public Object clone()
+	public Values clone()
 	{
-		Values res;
-		int i, n;
-		String s;
-		Object o;
-		
-		res = new Values();
-		n = getNumValues();
-		for (i = 0; i < n; i++) {
-			s = getName(i);
-			o = getValue(i);
-			if (o instanceof Integer) o = new Integer(((Integer)o).intValue());
-			else if (o instanceof Double) o = new Double(((Double)o).doubleValue());
-			else o = new Boolean(((Boolean)o).booleanValue());
-			res.addValue(s, o);
+		Values clone;
+		try {
+			clone = (Values) super.clone();
+		} catch (CloneNotSupportedException e) {
+			throw new InternalError("Object#clone is expected to work for Cloneable objects.", e);
 		}
-		
-		return res;
+		clone.names = (ArrayList<String>) names.clone();
+		clone.values = (ArrayList<Object>) values.clone();
+		return clone;
 	}
 
 	@Override
@@ -486,9 +491,7 @@ public class Values //implements Comparable
 		String s;
 		
 		if (o instanceof Double) {
-			NumberFormat nf = DecimalFormat.getInstance(Locale.UK);
-			nf.setMaximumFractionDigits(6);
-			s = nf.format(((Double)o).doubleValue());
+			s = PrismUtils.formatDouble((double)o);
 		} else {
 			s = o.toString();
 		}

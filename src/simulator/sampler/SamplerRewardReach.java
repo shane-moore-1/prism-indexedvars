@@ -43,13 +43,9 @@ public class SamplerRewardReach extends SamplerDouble
 	 */
 	public SamplerRewardReach(ExpressionTemporal expr, int rewardStructIndex) throws PrismException
 	{
-		// If the answer is already known we should do nothing
-		if (valueKnown)
-			return;
-		
 		// Make sure expression is of the correct type
 		// Then extract other required info
-		if (expr.getOperator() != ExpressionTemporal.R_F)
+		if (expr.getOperator() != ExpressionTemporal.P_F)
 			throw new PrismException("Error creating Sampler");
 		target = expr.getOperand2();
 		this.rewardStructIndex = rewardStructIndex;

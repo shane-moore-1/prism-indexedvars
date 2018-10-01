@@ -76,15 +76,9 @@ import parser.type.TypeClock;
 import parser.type.TypeDouble;
 import parser.type.TypeInt;
 import prism.ModelType;
+import prism.Prism;
 import prism.PrismException;
 import userinterface.GUIPrism;
-import userinterface.model.computation.LoadGraphicModelThread;
-import userinterface.model.graphicModel.Decision;
-import userinterface.model.graphicModel.GUIGraphicModelEditor;
-import userinterface.model.graphicModel.ModuleModel;
-import userinterface.model.graphicModel.ProbTransition;
-import userinterface.model.graphicModel.State;
-import userinterface.model.graphicModel.Transition;
 
 @SuppressWarnings("serial")
 public class GUIMultiModelTree extends JPanel implements MouseListener
@@ -96,7 +90,6 @@ public class GUIMultiModelTree extends JPanel implements MouseListener
 
 	//Attributes
 	private GUIMultiModelHandler handler;
-	private GUIGraphicModelEditor graphicEditor;
 	private boolean editable;
 
 	//Graphical elements
@@ -141,7 +134,6 @@ public class GUIMultiModelTree extends JPanel implements MouseListener
 	{
 		this.handler = handler;
 		this.editable = editable;
-		graphicEditor = null;
 		root = new ModelRootNode();
 		theModel = new DefaultTreeModel(root);
 		newTree(editable);
@@ -169,10 +161,6 @@ public class GUIMultiModelTree extends JPanel implements MouseListener
 		int index = modules.getIndex(newNode);
 		theModel.nodesWereInserted(modules, new int[] { index });
 		modCounter++;
-		if (this.graphicEditor != null)
-			graphicEditor.addNewModule(newNode);
-		if (graphicEditor != null)
-			graphicEditor.setModified();
 	}
 
 	public ModuleNode a_requestNewModule(String name)
@@ -184,10 +172,6 @@ public class GUIMultiModelTree extends JPanel implements MouseListener
 		int index = modules.getIndex(newNode);
 		theModel.nodesWereInserted(modules, new int[] { index });
 		modCounter++;
-		if (this.graphicEditor != null)
-			graphicEditor.addNewModule(newNode);
-		if (graphicEditor != null)
-			graphicEditor.setModified();
 		return newNode;
 	}
 
@@ -196,9 +180,9 @@ public class GUIMultiModelTree extends JPanel implements MouseListener
 	public void a_addIntegerGlobal()
 	{
 		try {
-			Expression init = handler.getGUIPlugin().getPrism().parseSingleExpressionString("0");
-			Expression min = handler.getGUIPlugin().getPrism().parseSingleExpressionString("0");
-			Expression max = handler.getGUIPlugin().getPrism().parseSingleExpressionString("0");
+			Expression init = Prism.parseSingleExpressionString("0");
+			Expression min = Prism.parseSingleExpressionString("0");
+			Expression max = Prism.parseSingleExpressionString("0");
 
 			GlobalNode newNode = new GlobalNode("g" + globCounter, init, min, max, true);
 			editableDeclarations.add(newNode);
@@ -206,8 +190,6 @@ public class GUIMultiModelTree extends JPanel implements MouseListener
 			int index = declarations.getIndex(newNode);
 			theModel.nodesWereInserted(declarations, new int[] { index });
 			globCounter++;
-			if (graphicEditor != null)
-				graphicEditor.setModified();
 		} catch (Exception e) {
 			System.err.println("UNEXPECTED ERROR: " + e.getMessage());
 			e.printStackTrace();
@@ -220,9 +202,9 @@ public class GUIMultiModelTree extends JPanel implements MouseListener
 	public void a_addIntegerGlobal(String name, String mins, String maxs, String inits) throws PrismException
 	{
 		try {
-			Expression init = handler.getGUIPlugin().getPrism().parseSingleExpressionString(inits);
-			Expression min = handler.getGUIPlugin().getPrism().parseSingleExpressionString(mins);
-			Expression max = handler.getGUIPlugin().getPrism().parseSingleExpressionString(maxs);
+			Expression init = Prism.parseSingleExpressionString(inits);
+			Expression min = Prism.parseSingleExpressionString(mins);
+			Expression max = Prism.parseSingleExpressionString(maxs);
 
 			GlobalNode newNode = new GlobalNode(name, init, min, max, true);
 			editableDeclarations.add(newNode);
@@ -230,8 +212,6 @@ public class GUIMultiModelTree extends JPanel implements MouseListener
 			int index = declarations.getIndex(newNode);
 			theModel.nodesWereInserted(declarations, new int[] { index });
 			globCounter++;
-			if (graphicEditor != null)
-				graphicEditor.setModified();
 		} catch (Exception e) {
 			throw new PrismException("Global integer " + name + " has invalid parameter");
 		}
@@ -242,15 +222,13 @@ public class GUIMultiModelTree extends JPanel implements MouseListener
 	public void a_addBooleanGlobal()
 	{
 		try {
-			Expression init = handler.getGUIPlugin().getPrism().parseSingleExpressionString("false");
+			Expression init = Prism.parseSingleExpressionString("false");
 			GlobalBoolNode newNode = new GlobalBoolNode("g" + globCounter, init, true);
 			editableDeclarations.add(newNode);
 			declarations.addDeclaration(newNode);
 			int index = declarations.getIndex(newNode);
 			theModel.nodesWereInserted(declarations, new int[] { index });
 			globCounter++;
-			if (graphicEditor != null)
-				graphicEditor.setModified();
 		} catch (Exception e) {
 			System.err.println("UNEXPECTED ERROR: " + e.getMessage());
 			e.printStackTrace();
@@ -262,15 +240,13 @@ public class GUIMultiModelTree extends JPanel implements MouseListener
 	public void a_addBooleanGlobal(String name, String inits) throws PrismException
 	{
 		try {
-			Expression init = handler.getGUIPlugin().getPrism().parseSingleExpressionString(inits);
+			Expression init = Prism.parseSingleExpressionString(inits);
 			GlobalBoolNode newNode = new GlobalBoolNode(name, init, true);
 			editableDeclarations.add(newNode);
 			declarations.addDeclaration(newNode);
 			int index = declarations.getIndex(newNode);
 			theModel.nodesWereInserted(declarations, new int[] { index });
 			globCounter++;
-			if (graphicEditor != null)
-				graphicEditor.setModified();
 		} catch (Exception e) {
 			throw new PrismException("Global boolean " + name + " has invalid parameter");
 		}
@@ -282,15 +258,13 @@ public class GUIMultiModelTree extends JPanel implements MouseListener
 	public void a_addIntegerConstant()
 	{
 		try {
-			Expression value = handler.getGUIPlugin().getPrism().parseSingleExpressionString("0");
+			Expression value = Prism.parseSingleExpressionString("0");
 			IntegerConstantNode newNode = new IntegerConstantNode("c" + consCount, value, true);
 			editableConstants.add(newNode);
 			constants.addConstant(newNode);
 			int index = constants.getIndex(newNode);
 			theModel.nodesWereInserted(constants, new int[] { index });
 			consCount++;
-			if (graphicEditor != null)
-				graphicEditor.setModified();
 		} catch (Exception e) {
 			System.err.println("UNEXPECTED ERROR: " + e.getMessage());
 			e.printStackTrace();
@@ -305,15 +279,13 @@ public class GUIMultiModelTree extends JPanel implements MouseListener
 			if (val == null)
 				value = null;
 			else
-				value = handler.getGUIPlugin().getPrism().parseSingleExpressionString(val);
+				value = Prism.parseSingleExpressionString(val);
 			IntegerConstantNode newNode = new IntegerConstantNode(name, value, true);
 			editableConstants.add(newNode);
 			constants.addConstant(newNode);
 			int index = constants.getIndex(newNode);
 			theModel.nodesWereInserted(constants, new int[] { index });
 			consCount++;
-			if (graphicEditor != null)
-				graphicEditor.setModified();
 		} catch (Exception e) {
 			throw new PrismException("Constant integer " + name + " has invalid parameter");
 		}
@@ -323,15 +295,13 @@ public class GUIMultiModelTree extends JPanel implements MouseListener
 	public void a_addBooleanConstant()
 	{
 		try {
-			Expression value = handler.getGUIPlugin().getPrism().parseSingleExpressionString("false");
+			Expression value = Prism.parseSingleExpressionString("false");
 			BoolConstantNode newNode = new BoolConstantNode("c" + consCount, value, true);
 			editableConstants.add(newNode);
 			constants.addConstant(newNode);
 			int index = constants.getIndex(newNode);
 			theModel.nodesWereInserted(constants, new int[] { index });
 			consCount++;
-			if (graphicEditor != null)
-				graphicEditor.setModified();
 		} catch (Exception e) {
 			System.err.println("UNEXPECTED ERROR: " + e.getMessage());
 			e.printStackTrace();
@@ -346,15 +316,13 @@ public class GUIMultiModelTree extends JPanel implements MouseListener
 			if (val == null)
 				value = null;
 			else
-				value = handler.getGUIPlugin().getPrism().parseSingleExpressionString(val);
+				value = Prism.parseSingleExpressionString(val);
 			BoolConstantNode newNode = new BoolConstantNode(name, value, true);
 			editableConstants.add(newNode);
 			constants.addConstant(newNode);
 			int index = constants.getIndex(newNode);
 			theModel.nodesWereInserted(constants, new int[] { index });
 			consCount++;
-			if (graphicEditor != null)
-				graphicEditor.setModified();
 		} catch (Exception e) {
 			throw new PrismException("Constant boolean " + name + " has invalid parameter");
 		}
@@ -364,15 +332,13 @@ public class GUIMultiModelTree extends JPanel implements MouseListener
 	public void a_addDoubleConstant()
 	{
 		try {
-			Expression value = handler.getGUIPlugin().getPrism().parseSingleExpressionString("0.0");
+			Expression value = Prism.parseSingleExpressionString("0.0");
 			DoubleConstantNode newNode = new DoubleConstantNode("c" + consCount, value, true);
 			editableConstants.add(newNode);
 			constants.addConstant(newNode);
 			int index = constants.getIndex(newNode);
 			theModel.nodesWereInserted(constants, new int[] { index });
 			consCount++;
-			if (graphicEditor != null)
-				graphicEditor.setModified();
 		} catch (Exception e) {
 			System.err.println("UNEXPECTED ERROR: " + e.getMessage());
 			e.printStackTrace();
@@ -387,15 +353,13 @@ public class GUIMultiModelTree extends JPanel implements MouseListener
 			if (val == null)
 				value = null;
 			else
-				value = handler.getGUIPlugin().getPrism().parseSingleExpressionString(val);
+				value = Prism.parseSingleExpressionString(val);
 			DoubleConstantNode newNode = new DoubleConstantNode(name, value, true);
 			editableConstants.add(newNode);
 			constants.addConstant(newNode);
 			int index = constants.getIndex(newNode);
 			theModel.nodesWereInserted(constants, new int[] { index });
 			consCount++;
-			if (graphicEditor != null)
-				graphicEditor.setModified();
 		} catch (Exception e) {
 			throw new PrismException("Constant double " + name + " has invalid parameter");
 		}
@@ -408,16 +372,6 @@ public class GUIMultiModelTree extends JPanel implements MouseListener
 		editableModules.remove(m);
 		modules.remove(m);
 		theModel.nodesWereRemoved(modules, new int[] { index }, new Object[] { m });
-		if (graphicEditor != null)
-			graphicEditor.removeModule(m);
-		else {
-			//System.out.println("graphic editor is null");
-		}
-		if (graphicEditor != null)
-			graphicEditor.setModified();
-		else {
-			//System.out.println("graphic editor is null");
-		}
 		handler.hasModified(true);
 	}
 
@@ -429,14 +383,11 @@ public class GUIMultiModelTree extends JPanel implements MouseListener
 			return;
 
 		try {
-			Expression exp = handler.getGUIPlugin().getPrism().parseSingleExpressionString(s);
+			Expression exp = Prism.parseSingleExpressionString(s);
 			if (exp instanceof ExpressionIdent) {
 				m.setName(s);
 				theModel.nodeChanged(m);
 				theModel.nodeStructureChanged(m);
-				if (this.graphicEditor != null) {
-					graphicEditor.notifyChangeTo(m);
-				}
 			} else {
 				handler.getGUIPlugin().error("Invalid module name");
 			}
@@ -462,7 +413,7 @@ public class GUIMultiModelTree extends JPanel implements MouseListener
 			return;
 
 		try {
-			Expression exp = handler.getGUIPlugin().getPrism().parseSingleExpressionString(s);
+			Expression exp = Prism.parseSingleExpressionString(s);
 			if (exp instanceof ExpressionIdent) {
 				d.setName(s);
 				theModel.nodeChanged(d);
@@ -482,8 +433,6 @@ public class GUIMultiModelTree extends JPanel implements MouseListener
 		int index = m.getIndex(d);
 		m.remove(d);
 		theModel.nodesWereRemoved(m, new int[] { index }, new Object[] { d });
-		if (graphicEditor != null)
-			graphicEditor.setModified();
 		handler.hasModified(true);
 	}
 
@@ -493,8 +442,6 @@ public class GUIMultiModelTree extends JPanel implements MouseListener
 		editableDeclarations.remove(d);
 		declarations.remove(d);
 		theModel.nodesWereRemoved(declarations, new int[] { index }, new Object[] { d });
-		if (graphicEditor != null)
-			graphicEditor.setModified();
 		handler.hasModified(true);
 	}
 
@@ -504,27 +451,23 @@ public class GUIMultiModelTree extends JPanel implements MouseListener
 		editableConstants.remove(c);
 		constants.remove(c);
 		theModel.nodesWereRemoved(constants, new int[] { index }, new Object[] { c });
-		if (graphicEditor != null)
-			graphicEditor.setModified();
 		handler.hasModified(true);
 	}
 
-	public void a_addLocalBoolean(ModuleNode m, LoadGraphicModelThread.BooleanVariable var) throws PrismException
+	public void a_addLocalBoolean(ModuleNode m, BooleanVariable var) throws PrismException
 	{
 		try {
 			Expression init;
 			if (var != null)
-				init = handler.getGUIPlugin().getPrism().parseSingleExpressionString(var.init);
+				init = Prism.parseSingleExpressionString(var.init);
 			else
-				init = handler.getGUIPlugin().getPrism().parseSingleExpressionString("false");
+				init = Prism.parseSingleExpressionString("false");
 
 			BoolNode newNode = new BoolNode(var.name, init, true);
 			m.add(newNode);
 			int index = m.getIndex(newNode);
 			theModel.nodesWereInserted(m, new int[] { index });
 			varCount++;
-			if (graphicEditor != null)
-				graphicEditor.setModified();
 		} catch (Exception e) {
 			throw new PrismException("Local boolean " + var.name + " has an invalid parameter");
 		}
@@ -536,15 +479,13 @@ public class GUIMultiModelTree extends JPanel implements MouseListener
 	public void a_addLocalBoolean(ModuleNode m)
 	{
 		try {
-			Expression init = handler.getGUIPlugin().getPrism().parseSingleExpressionString("false");
+			Expression init = Prism.parseSingleExpressionString("false");
 
 			BoolNode newNode = new BoolNode("v" + varCount, init, true);
 			m.add(newNode);
 			int index = m.getIndex(newNode);
 			theModel.nodesWereInserted(m, new int[] { index });
 			varCount++;
-			if (graphicEditor != null)
-				graphicEditor.setModified();
 		} catch (Exception e) {
 			System.err.println("UNEXPECTED ERROR: " + e.getMessage());
 			e.printStackTrace();
@@ -553,24 +494,22 @@ public class GUIMultiModelTree extends JPanel implements MouseListener
 		handler.hasModified(true);
 	}
 
-	public void a_addLocalInteger(ModuleNode m, LoadGraphicModelThread.IntegerVariable var) throws PrismException
+	public void a_addLocalInteger(ModuleNode m, IntegerVariable var) throws PrismException
 	{
 		try {
 			Expression init;
 			if (var.init == null)
-				init = handler.getGUIPlugin().getPrism().parseSingleExpressionString("0");
+				init = Prism.parseSingleExpressionString("0");
 			else
-				init = handler.getGUIPlugin().getPrism().parseSingleExpressionString(var.init);
-			Expression min = handler.getGUIPlugin().getPrism().parseSingleExpressionString(var.min);
-			Expression max = handler.getGUIPlugin().getPrism().parseSingleExpressionString(var.max);
+				init = Prism.parseSingleExpressionString(var.init);
+			Expression min = Prism.parseSingleExpressionString(var.min);
+			Expression max = Prism.parseSingleExpressionString(var.max);
 
 			VarNode newNode = new VarNode(var.name, init, min, max, true);
 			m.addVariable(newNode);
 			int index = m.getIndex(newNode);
 			theModel.nodesWereInserted(m, new int[] { index });
 			varCount++;
-			if (graphicEditor != null)
-				graphicEditor.setModified();
 		} catch (Exception e) {
 			throw new PrismException("Local integer " + var.name + " has an invalid parameter");
 		}
@@ -580,17 +519,15 @@ public class GUIMultiModelTree extends JPanel implements MouseListener
 	public void a_addLocalInteger(ModuleNode m)
 	{
 		try {
-			Expression init = handler.getGUIPlugin().getPrism().parseSingleExpressionString("0");
-			Expression min = handler.getGUIPlugin().getPrism().parseSingleExpressionString("0");
-			Expression max = handler.getGUIPlugin().getPrism().parseSingleExpressionString("0");
+			Expression init = Prism.parseSingleExpressionString("0");
+			Expression min = Prism.parseSingleExpressionString("0");
+			Expression max = Prism.parseSingleExpressionString("0");
 
 			VarNode newNode = new VarNode("v" + varCount, init, min, max, true);
 			m.addVariable(newNode);
 			int index = m.getIndex(newNode);
 			theModel.nodesWereInserted(m, new int[] { index });
 			varCount++;
-			if (graphicEditor != null)
-				graphicEditor.setModified();
 		} catch (Exception e) {
 			System.err.println("UNEXPECTED ERROR: " + e.getMessage());
 			e.printStackTrace();
@@ -613,7 +550,7 @@ public class GUIMultiModelTree extends JPanel implements MouseListener
 			if (s.equals("")) {
 				en.setValue(null);
 			} else {
-				Expression exp = handler.getGUIPlugin().getPrism().parseSingleExpressionString(s);
+				Expression exp = Prism.parseSingleExpressionString(s);
 				en.setValue(exp);
 			}
 			theModel.nodeChanged(en);
@@ -633,11 +570,6 @@ public class GUIMultiModelTree extends JPanel implements MouseListener
 	public int getParseSynchState()
 	{
 		return parseSynchState;
-	}
-
-	public void setGraphicModelEditor(GUIGraphicModelEditor graphicEditor)
-	{
-		this.graphicEditor = graphicEditor;
 	}
 
 	public void startParsing()
@@ -1683,6 +1615,8 @@ public class GUIMultiModelTree extends JPanel implements MouseListener
 						return handler.getParseErrorMessage();
 					else if (parseSynchState == TREE_SYNCHRONIZED_GOOD)
 						return "Model parsed successfully";
+					else if (!handler.isAutoParse())
+						return "Auto-parsing disabled";
 					else
 						return "Model not parsed";
 				}
@@ -1990,9 +1924,6 @@ public class GUIMultiModelTree extends JPanel implements MouseListener
 						if (mn.isEditable()) {
 							modulePopup.show(tree, e.getX(), e.getY());
 							lastPopNode = mn;
-
-							if (graphicEditor != null)
-								graphicEditor.switchModuleView(mn);
 						}
 						return;
 					}
@@ -2055,8 +1986,6 @@ public class GUIMultiModelTree extends JPanel implements MouseListener
 				ModuleNode mn = editableModules.get(i);
 				if (new TreePath(mn.getPath()).equals(selectedPath)) {
 					tree.setSelectionPath(selectedPath);
-					if (graphicEditor != null)
-						graphicEditor.switchModuleView(mn);
 					return;
 				}
 			}
@@ -2104,9 +2033,6 @@ public class GUIMultiModelTree extends JPanel implements MouseListener
 						if (mn.isEditable()) {
 							modulePopup.show(tree, e.getX(), e.getY());
 							lastPopNode = mn;
-
-							if (graphicEditor != null)
-								graphicEditor.switchModuleView(mn);
 						}
 						return;
 					}
@@ -2169,8 +2095,6 @@ public class GUIMultiModelTree extends JPanel implements MouseListener
 				ModuleNode mn = editableModules.get(i);
 				if (new TreePath(mn.getPath()).equals(selectedPath)) {
 					tree.setSelectionPath(selectedPath);
-					if (graphicEditor != null)
-						graphicEditor.switchModuleView(mn);
 					return;
 				}
 			}
@@ -2186,124 +2110,6 @@ public class GUIMultiModelTree extends JPanel implements MouseListener
 	public ModelType getModelType()
 	{
 		return ModelType.valueOf(modelType.getUserObject().toString());
-	}
-
-	public String getParseText()
-	{
-		int i, j;
-		String str = "";
-		//Header
-		str += "//Generated by the PRISM Graphic Model Editor\n";
-		str += "\n";
-
-		//Model Type
-		String type = modelType.getUserObject().toString();
-		str += type.toLowerCase() + "\n\n";
-
-		//Constants
-		if (constants.getChildCount() != 0) {
-			str += "//Constants\n\n";
-			for (i = 0; i < constants.getChildCount(); i++) {
-				ConstantNode cn = (ConstantNode) constants.getChildAt(i);
-				if (cn.isEditable())
-					str += cn.getParseText() + "\n";
-			}
-			str += "\n";
-		}
-
-		//Globals
-		if (declarations.getChildCount() != 0) {
-			str += "//Globals\n\n";
-			for (i = 0; i < declarations.getChildCount(); i++) {
-				DeclarationNode gn = (DeclarationNode) declarations.getChildAt(i);
-				if (gn.isEditable())
-					str += gn.getParseText() + "\n";
-			}
-			str += "\n";
-		}
-
-		//Modules
-		if (modules.getChildCount() != 0) {
-			str += "//GUI Modules\n\n";
-			for (i = 0; i < modules.getChildCount(); i++) {
-				ModuleNode mn = (ModuleNode) modules.getChildAt(i);
-				if (mn.isEditable()) {
-					str += "module " + mn.getName() + "\n";
-					for (j = 0; j < mn.getChildCount(); j++) {
-						DeclarationNode dn = (DeclarationNode) mn.getChildAt(j);
-						str += TAB + dn.getParseText() + "\n";
-					}
-
-					ModuleModel aModuleModel = mn.getModuleModel();
-					String stateVar = ((StateVarNode) mn.getChildAt(0)).getName();
-					//now add the transition information
-					for (j = 0; j < aModuleModel.getNumStates(); j++) {
-						State aState = aModuleModel.getState(j);
-						if (!aState.getCommentLabel().getString().equals(""))
-							str += TAB + ("//" + aState.getComment() + "\n");
-						for (int k = 0; k < aModuleModel.getNumTransitions(); k++) {
-							Transition aTrans = aModuleModel.getTransition(k);
-							if (aTrans.getFrom() == aState) {
-								if (!(aTrans instanceof ProbTransition || aTrans.getTo() instanceof Decision))// if not branched
-								{
-
-									String sync = removeCarriages(aTrans.getSyncLabel().getString());
-									String guard = removeCarriages(aTrans.getGuardLabel().getString());
-									if (!guard.equals(""))
-										guard = " & (" + guard + ")";
-									String assign = removeCarriages(aTrans.getAssignmentLabel().getString());
-									if (!assign.equals(""))
-										assign = " & " + assign + "";
-									String prob = removeCarriages(aTrans.getProbabilityLabel().getString());
-									int to = aModuleModel.getStateIndex(aTrans.getTo());
-									if (prob.equals("") || prob == null) {
-										str += TAB
-												+ ("[" + sync + "]" + "(" + stateVar + "=" + j + ") " + guard + " -> (" + stateVar + "'=" + to + ")" + assign
-														+ ";" + "\n");
-									} else {
-										str += TAB
-												+ ("[" + sync + "]" + "(" + stateVar + "=" + j + ") " + guard + " -> " + prob + " : (" + stateVar + "'=" + to
-														+ ")" + assign + ";" + "\n");
-									}
-								} else if (aTrans.getTo() instanceof Decision) // if branched
-								{
-									String sync = removeCarriages(aTrans.getSyncLabel().getString());
-									String guard = removeCarriages(aTrans.getGuardLabel().getString());
-									if (!guard.equals(""))
-										guard = " & (" + guard + ")";
-									str += (TAB + "[" + sync + "] (" + stateVar + "=" + j + ") " + guard + " -> ");
-									Decision dec = (Decision) (aTrans.getTo());
-									boolean firstDone = false;
-									for (int l = 0; l < aModuleModel.getNumTransitions(); l++) {
-										Transition branch = aModuleModel.getTransition(l);
-										if (branch.getFrom() == dec) {
-											ProbTransition pTran = (ProbTransition) branch;
-											String prob = pTran.getProbabilityLabel().getString();
-											int to = aModuleModel.getStateIndex(pTran.getTo());
-											String assign = removeCarriages(pTran.getAssignmentLabel().getString());
-											if (!assign.equals(""))
-												assign = " & " + assign + "";
-											if (firstDone)
-												str += ("+ ");
-											firstDone = true;
-											str += (prob + " : " + "(" + stateVar + "'=" + to + ")" + assign + " ");
-										}
-									}
-									str += (";\n");
-								}
-							}
-						}
-					}
-
-					str += "\n";
-					str += "endmodule\n\n";
-				}
-			}
-			str += "\n";
-
-		}
-		//System.out.println("parsed model = "+str);
-		return str;
 	}
 
 	public static final String TAB = "	";
@@ -2611,12 +2417,10 @@ public class GUIMultiModelTree extends JPanel implements MouseListener
 	public class ModuleNode extends DefaultMutableTreeNode implements PrismTreeNode
 	{
 		private boolean editable;
-		private ModuleModel moduleModel;
 
 		public ModuleNode(String moduleName, boolean editable)
 		{
 			super(moduleName, true);
-			moduleModel = null;
 			this.editable = editable;
 		}
 
@@ -2648,16 +2452,6 @@ public class GUIMultiModelTree extends JPanel implements MouseListener
 		public void setEditable(boolean b)
 		{
 			editable = b;
-		}
-
-		public void setModel(ModuleModel n)
-		{
-			moduleModel = n;
-		}
-
-		public ModuleModel getModuleModel()
-		{
-			return moduleModel;
 		}
 
 		public void childrenChanged()
@@ -2703,7 +2497,7 @@ public class GUIMultiModelTree extends JPanel implements MouseListener
 			Expression exp;
 			String str = getText();
 			try {
-				exp = handler.getGUIPlugin().getPrism().parseSingleExpressionString(str);
+				exp = Prism.parseSingleExpressionString(str);
 			} catch (PrismException e) {
 				return false;
 			}
@@ -2878,7 +2672,7 @@ public class GUIMultiModelTree extends JPanel implements MouseListener
 			Expression exp;
 			String str = getText();
 			try {
-				exp = handler.getGUIPlugin().getPrism().parseSingleExpressionString(str);
+				exp = Prism.parseSingleExpressionString(str);
 			} catch (PrismException e) {
 				return false;
 			}
@@ -2964,9 +2758,9 @@ public class GUIMultiModelTree extends JPanel implements MouseListener
 		{
 			super(LOCAL_INTEGER, name, editable);
 			try {
-				Expression e_init = handler.getGUIPlugin().getPrism().parseSingleExpressionString(init);
-				Expression e_min = handler.getGUIPlugin().getPrism().parseSingleExpressionString(min);
-				Expression e_max = handler.getGUIPlugin().getPrism().parseSingleExpressionString(max);
+				Expression e_init = Prism.parseSingleExpressionString(init);
+				Expression e_min = Prism.parseSingleExpressionString(min);
+				Expression e_max = Prism.parseSingleExpressionString(max);
 				super.add(new ExpressionNode("min: ", e_min, editable));
 				super.add(new ExpressionNode("max: ", e_max, editable));
 				super.add(new ExpressionNode("init: ", e_init, editable));
@@ -3435,7 +3229,7 @@ public class GUIMultiModelTree extends JPanel implements MouseListener
 			String str = getText();
 
 			try {
-				Expression s = handler.getGUIPlugin().getPrism().parseSingleExpressionString(str);
+				Expression s = Prism.parseSingleExpressionString(str);
 				exp = s;
 			} catch (Exception e) {
 				handler.getGUIPlugin().message("Error: Syntax Error");
@@ -3970,5 +3764,46 @@ public class GUIMultiModelTree extends JPanel implements MouseListener
 				lineBuffer += " ";
 		}
 		return lineBuffer;
+	}
+
+	public class Variable
+	{
+		public String name;
+	}
+	
+	public class IntegerVariable extends Variable
+	{
+		public String min, max, init="0";
+		
+		public IntegerVariable(String name, String min, String max, String init)
+		{
+			super.name = name;
+			this.min = min;
+			this.max = max;
+			this.init = init;
+		}
+		
+		public IntegerVariable(String name, String min, String max)
+		{
+			this.name = name;
+			this.min = min;
+			this.max = max;
+		}
+	}
+	
+	public class BooleanVariable extends Variable
+	{
+		public String init = "false";
+		
+		public BooleanVariable(String name, String init)
+		{
+			this.init = init;
+			this.name = name;
+		}
+		
+		public BooleanVariable(String name)
+		{
+			this.name = name;
+		}
 	}
 }

@@ -28,9 +28,11 @@ package param;
 
 import java.math.BigInteger;
 
+import prism.PrismLangException;
+
 /**
  * Provides a class to store big rational numbers.
- * Nominator and denominator of a number stored using this class are not
+ * Numerator and denominator of a number stored using this class are not
  * necessarily coprime. However, cancellation is applied by default.
  * The special values infinity (INF), minus infinity (MINF) and not a number
  * (NAN)are provided. For them, the usual rules apply (INF * INF = INF,
@@ -39,8 +41,11 @@ import java.math.BigInteger;
  * 
  * @author Ernst Moritz Hahn <emhahn@cs.ox.ac.uk> (University of Oxford)
  */
-public final class BigRational implements Comparable<BigRational>
+public final class BigRational extends Number implements Comparable<BigRational>
 {
+	/** Serial version for serialisation */
+	private static final long serialVersionUID = 8273185089413305187L;
+
 	/** the BigInteger "-1" */
 	private final static BigInteger BMONE = BigInteger.ONE.negate();
 	/** the BigInteger "2" */
@@ -49,17 +54,21 @@ public final class BigRational implements Comparable<BigRational>
 	private final static BigInteger BITEN = new BigInteger("10");
 
 	/** the BigRational "1" */
-	final static BigRational ONE = new BigRational(BigInteger.ONE);
+	public final static BigRational ONE = new BigRational(BigInteger.ONE);
+	/** the BigRational "2" */
+	public final static BigRational TWO = new BigRational(BigInteger.valueOf(2));
 	/** the BigRational "-1" */
-	final static BigRational MONE = new BigRational(BigInteger.ONE);
+	public final static BigRational MONE = new BigRational(BigInteger.ONE).negate();
 	/** the BigRational "0" */
-	final static BigRational ZERO = new BigRational(BigInteger.ZERO);
+	public final static BigRational ZERO = new BigRational(BigInteger.ZERO);
+	/** the BigRational "1/2" */
+	public final static BigRational HALF = ONE.divide(TWO);
 	/** the BigRational "infinity" */
-	final static BigRational INF = new BigRational(BigInteger.ONE, BigInteger.ZERO);
+	public final static BigRational INF = new BigRational(BigInteger.ONE, BigInteger.ZERO);
 	/** the BigRational "-infinity" */
-	final static BigRational MINF = new BigRational(BMONE, BigInteger.ZERO);
+	public final static BigRational MINF = new BigRational(BMONE, BigInteger.ZERO);
 	/** the BigRational "not a number" */
-	final static BigRational NAN = new BigRational(BigInteger.ZERO, BigInteger.ZERO);
+	public final static BigRational NAN = new BigRational(BigInteger.ZERO, BigInteger.ZERO);
 
 	/** numerator */
 	private BigInteger num;
@@ -124,8 +133,12 @@ public final class BigRational implements Comparable<BigRational>
 		}
 		if (cancel) {
 			if (num.equals(BigInteger.ZERO)) {
-				num = BigInteger.ZERO;
-				den = BigInteger.ONE;
+				if (!den.equals(BigInteger.ZERO)) {
+					// not NaN (= 0/0), so this is a real zero:
+					// normalise by setting denominator to 1
+					num = BigInteger.ZERO;
+					den = BigInteger.ONE;
+				}
 			} else {
 				BigInteger gcd = num.gcd(den);
 				num = num.divide(gcd);
@@ -179,11 +192,13 @@ public final class BigRational implements Comparable<BigRational>
 			this.num = new BigInteger("-1");
 			this.den = new BigInteger("0");
 			return;
+		} else if (string.equals("NaN")) {
+			this.num = new BigInteger("0");
+			this.den = new BigInteger("0");
+			return;
 		}
-		BigInteger num;
-		BigInteger den;
 		string = string.trim();
-		int slashIdx = string.indexOf('/');
+		int slashIdx = string.lastIndexOf('/');
 		if (slashIdx < 0) {
 			// decimal point notation
 			Double.parseDouble(string); // ensures correctness of format
@@ -212,7 +227,8 @@ public final class BigRational implements Comparable<BigRational>
 				int eInt = Integer.parseInt(eStr);
 				expo += eInt;
 			}
-			num = new BigInteger((negate ? "-" : "") + noDotCoeff);
+			BigInteger num = new BigInteger((negate ? "-" : "") + noDotCoeff);
+			BigInteger den;
 			BigInteger ten = BITEN;
 			if (expo == 0) {
 				den = BigInteger.ONE;
@@ -227,13 +243,45 @@ public final class BigRational implements Comparable<BigRational>
 			this.den = result.den;
 		} else {
 			// fractional
-			num = new BigInteger(string.substring(0, slashIdx));
-			den = new BigInteger(string.substring(slashIdx + 1, string.length()));
-			BigRational r = cancel(num, den);
+			if (slashIdx == 0 || slashIdx == string.length()-1) {
+				throw new NumberFormatException("Illegal fraction syntax");
+			}
+			// because we use lastIndexOf, we obtain left-associativity,
+			// i.e. a/b/c is interpreted as (a/b)/c
+			BigRational num = new BigRational(string.substring(0, slashIdx));
+			BigRational den = new BigRational(string.substring(slashIdx + 1, string.length()));
+			BigRational r = num.divide(den);
 			this.num = r.num;
 			this.den = r.den;
 			return;
 		}
+	}
+
+	/**
+	 * Construct a BigRational from the given object.
+	 * Throws an IllegalArgumentException if there is no
+	 * known conversion.
+	 */
+	public static BigRational from(Object value)
+	{
+		if (value instanceof BigRational) {
+			BigRational v = (BigRational)value;
+			return new BigRational(v.num, v.den);
+		} else if (value instanceof Integer) {
+			return new BigRational((int) value);
+		} else if (value instanceof Long) {
+			return new BigRational((long) value);
+		} else if (value instanceof Boolean) {
+			boolean v = (Boolean)value;
+			return new BigRational(v ? 1 : 0);
+		} else if (value instanceof Double) {
+			// TODO: ? might be imprecise, perhaps there
+			// is a way to get the full precision?
+			return new BigRational(((Double)value).toString());
+		} else if (value instanceof String) {
+			return new BigRational((String)value);
+		}
+		throw new IllegalArgumentException("Can not convert from " + value.getClass() + " to BigRational");
 	}
 
 	// helper functions
@@ -422,6 +470,8 @@ public final class BigRational implements Comparable<BigRational>
 	 */
 	public int signum()
 	{
+		if (isInf()) return 1;
+		if (isMInf()) return -1;
 		return num.signum() * den.signum();
 	}
 
@@ -441,6 +491,7 @@ public final class BigRational implements Comparable<BigRational>
 			num = this.num.pow(exponent);
 			den = this.den.pow(exponent);
 		} else { // exponent < 0
+			exponent = -exponent;
 			num = this.den.pow(exponent);
 			den = this.num.pow(exponent);
 		}
@@ -521,6 +572,87 @@ public final class BigRational implements Comparable<BigRational>
 	}
 
 	/**
+	 * Returns the value of the specified number as an {@code int},
+	 * which may involve rounding or truncation.
+	 * <br>
+	 * Note: In contrast to the standard Number.intValue() behaviour,
+	 * this implementation throws an Arithmetic exception if the underlying
+	 * rational number is not an integer or if representing as an {@code int}
+	 * overflows.
+	 * <br>
+	 * Positive and negative infinity are mapped to Integer.MAX_VALUE and Integer.MIN_VALUE,
+	 * respectively, NaN is mapped to 0 (per the Java Language Specification).
+	 *
+	 * @return  the numeric value represented by this object after conversion
+	 *          to type {@code int}.
+	 */
+	@Override
+	public int intValue()
+	{
+		if (isSpecial()) {
+			if (isInf()) return Integer.MAX_VALUE;
+			if (isMInf()) return Integer.MIN_VALUE;
+			if (isNaN()) return 0;  // per Java Language Specification
+		}
+
+		// TODO JK: In case of fraction / overflow, this method should not throw an
+		// exception but return some imprecise result. We are conservative here.
+		// In the future, it may make sense to have an intValueExact (similar to BigInteger)
+		if (!isInteger()) {
+			throw new ArithmeticException("Can not convert fractional number to int");
+		}
+		int value = getNum().intValue();
+		if (!getNum().equals(new BigInteger(Integer.toString(value)))) {
+			throw new ArithmeticException("Can not convert BigInteger to int, value " + this + " out of range");
+		}
+		return value;
+	}
+
+	/**
+	 * Returns the value of the specified number as a {@code long},
+	 * which may involve rounding or truncation.
+	 * <br>
+	 * Note: In contrast to the standard Number.longValue() behaviour,
+	 * this implementation throws an Arithmetic exception if the underlying
+	 * rational number is not an integer or if representing as a {@code long}
+	 * overflows.
+	 * <br>
+	 * Positive and negative infinity are mapped to Long.MAX_VALUE and Long.MIN_VALUE,
+	 * respectively, NaN is mapped to 0 (per the Java Language Specification).
+	 *
+	 * @return  the numeric value represented by this object after conversion
+	 *          to type {@code int}.
+	 */
+	@Override
+	public long longValue()
+	{
+		if (isSpecial()) {
+			if (isInf()) return Long.MAX_VALUE;
+			if (isMInf()) return Long.MIN_VALUE;
+			if (isNaN()) return 0;  // per Java Language Specification
+		}
+
+		// TODO JK: In case of fraction / overflow, this method should not throw an
+		// exception but return some imprecise result. We are conservative here. In the future,
+		// it may make sense to have an intValueExact (similar to BigInteger)
+		if (!isInteger()) {
+			throw new ArithmeticException("Can not convert fractional number to long");
+		}
+		long value = getNum().longValue();
+		if (!getNum().equals(new BigInteger(Long.toString(value)))) {
+			throw new ArithmeticException("Can not convert BigInteger to long, value " + this + " out of range");
+		}
+		return value;
+	}
+
+	@Override
+	public float floatValue()
+	{
+		// TODO JK: Better precision?
+		return (float)doubleValue();
+	}
+
+	/**
 	 * Returns a string representation of this BigRational.
 	 * 
 	 * @return string representation of this rational number 
@@ -576,6 +708,30 @@ public final class BigRational implements Comparable<BigRational>
 		return this.compareTo(new BigRational(i));
 	}
 
+	/** Returns true if this number is less than the other number */
+	public boolean lessThan(BigRational other)
+	{
+		return this.compareTo(other) < 0;
+	}
+
+	/** Returns true if this number is less than or equal the other number */
+	public boolean lessThanEquals(BigRational other)
+	{
+		return this.compareTo(other) <= 0;
+	}
+
+	/** Returns true if this number is greater than the other number */
+	public boolean greaterThan(BigRational other)
+	{
+		return this.compareTo(other) > 0;
+	}
+
+	/** Returns true if this number is greater than or equal the other number */
+	public boolean greaterThanEquals(BigRational other)
+	{
+		return this.compareTo(other) >= 0;
+	}
+
 	/**
 	 * Return numerator of this BigRational as a BigInteger.
 	 * 
@@ -608,6 +764,65 @@ public final class BigRational implements Comparable<BigRational>
 		} else {
 			return this;
 		}
+	}
+
+	/**
+	 * Return ceil(value), i.e., the smallest integer >= value.
+	 * @throws PrismLangException for special values (NaN, infinity)
+	 */
+	public BigRational ceil() throws PrismLangException
+	{
+		if (isSpecial()) {
+			throw new PrismLangException("Can not compute ceil of " + this);
+		}
+
+		BigInteger[] divideAndRemainder = getNum().divideAndRemainder(getDen());
+
+		switch (divideAndRemainder[1].compareTo(BigInteger.ZERO)) {
+		case 0:   // no remainder
+		case -1:  // negative remainder: value was negative, so we ignore the remainder
+			return new BigRational(divideAndRemainder[0]);
+		case 1:   // positive remainder: return next-largest integer
+			return new BigRational(divideAndRemainder[0].add(BigInteger.ONE));
+		default:
+			throw new IllegalStateException("Should not be reached");
+		}
+	}
+
+	/**
+	 * Return floor(value), i.e., the largest integer <= value.
+	 * @throws PrismLangException for special values (NaN, infinity)
+	 */
+	public BigRational floor() throws PrismLangException
+	{
+		if (isSpecial()) {
+			throw new PrismLangException("Can not compute floor of " + this);
+		}
+
+		BigInteger[] divideAndRemainder = getNum().divideAndRemainder(getDen());
+		switch (divideAndRemainder[1].compareTo(BigInteger.ZERO)) {
+		case 0:   // no remainder
+		case 1:   // positive remainder: value was positive, so we ignore the remainder
+			return new BigRational(divideAndRemainder[0]);
+		case -1:  // negative remainder: value was negative, return next-smallest integer
+			return new BigRational(divideAndRemainder[0].subtract(BigInteger.ONE));
+		default:
+			throw new IllegalStateException("Should not be reached");
+		}
+	}
+
+	/**
+	 * Return round(value), i.e., the integer closest to value with
+	 * ties rounding towards positive infinity.
+	 * @throws PrismLangException for special values (NaN, infinity)
+	 */
+	public BigRational round() throws PrismLangException
+	{
+		if (isSpecial()) {
+			throw new PrismLangException("Can not compute round of " + this);
+		}
+
+		return this.add(HALF).floor();
 	}
 
 	/**
@@ -703,6 +918,18 @@ public final class BigRational implements Comparable<BigRational>
 	}
 
 	/**
+	 * Returns true iff this object represents an integer, i.e.,
+	 * is not not-a-number, positive, or negative infinity and
+	 * the denominator is 1.
+	 *
+	 * @return true iff this object represents an integer
+	 */
+	public boolean isInteger()
+	{
+		return isRational() && getDen().equals(BigInteger.ONE);
+	}
+
+	/**
 	 * Returns true iff this value represents a special number.
 	 * This is the case if this is either not-a-number, positive or
 	 * negative infinity.
@@ -712,5 +939,52 @@ public final class BigRational implements Comparable<BigRational>
 	public boolean isSpecial()
 	{
 		return isNaN() || isInf() || isMInf();
+	}
+
+	/**
+	 * Returns true if this value equals 1 or false if this value
+	 * equals 0. In all other cases, a PrismLangException is thrown.
+	 */
+	public boolean toBoolean() throws PrismLangException
+	{
+		if (isOne())
+			return true;
+		if (isZero())
+			return false;
+		throw new PrismLangException("Conversion from BigRational to Boolean not possible, invalid value: " + this);
+	}
+
+	/**
+	 * Return an approximate String representation (via conversion to double).
+	 * If the conversion is imprecise, the result string is prefixed by '~'.
+	 */
+	public String toApproximateString()
+	{
+		String result = Double.toString(doubleValue());
+		if (new BigRational(result).equals(this)) {
+			// round-trip did not lose precision
+			return result;
+		}
+		// only approximate
+		return "~" + result;
+
+	}
+
+	/**
+	 * Returns the int representation of this value,
+	 * if this value is an integer and if the integer can
+	 * be represented by an int variable.
+	 * In all other cases, a PrismLangException is thrown.
+	 */
+	public int toInt() throws PrismLangException
+	{
+		if (!isInteger()) {
+			throw new PrismLangException("Can not convert fractional number to int");
+		}
+		int value = getNum().intValue();
+		if (!getNum().equals(new BigInteger(Integer.toString(value)))) {
+			throw new PrismLangException("Can not convert BigInteger to int, value out of range");
+		}
+		return value;
 	}
 }

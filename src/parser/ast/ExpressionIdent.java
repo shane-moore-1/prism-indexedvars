@@ -26,18 +26,14 @@
 
 package parser.ast;
 
+import param.BigRational;
 import parser.*;
 import parser.visitor.*;
 import prism.PrismLangException;
 
-/**
- * Represents an identifier (non-indexed) used as an expression, e.g. a variable being given as the thing containing a value to be assigned during an Update (to another variable) 
- * 
- *
- */
 public class ExpressionIdent extends Expression
 {
-	String name;
+	protected String name;
 	
 	// Constructors
 	
@@ -66,12 +62,18 @@ public class ExpressionIdent extends Expression
 
 	// Methods required for Expression:
 	
-	/**
-	 * Is this expression constant?
-	 */
+	@Override
 	public boolean isConstant()
 	{
 		// Don't know - err on the side of caution
+		return false;
+	}
+
+	/** Returns whether the variable is actually one which has to include an index to access it in the State/Values tables. */
+// ADDED BY SHANE
+	public boolean isIndexedVariable()
+	{
+		// Unless specifically overriden, by the ExpressionIndexedSetAccess, this should return false;
 		return false;
 	}
 
@@ -81,19 +83,17 @@ public class ExpressionIdent extends Expression
 		// Don't know - err on the side of caution
 		return false;
 	}
-
-	/** Returns whether the variable is actually one which has to include an index to access it in the State/Values tables. */
-	public boolean isIndexedVariable()
+	
+	@Override
+	public Object evaluate(EvaluateContext ec) throws PrismLangException
 	{
-		// Unless specifically overriden, by the ExpressionIndexedSetAccess, this should return false;
-		return false;
+		// This should never be called.
+		// The ExpressionIdent should have been converted to an ExpressionVar/ExpressionConstant/...
+		throw new PrismLangException("Could not evaluate identifier", this);
 	}
 
-	/**
-	 * Evaluate this expression, return result.
-	 * Note: assumes that type checking has been done already.
-	 */
-	public Object evaluate(EvaluateContext ec) throws PrismLangException
+	@Override
+	public BigRational evaluateExact(EvaluateContext ec) throws PrismLangException
 	{
 		// This should never be called.
 		// The ExpressionIdent should have been converted to an ExpressionVar/ExpressionConstant/...
@@ -109,31 +109,54 @@ public class ExpressionIdent extends Expression
 
 	// Methods required for ASTElement:
 	
-	/**
-	 * Visitor method.
-	 */
+	@Override
 	public Object accept(ASTVisitor v) throws PrismLangException
 	{
 		return v.visit(this);
 	}
 	
-	/**
-	 * Convert to string.
-	 */
-	public String toString()
-	{
-		return name;
-	}
-
-	/**
-	 * Perform a deep copy.
-	 */
+	@Override
 	public Expression deepCopy()
 	{
 		ExpressionIdent expr = new ExpressionIdent(name);
 		expr.setType(type);
 		expr.setPosition(this);
 		return expr;
+	}
+
+	// Standard methods
+	
+	@Override
+	public String toString()
+	{
+		return name;
+	}
+
+	@Override
+	public int hashCode()
+	{
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((name == null) ? 0 : name.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj)
+	{
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		ExpressionIdent other = (ExpressionIdent) obj;
+		if (name == null) {
+			if (other.name != null)
+				return false;
+		} else if (!name.equals(other.name))
+			return false;
+		return true;
 	}
 }
 

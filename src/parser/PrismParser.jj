@@ -37,16 +37,20 @@ import java.io.*;
 import java.util.List;
 import java.util.ArrayList;
 
+import jltl2ba.SimpleLTL;
+import parser.BooleanUtils;
 import parser.ast.*;
 import parser.type.*;
+import prism.ModelInfo;
+import parser.visitor.*;
 import prism.ModelType;
 import prism.PrismLangException;
 
 @SuppressWarnings({"unused", "static-access", "serial"})
 public class PrismParser
 {
-	// The modules file associated with properties file being parsed
-	private static ModulesFile modulesFile;
+	// The model associated with the properties file being parsed
+	private static ModelInfo modelInfo;
 	
 	// List of keyword strings
 	private static ArrayList<String> keywordList = new ArrayList<String>();
@@ -73,6 +77,7 @@ public class PrismParser
 				System.out.println("Where: <switch> = -modulesfile or -mf");
 				System.out.println("                  -propertiesfile or -pf");
 				System.out.println("                  -expression or -e");
+				System.out.println("                  -ltl or -l");
 				System.exit(1);
 			}
 			
@@ -103,6 +108,38 @@ public class PrismParser
 				expr.semanticCheck();
 				System.out.println("Type: " + expr.getType().getTypeString());
 				System.out.println("Eval: " + expr.evaluate());
+			}
+			else if (args[0].equals("-ltl") || args[0].equals("-l")) {
+				Expression expr = p.parseSingleLTLFormula(str);
+				expr = (Expression) expr.accept(new ASTTraverseModify() {
+					public Object visit(ExpressionIdent e) throws PrismLangException
+					{
+						return new parser.ast.ExpressionVar(e.getName(), TypeBool.getInstance());
+					}
+				});
+				System.out.println("LTL formula: " + expr.toString());
+				System.out.print("Tree:\n=====\n" + expr.toTreeString());
+				expr.typeCheck();
+				//expr.semanticCheck();
+				System.out.println("Type: " + expr.getType().getTypeString());
+				boolean pnf = Expression.isPositiveNormalFormLTL(expr);
+				System.out.println("Positive normal form: " + pnf);
+				System.out.println("Syntactically co-safe: " + Expression.isCoSafeLTLSyntactic(expr));
+				if (!pnf) {
+					Expression exprPnf = BooleanUtils.convertLTLToPositiveNormalForm(expr.deepCopy());
+					System.out.println("Positive normal form conversion: " + exprPnf);
+					System.out.println("Syntactically co-safe: " + Expression.isCoSafeLTLSyntactic(exprPnf));
+				}
+				Expression expr2 = (Expression) expr.deepCopy().accept(new ASTTraverseModify() {
+					public Object visit(ExpressionVar e) throws PrismLangException
+					{
+							return new parser.ast.ExpressionLabel(e.getName());
+					}
+				});
+				SimpleLTL sltl = expr2.convertForJltl2ba();
+				System.out.println("LBT: " + sltl.toStringLBT());
+				System.out.println("Spot: " + sltl.toStringSpot());
+				System.out.println("Spin: " + sltl.toStringSpin());
 			} else {
 				System.out.println("Unknown switch"); System.exit(1);
 			}
@@ -154,16 +191,16 @@ public class PrismParser
 	
 	// Parse properties file (pass ModulesFile in to get at its constants)
 	
-	public PropertiesFile parsePropertiesFile(ModulesFile mf, InputStream str) throws PrismLangException
-	{ return parsePropertiesFile(mf, str, false); }
+	public PropertiesFile parsePropertiesFile(ModelInfo modelInfo, InputStream str) throws PrismLangException
+	{ return parsePropertiesFile(modelInfo, str, false); }
 	
-	public PropertiesFile parsePropertiesFile(ModulesFile mf, InputStream str, boolean strict) throws PrismLangException
+	public PropertiesFile parsePropertiesFile(ModelInfo modelInfo, InputStream str, boolean strict) throws PrismLangException
 	{
 		PropertiesFile pf = null;
 		
 		// (Re)start parser
 		ReInit(str);
-		modulesFile = mf;
+		this.modelInfo = modelInfo;
 		// Parse
 		try {
 			pf = strict ? PropertiesFile() : PropertiesFileSemicolonless();
@@ -186,6 +223,24 @@ public class PrismParser
 		// Parse
 		try {
 			expr = SingleExpression();
+		}
+		catch (ParseException e) {
+			throw generateSyntaxError(e);
+		}
+		return expr;
+	}
+	
+	// Parse a single LTL formula
+	
+	public Expression parseSingleLTLFormula(InputStream str) throws PrismLangException
+	{
+		Expression expr = null;
+		
+		// (Re)start parser
+		ReInit(str);
+		// Parse
+		try {
+			expr = SingleLTLFormula();
 		}
 		catch (ParseException e) {
 			throw generateSyntaxError(e);
@@ -300,6 +355,7 @@ public class PrismParser
 	 */
 	public int getTabSize()
 	{
+// SHANE has to insert 0, in order for the generated Parser to actually compile! But I don't see any reason why this method wants a parameter!
 		return SimpleCharStream.getTabSize(0);
 	}
 	
@@ -315,7 +371,7 @@ public class PrismParser
 			String exMsg = "Syntax error";
 			if (msg != null && msg.length() > 0)
 				exMsg += ": " + msg;
-e.printStackTrace();	//SHANE ADDED
+e.printStackTrace();	//SHANE ADDED FOR DEBUGGING PURPOSES
 			return new PrismLangException(exMsg);
 		}
 		// Use current/next token to find location of error
@@ -333,7 +389,7 @@ e.printStackTrace();	//SHANE ADDED
 			String exMsg = "Syntax error";
 			if (msg != null && msg.length() > 0 && msg.length() < 20)
 				exMsg += ": " + msg;
-e.printStackTrace();	//SHANE ADDED
+e.printStackTrace();	//SHANE ADDED FOR DEBUGGING PURPOSES
 			return new PrismLangException(exMsg, tmp);
 		}
 	}
@@ -393,7 +449,6 @@ TOKEN :
 |	< F:				"F" >
 |	< GLOBAL:			"global" >
 |	< G:				"G" >
-//|	< INDEXEDSET:		"indexed" >				// Added by Shane
 |	< INIT:				"init" >
 |	< INVARIANT:		"invariant" >
 |	< I:				"I" >
@@ -463,12 +518,9 @@ TOKEN :
 	// Regular expressions
 |	< REG_INT:			(["1"-"9"](["0"-"9"])*)|("0") >
 |	< REG_DOUBLE:		(["0"-"9"])*(".")?(["0"-"9"])+(["e","E"](["-","+"])?(["0"-"9"])+)? >
-// DISABLED by Shane, because he altered where it was being used
+// DISABLED by Shane, because he has altered places where it was being used, to allow for IndexedSets.
 //|	< REG_IDENTPRIME:	["_","a"-"z","A"-"Z"](["_","a"-"z","A"-"Z","0"-"9"])*"'" >
 |	< REG_IDENT:		["_","a"-"z","A"-"Z"](["_","a"-"z","A"-"Z","0"-"9"])* >
-//Added by Shane, but then removed. It matches a sequence up to a open square bracket.
-//|	< REG_INDEXED_IDENT_PRIME_BEG:	["_","a"-"z","A"-"Z"](["_","a"-"z","A"-"Z","0"-"9"])*"[" >
-//because don't think it is needed now.|   < REG_INDEXED_IDENT:	["_","a"-"z","A"-"Z"](["_","a"-"z","A"-"Z","0"-"9"])*"["(["1"-"9"](["0"-"9"])*)"]" >
 |	< PREPROC:			"#"(~["#"])*"#" >
 	// Special catch-all token for lexical errors
 	// (this allows us to throw our usual exceptions in this case)
@@ -487,7 +539,7 @@ ModulesFile ModulesFile() throws PrismLangException :
 	int typeCount = 0;
 	Token typeDupe = null;
 	Declaration global;
-	Module m = null;
+	parser.ast.Module m = null;
 	RenamedModule rm = null;
 	RewardStruct rs = null;
 	Expression init = null;
@@ -539,7 +591,7 @@ ModulesFile ModulesFile() throws PrismLangException :
 
 PropertiesFile PropertiesFile() throws PrismLangException :
 {
-	PropertiesFile pf = new PropertiesFile(modulesFile);
+	PropertiesFile pf = new PropertiesFile(modelInfo);
 	Property prop;
 	Token begin = null;
 }
@@ -559,7 +611,7 @@ PropertiesFile PropertiesFile() throws PrismLangException :
 
 PropertiesFile PropertiesFileSemicolonless() throws PrismLangException :
 {
-	PropertiesFile pf = new PropertiesFile(modulesFile);
+	PropertiesFile pf = new PropertiesFile(modelInfo);
 	Property prop;
 	Token begin = null;
 }
@@ -605,6 +657,16 @@ Expression SingleExpression() :
 }
 {
 	( ret = Expression(false, false) <EOF> ) { return ret; }
+}
+
+// A single LTL formula
+
+Expression SingleLTLFormula() :
+{
+	Expression ret;
+}
+{
+	( ret = Expression(true, true) <EOF> ) { return ret; }
 }
 
 //-----------------------------------------------------------------------------------
@@ -803,7 +865,9 @@ Declaration Declaration2() :				// ALTERED BY SHANE to allow Indexed Sets.
 			}	
 			// The terminating Semicolon:
 			<SEMICOLON>  {/*Should be after IndexedSet's SemiColon */}
-		) | "6donkey" {getToken(0); /*KungFu*/} | "5panda" { getToken(0); /*Meatballs*/}
+		)
+// Shane Thinks the following line is not relevant, and must have been from a testing stage 
+		| "6donkey" {getToken(0); /*KungFu*/} | "5panda" { getToken(0); /*Bamboo*/}
 
 		
 //	)	
@@ -828,7 +892,6 @@ DeclarationType DeclarationVarType() :
 	// Boolean variable declaration
 	| ( <BOOL> { declType = new DeclarationBool(); } )
 	// Array variable declaration
-			// SHANE RECOMMENDS that ARRAY should NOT be an option here, unless you want to allow arrays of arrays of arrays, etc.
 	/* | ( <ARRAY> <LBRACKET> low = Expression(false, false) <DOTS> high = Expression(false, false) <RBRACKET> 
 		<OF> subtype = DeclarationVarType()
 		{ declType = new DeclarationArray(low, high, subtype); } )
@@ -838,23 +901,20 @@ DeclarationType DeclarationVarType() :
 	{ declType.setPosition(begin, getToken(0)); return declType; }
 }
 
-
-
 // Module
 
-Module Module() :
+parser.ast.Module Module() :
 {
 	ExpressionIdent name = null;
 	Declaration var = null;
 	Expression invar;
 	Command comm = null;
-	Module module = null;
+	parser.ast.Module module = null;
 	Token begin = null;
 }
 {
-	begin = <MODULE> name = IdentifierExpression() { module = new Module(name.getName()); }
-	( var = Declaration() {
-	 module.addDeclaration(var); } )*
+	begin = <MODULE> name = IdentifierExpression() { module = new parser.ast.Module(name.getName()); }
+	( var = Declaration() { module.addDeclaration(var); } )*
 	( <INVARIANT> invar = Expression(false, false) <ENDINVARIANT> { module.setInvariant(invar); } )?
 	( comm = Command() { module.addCommand(comm); } )*
 	<ENDMODULE>
@@ -1470,7 +1530,7 @@ Expression ExpressionFuncOrIdent(boolean prop, boolean pathprop) :
 {
 	// If there is no brackets "(...)", this is an identifier
 	s = Identifier() { ret = new ExpressionIdent(s); begin = getToken(0); }
-	// If it is followed by ROUND brackets, it's a function; or if there is square brackets, it is an attempt to access an IndexedSet.
+	// If it is followed by ROUND brackets, it's a function; or if there is SQUARE brackets, it is an attempt to access an IndexedSet.
 	(
 	   (
 		 <LPARENTH> { ret = new ExpressionFunc(s); } ExpressionFuncArgs(prop, pathprop, (ExpressionFunc)ret) <RPARENTH> 
@@ -1519,13 +1579,13 @@ void ExpressionFuncArgs(boolean prop, boolean pathprop, ExpressionFunc func) :
 	expr = Expression(prop, pathprop) { func.addOperand(expr); } ( <COMMA> expr = Expression(prop, pathprop) { func.addOperand(expr); })*
 }
 
-// Added by SHANE
+// SHANE HAS ADDED:
 // The expression specifying which index to access in an indexed set access attempt (which ought to evaluate to an integer)
 void ExpressionIndexedSetAccArgs(boolean prop, boolean pathprop, ExpressionIndexedSetAccess indSetAcc) :
 {
 	Expression expr;
 }
-{   // I wonder if we can limit it to something like ExpressionTimesDivide, rather than mere Expression, to restrict the types of expressions we accept here.
+{   // I (SHANE) wonder if we can limit it to something like ExpressionTimesDivide, rather than mere Expression, to restrict the types of expressions we accept here.
 	expr = Expression(prop, pathprop) { indSetAcc.setIndexExpression(expr); } 
 }
 
@@ -1764,18 +1824,32 @@ void RewardIndex(ExpressionReward exprRew) :
 
 // Contents of an R operator
 
+// JavaCC warns about lookahead for this function. This is because there is a possible conflict between
+// R [ S ], where "S" is the long-run reward operator, and R [ S [ ] ], where "S [ ]" is an LTL formula
+// comprising a single atomic proposition. We use lookahead to resolve the ambiguity.
+
 Expression ExpressionRewardContents(boolean prop, boolean pathprop) :
 {
 	Expression expr = null;
-	ExpressionTemporal ret = null;
+	ExpressionTemporal exprTemp = null;
+	Expression ret = null;
 	Token begin;
 }
 {
-	( LOOKAHEAD(<C> <LE>) begin = <C> <LE> expr = Expression(false, false) { ret = new ExpressionTemporal(ExpressionTemporal.R_C, null, null); ret.setUpperBound(expr); }
-	| begin = <C> { ret = new ExpressionTemporal(ExpressionTemporal.R_C, null, null); }
-	| begin = <I> <EQ> expr = Expression(false, false) { ret = new ExpressionTemporal(ExpressionTemporal.R_I, null, null); ret.setUpperBound(expr);  }
-	| begin = <F> expr = Expression(prop, pathprop) { ret = new ExpressionTemporal(ExpressionTemporal.R_F, null, expr); }
-	| begin = <S> { ret = new ExpressionTemporal(ExpressionTemporal.R_S, null, null); } )
+	{ begin = getToken(1); }
+	(
+	// First look for cases where it starts with "S" (see above)
+	LOOKAHEAD(ExpressionSS(prop, pathprop)) expr = ExpressionSS(prop, true) { ret = expr; }
+	| <S> { ret = new ExpressionTemporal(ExpressionTemporal.R_S, null, null); }
+	
+	// Normal reward operators (excluding S; see above)
+	| LOOKAHEAD(<C> <LE>) begin = <C> <LE> expr = Expression(false, false) { exprTemp = new ExpressionTemporal(ExpressionTemporal.R_C, null, null); exprTemp.setUpperBound(expr); ret = exprTemp; }
+	| <C> { ret = new ExpressionTemporal(ExpressionTemporal.R_C, null, null); }
+	| <I> <EQ> expr = Expression(false, false) { exprTemp = new ExpressionTemporal(ExpressionTemporal.R_I, null, null); exprTemp.setUpperBound(expr); ret = exprTemp; }
+	
+	// Path formula (including F "target")
+	| expr = Expression(prop, true) { ret = expr; }
+	)
 	{ ret.setPosition(begin, getToken(0)); return ret; }
 }
 
@@ -1830,17 +1904,45 @@ Expression ExpressionStrategy(boolean prop, boolean pathprop) :
 	{ if (!prop) throw generateParseException(); }
 	(
 	// <<...>> or [[...]]
-	(( begin = <DLT> { ret = new ExpressionStrategy(true); } <DGT> )
-	| (begin = <DLBRACKET> { ret = new ExpressionStrategy(false); } <DRBRACKET> ))
+	(( begin = <DLT> { ret = new ExpressionStrategy(true); } ExpressionStrategyCoalition(ret) <DGT> )
+	| (begin = <DLBRACKET> { ret = new ExpressionStrategy(false); } ExpressionStrategyCoalition(ret) <DRBRACKET> ))
 	// Child expression
-	( expr = ExpressionProb(prop, pathprop) | expr = ExpressionReward(prop, pathprop)
-	| expr = ExpressionParenth(prop, pathprop) | expr = ExpressionFuncOrIdent(prop, pathprop) )
-	{ ret.setExpression(expr); }
-	)
+	(
+	( expr = ExpressionProb(prop, pathprop) | expr = ExpressionReward(prop, pathprop) )
+	{ ret.setSingleOperand(expr); }
+	| expr = ExpressionParenth(prop, pathprop)
+	{ ret.addOperand(expr); }
+	))
 	{
 		ret.setPosition(begin, getToken(0));
 		return ret;
 	}
+}
+
+// Coalition (player list) for a strategy (<<>> or [[]]) operator
+
+void ExpressionStrategyCoalition(ExpressionStrategy exprStrat) :
+{
+	List<String> coalition = new ArrayList<String>();
+	String s;
+}
+{
+	( <TIMES> ) { exprStrat.setCoalitionAllPlayers();}
+	|
+	( s = ExpressionStrategyCoalitionPlayer() { coalition.add(s); }
+	( <COMMA> s = ExpressionStrategyCoalitionPlayer()  { coalition.add(s); } )* )?
+	{ exprStrat.setCoalition(coalition); }
+}
+
+// Single player in a coalition for a strategy (<<>> or [[]]) operator
+
+String ExpressionStrategyCoalitionPlayer() :
+{
+	String s;
+}
+{
+	( <REG_INT> | <REG_IDENT> ) { s = getToken(0).image; }
+	{ return s; }
 }
 
 // (Property) expression: label (including "init")
@@ -1898,14 +2000,8 @@ String Identifier() :
 {
 }
 {
-/*	<REG_INDEXED_IDENT_PRIME_BEG> {
-		System.out.println("Match INDEXED_IDENT_PRIME_BEG: " + getToken(0).image);
-		return getToken(0).image;
-	}
-	|
-*/
 	<REG_IDENT> { 
-//			/*SHANE INSERTED LINE*/ System.out.println("Matched identifier: " + getToken(0).image); 
+//		/*SHANE INSERTED LINE, for debugging: */ System.out.println("Matched an identifier: " + getToken(0).image); 
 	return getToken(0).image; }
 }
 
@@ -1975,7 +2071,7 @@ ExpressionIdent IdentifierPrime() :
 	}
 	
 	
-// ORIGINAL WHOLE CODE before IndexedSets were added by Shane: (which had no declarations before any pattern matching)
+// ORIGINAL WHOLE CODE before IndexedSets were added by SHANE: (which had no declarations before any pattern matching)
 
 /*	<REG_IDENTPRIME>					// Alternatively, If it seems to be a non-indexed identifier
 	{
@@ -1988,20 +2084,6 @@ ExpressionIdent IdentifierPrime() :
 		return expr;
 	}
 */
-
-
-/* The remaining code is garbage - it was never ever useful, nor needed. 
-	|
-	( 
-	<REG_INDEXED_IDENT_PRIME_BEG>
-	{
-System.out.println("FOUND TOKEN: " + token + " (REG_INDEXED_IDENT_PRIME_BEG)");
-		ExpressionIdent expr2 = new ExpressionIdent("SHANE");
-		expr2.setPosition(token);
-		//expr2.setEndColumn(expr.getEndColumn() - 1);
-		return expr2;
-	} <RBRACKET> )
-//*/	
 
 }
 

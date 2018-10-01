@@ -84,9 +84,9 @@ jstring fn		// filename
 	
 	// print file header
 	switch (export_type) {
-	case EXPORT_PLAIN: export_string("%d %d %d\n", n, nc, nnz); break;
+	case EXPORT_PLAIN: export_string("%d %d %ld\n", n, nc, nnz); break;
 	case EXPORT_MATLAB: for (i = 0; i < ndsm->k; i++) export_string("%s%d = sparse(%d,%d);\n", export_name, i+1, n, n); break;
-	case EXPORT_ROWS: export_string("%d %d %d\n", n, nc, nnz); break;
+	case EXPORT_ROWS: export_string("%d %d %ld\n", n, nc, nnz); break;
 	}
 	
 	// print main part of file
@@ -120,7 +120,7 @@ jstring fn		// filename
 	
 	// close file, etc.
 	if (export_file) fclose(export_file);
-	env->ReleaseStringUTFChars(na, export_name);
+	if (na) env->ReleaseStringUTFChars(na, export_name);
 	
 	// catch exceptions: return (undocumented) error code for memout
 	} catch (std::bad_alloc e) {

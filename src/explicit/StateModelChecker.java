@@ -3,6 +3,7 @@
 //	Copyright (c) 2002-
 //	Authors:
 //	* Dave Parker <david.parker@comlab.ox.ac.uk> (University of Oxford)
+//	* Joachim Klein <klein@tcs.inf.tu-dresden.de> (TU Dresden)
 //	
 //------------------------------------------------------------------------------
 //	
@@ -35,6 +36,9 @@ import java.util.BitSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.Vector;
 
 import parser.State;
 import parser.Values;
@@ -60,7 +64,10 @@ import parser.type.TypeBool;
 import parser.type.TypeDouble;
 import parser.type.TypeInt;
 import parser.visitor.ASTTraverseModify;
+import parser.visitor.ReplaceLabels;
 import prism.Filter;
+import prism.ModelGenerator;
+import prism.ModelInfo;
 import prism.ModelType;
 import prism.Prism;
 import prism.PrismComponent;
@@ -97,18 +104,34 @@ public class StateModelChecker extends PrismComponent
 	protected String exportProductTransFilename = null;
 	protected boolean exportProductStates = false;
 	protected String exportProductStatesFilename = null;
+	protected boolean exportProductVector = false;
+	protected String exportProductVectorFilename = null;
 	
 	// Store the final results vector after model checking?
 	protected boolean storeVector = false;
 
 	// Generate/store a strategy during model checking?
 	protected boolean genStrat = false;
+	// Should any generated strategies should be restricted to the states reachable under them?
+	protected boolean restrictStratToReach = true;
 
 	// Do bisimulation minimisation before model checking?
 	protected boolean doBisim = false;
 
-	// Model file (for reward structures, etc.)
+
+	// Do topological value iteration?
+	protected boolean doTopologicalValueIteration = false;
+
+	// For Pmax computation, collapse MECs to quotient MDP?
+	protected boolean doPmaxQuotient = false;
+
+	// Do interval iteration?
+	protected boolean doIntervalIteration = false;
+
+	// Model info (for reward structures, etc.)
 	protected ModulesFile modulesFile = null;
+	protected ModelInfo modelInfo = null;
+	protected ModelGenerator modelGen = null;
 
 	// Properties file (for labels, constants, etc.)
 	protected PropertiesFile propertiesFile = null;
@@ -138,6 +161,9 @@ public class StateModelChecker extends PrismComponent
 		// If present, initialise settings from PrismSettings
 		if (settings != null) {
 			verbosity = settings.getBoolean(PrismSettings.PRISM_VERBOSE) ? 10 : 1;
+			setDoIntervalIteration(settings.getBoolean(PrismSettings.PRISM_INTERVAL_ITER));
+			setDoTopologicalValueIteration(settings.getBoolean(PrismSettings.PRISM_TOPOLOGICAL_VI));
+			setDoPmaxQuotient(settings.getBoolean(PrismSettings.PRISM_PMAX_QUOTIENT));
 		}
 	}
 
@@ -186,6 +212,7 @@ public class StateModelChecker extends PrismComponent
 	 */
 	public void inheritSettings(StateModelChecker other)
 	{
+		setModulesFileAndPropertiesFile(other.modelInfo, other.propertiesFile, other.modelGen);
 		setLog(other.getLog());
 		setVerbosity(other.getVerbosity());
 		setExportTarget(other.getExportTarget());
@@ -194,9 +221,14 @@ public class StateModelChecker extends PrismComponent
 		setExportProductTransFilename(other.getExportProductTransFilename());
 		setExportProductStates(other.getExportProductStates());
 		setExportProductStatesFilename(other.getExportProductStatesFilename());
+		setExportProductVector(other.getExportProductVector());
+		setExportProductVectorFilename(other.getExportProductVectorFilename());
 		setStoreVector(other.getStoreVector());
 		setGenStrat(other.getGenStrat());
+		setRestrictStratToReach(other.getRestrictStratToReach());
 		setDoBisim(other.getDoBisim());
+		setDoIntervalIteration(other.getDoIntervalIteration());
+		setDoPmaxQuotient(other.getDoPmaxQuotient());
 	}
 
 	/**
@@ -247,6 +279,16 @@ public class StateModelChecker extends PrismComponent
 		exportProductStatesFilename = s;
 	}
 
+	public void setExportProductVector(boolean b)
+	{
+		exportProductVector = b;
+	}
+
+	public void setExportProductVectorFilename(String s)
+	{
+		exportProductVectorFilename = s;
+	}
+
 	/**
 	 * Specify whether or not to store the final results vector after model checking.
 	 */
@@ -264,11 +306,43 @@ public class StateModelChecker extends PrismComponent
 	}
 
 	/**
+	 * Specify whether or not any generated strategies should be restricted to the states reachable under them.
+	 */
+	public void setRestrictStratToReach(boolean restrictStratToReach)
+	{
+		this.restrictStratToReach = restrictStratToReach;
+	}
+
+	/**
 	 * Specify whether or not to do bisimulation minimisation before model checking.
 	 */
 	public void setDoBisim(boolean doBisim)
 	{
 		this.doBisim = doBisim;
+	}
+
+	/**
+	 * Specify whether or not to do topological value iteration.
+	 */
+	public void setDoTopologicalValueIteration(boolean doTopologicalValueIteration)
+	{
+		this.doTopologicalValueIteration = doTopologicalValueIteration;
+	}
+
+	/**
+	 * Specify whether or not to perform MEC quotienting for Pmax.
+	 */
+	public void setDoPmaxQuotient(boolean doPmaxQuotient)
+	{
+		this.doPmaxQuotient = doPmaxQuotient;
+	}
+
+	/**
+	 * Specify whether or not to use interval iteration.
+	 */
+	public void setDoIntervalIteration(boolean doIntervalIteration)
+	{
+		this.doIntervalIteration = doIntervalIteration;
 	}
 
 	// Get methods for flags/settings
@@ -308,6 +382,16 @@ public class StateModelChecker extends PrismComponent
 		return exportProductStatesFilename;
 	}
 
+	public boolean getExportProductVector()
+	{
+		return exportProductVector;
+	}
+
+	public String getExportProductVectorFilename()
+	{
+		return exportProductVectorFilename;
+	}
+
 	/**
 	 * Whether or not to store the final results vector after model checking.
 	 */
@@ -325,11 +409,43 @@ public class StateModelChecker extends PrismComponent
 	}
 
 	/**
+	 * Whether or not any generated strategies should be restricted to the states reachable under them.
+	 */
+	public boolean getRestrictStratToReach()
+	{
+		return restrictStratToReach;
+	}
+
+	/**
 	 * Whether or not to do bisimulation minimisation before model checking.
 	 */
 	public boolean getDoBisim()
 	{
 		return doBisim;
+	}
+
+	/**
+	 * Whether or not to do topological value iteration.
+	 */
+	public boolean getDoTopologicalValueIteration()
+	{
+		return doTopologicalValueIteration;
+	}
+
+	/**
+	 * Whether or not to do MEC quotient for Pmax
+	 */
+	public boolean getDoPmaxQuotient()
+	{
+		return doPmaxQuotient;
+	}
+
+	/**
+	 * Whether or not to use interval iteration.
+	 */
+	public boolean getDoIntervalIteration()
+	{
+		return doIntervalIteration;
 	}
 
 	/** Get the constant values (both from the modules file and the properties file) */
@@ -338,19 +454,62 @@ public class StateModelChecker extends PrismComponent
 		return constantValues;
 	}
 
+	/**
+	 * Get the label list (from properties file and modules file, if they are attached).
+	 * @return the label list for the properties/modules file, or {@code null} if not available.
+	 */
+	public LabelList getLabelList()
+	{
+		if (propertiesFile != null) {
+			return propertiesFile.getCombinedLabelList(); // combined list from properties and modules file
+		} else if (modulesFile != null) {
+			return modulesFile.getLabelList();
+		} else {
+			return null;
+		}
+	}
+
+	/**
+	 * Return the set of label names that are defined
+	 * either by the model (from the model info or modules file)
+	 * or properties file (if attached to the model checker).
+	 */
+	public Set<String> getDefinedLabelNames()
+	{
+		TreeSet<String> definedLabelNames = new TreeSet<String>();
+
+		// labels from the label list
+		LabelList labelList = getLabelList();
+		if (labelList != null) {
+			definedLabelNames.addAll(labelList.getLabelNames());
+		}
+
+		// labels from the model info
+		if (modelInfo != null) {
+			definedLabelNames.addAll(modelInfo.getLabelNames());
+		}
+
+		return definedLabelNames;
+	}
+
 	// Other setters/getters
 
 	/**
 	 * Set the attached model file (for e.g. reward structures when model checking)
 	 * and the attached properties file (for e.g. constants/labels when model checking)
 	 */
-	public void setModulesFileAndPropertiesFile(ModulesFile modulesFile, PropertiesFile propertiesFile)
+	public void setModulesFileAndPropertiesFile(ModelInfo modelInfo, PropertiesFile propertiesFile, ModelGenerator modelGen)
 	{
-		this.modulesFile = modulesFile;
+		this.modelInfo = modelInfo;
+		if (modelInfo instanceof ModulesFile) {
+			this.modulesFile = (ModulesFile) modelInfo;
+		}
 		this.propertiesFile = propertiesFile;
+		this.modelGen = modelGen;
 		// Get combined constant values from model/properties
 		constantValues = new Values();
-		constantValues.addValues(modulesFile.getConstantValues());
+		if (modelInfo != null)
+			constantValues.addValues(modelInfo.getConstantValues());
 		if (propertiesFile != null)
 			constantValues.addValues(propertiesFile.getConstantValues());
 	}
@@ -582,13 +741,14 @@ public class StateModelChecker extends PrismComponent
 			return checkExpressionFuncNary(model, expr, statesOfInterest);
 		case ExpressionFunc.FLOOR:
 		case ExpressionFunc.CEIL:
+		case ExpressionFunc.ROUND:
 			return checkExpressionFuncUnary(model, expr, statesOfInterest);
 		case ExpressionFunc.POW:
 		case ExpressionFunc.MOD:
 		case ExpressionFunc.LOG:
 			return checkExpressionFuncBinary(model, expr, statesOfInterest);
 		case ExpressionFunc.MULTI:
-			throw new PrismNotSupportedException("Multi-objective model checking is not supported for " + model.getModelType() + "s");
+			throw new PrismNotSupportedException("Multi-objective model checking is not supported for " + model.getModelType() + "s with the explicit engine");
 		default:
 			throw new PrismException("Unrecognised function \"" + expr.getName() + "\"");
 		}
@@ -739,14 +899,14 @@ public class StateModelChecker extends PrismComponent
 		int i;
 
 		// treat special cases
-		if (expr.getName().equals("deadlock")) {
+		if (expr.isDeadlockLabel()) {
 			int numStates = model.getNumStates();
 			BitSet bs = new BitSet(numStates);
 			for (i = 0; i < numStates; i++) {
 				bs.set(i, model.isDeadlockState(i));
 			}
 			return StateValues.createFromBitSet(bs, model);
-		} else if (expr.getName().equals("init")) {
+		} else if (expr.isInitLabel()) {
 			int numStates = model.getNumStates();
 			BitSet bs = new BitSet(numStates);
 			for (i = 0; i < numStates; i++) {
@@ -759,18 +919,9 @@ public class StateModelChecker extends PrismComponent
 			if (bs != null) {
 				return StateValues.createFromBitSet((BitSet) bs.clone(), model);
 			}
-			// Failing that, look in the properties file (if possible)
-			if (propertiesFile != null) {
-				ll = propertiesFile.getCombinedLabelList();
-				i = ll.getLabelIndex(expr.getName());
-				if (i != -1) {
-					// check recursively
-					return checkExpression(model, ll.getLabel(i), statesOfInterest);
-				}
-			}
-			// Or just the model file
-			else {
-				ll = modulesFile.getLabelList();
+			// Failing that, look in the label list (from properties file / modules file)
+			ll = getLabelList();
+			if (ll != null) {
 				i = ll.getLabelIndex(expr.getName());
 				if (i != -1) {
 					// check recursively
@@ -799,45 +950,44 @@ public class StateModelChecker extends PrismComponent
 
 	protected StateValues checkExpressionFilter(Model model, ExpressionFilter expr, BitSet statesOfInterest) throws PrismException
 	{
-		// Filter info
-		Expression filter;
-		FilterOperator op;
-		String filterStatesString;
-		boolean filterInit, filterInitSingle, filterTrue;
-		BitSet bsFilter = null;
-		// Result info
-		StateValues vals = null, resVals = null;
-		BitSet bsMatch = null, bs;
-		StateValues states;
-		boolean b = false;
-		int count = 0;
-		String resultExpl = null;
-		Object resObj = null;
-
 		// Translate filter
-		filter = expr.getFilter();
+		Expression filter = expr.getFilter();
 		// Create default filter (true) if none given
 		if (filter == null)
 			filter = Expression.True();
 		// Remember whether filter is "true"
-		filterTrue = Expression.isTrue(filter);
+		boolean filterTrue = Expression.isTrue(filter);
 		// Store some more info
-		filterStatesString = filterTrue ? "all states" : "states satisfying filter";
+		String filterStatesString = filterTrue ? "all states" : "states satisfying filter";
 
 		// get the BitSet of states matching the filter, without taking statesOfInterest into account
-		bsFilter = checkExpression(model, filter, null).getBitSet();
+		BitSet bsFilter = checkExpression(model, filter, null).getBitSet();
 
 		// Check if filter state set is empty; we treat this as an error
 		if (bsFilter.isEmpty()) {
 			throw new PrismException("Filter satisfies no states");
 		}
 		// Remember whether filter is for the initial state and, if so, whether there's just one
-		filterInit = (filter instanceof ExpressionLabel && ((ExpressionLabel) filter).getName().equals("init"));
-		filterInitSingle = filterInit & model.getNumInitialStates() == 1;
+		boolean filterInit = (filter instanceof ExpressionLabel && ((ExpressionLabel) filter).isInitLabel());
+		boolean filterInitSingle = filterInit & model.getNumInitialStates() == 1;
+		// Print out number of states satisfying filter
+		if (!filterInit) {
+			mainLog.println("\nStates satisfying filter " + filter + ": " + bsFilter.cardinality());
+		}
+		// Possibly optimise filter
+		FilterOperator op = expr.getOperatorType();
+		if (op == FilterOperator.FIRST) {
+			bsFilter.clear(bsFilter.nextSetBit(0) + 1, bsFilter.length());
+		}
 
 		// For some types of filter, store info that may be used to optimise model checking
-		op = expr.getOperatorType();
 		if (op == FilterOperator.STATE) {
+			// Check filter satisfied by exactly one state
+			if (bsFilter.cardinality() != 1) {
+				String s = "Filter should be satisfied in exactly 1 state";
+				s += " (but \"" + filter + "\" is true in " + bsFilter.cardinality() + " states)";
+				throw new PrismException(s);
+			}
 			currentFilter = new Filter(Filter.FilterOperator.STATE, bsFilter.nextSetBit(0));
 		} else if (op == FilterOperator.FORALL && filterInit && filterInitSingle) {
 			currentFilter = new Filter(Filter.FilterOperator.STATE, bsFilter.nextSetBit(0));
@@ -846,15 +996,15 @@ public class StateModelChecker extends PrismComponent
 		} else {
 			currentFilter = null;
 		}
-
 		// Check operand recursively, using bsFilter as statesOfInterest
-		vals = checkExpression(model, expr.getOperand(), bsFilter);
-
-		// Print out number of states satisfying filter
-		if (!filterInit)
-			mainLog.println("\nStates satisfying filter " + filter + ": " + bsFilter.cardinality());
+		StateValues vals = checkExpression(model, expr.getOperand(), bsFilter);
 
 		// Compute result according to filter type
+		StateValues resVals = null;
+		BitSet bsMatch = null, bs = null;
+		boolean b = false;
+		String resultExpl = null;
+		Object resObj = null;
 		switch (op) {
 		case PRINT:
 		case PRINTALL:
@@ -937,7 +1087,7 @@ public class StateModelChecker extends PrismComponent
 			break;
 		case COUNT:
 			// Compute count
-			count = vals.countOverBitSet(bsFilter);
+			int count = vals.countOverBitSet(bsFilter);
 			// Store as object/vector
 			resObj = new Integer(count);
 			resVals = new StateValues(expr.getType(), resObj, model);
@@ -991,10 +1141,6 @@ public class StateModelChecker extends PrismComponent
 		case FORALL:
 			// Get access to BitSet for this
 			bs = vals.getBitSet();
-			// Print some info to log
-			mainLog.print("\nNumber of states satisfying " + expr.getOperand() + ": ");
-			mainLog.print(bs.cardinality());
-			mainLog.println(bs.cardinality() == model.getNumStates() ? " (all in model)" : "");
 			// Check "for all" over filter
 			b = vals.forallOverBitSet(bsFilter);
 			// Store as object/vector
@@ -1038,12 +1184,6 @@ public class StateModelChecker extends PrismComponent
 			mainLog.println("\n" + resultExpl);
 			break;
 		case STATE:
-			// Check filter satisfied by exactly one state
-			if (bsFilter.cardinality() != 1) {
-				String s = "Filter should be satisfied in exactly 1 state";
-				s += " (but \"" + filter + "\" is true in " + bsFilter.cardinality() + " states)";
-				throw new PrismException(s);
-			}
 			// Find first (only) value
 			// Store as object/vector
 			resObj = vals.firstFromBitSet(bsFilter);
@@ -1063,7 +1203,7 @@ public class StateModelChecker extends PrismComponent
 
 		// For some operators, print out some matching states
 		if (bsMatch != null) {
-			states = StateValues.createFromBitSet(bsMatch, model);
+			StateValues states = StateValues.createFromBitSet(bsMatch, model);
 			mainLog.print("\nThere are " + bsMatch.cardinality() + " states with ");
 			mainLog.print((expr.getType() instanceof TypeDouble ? "(approximately) " : "") + "this value");
 			boolean verbose = verbosity > 0; // TODO
@@ -1092,6 +1232,42 @@ public class StateModelChecker extends PrismComponent
 		}
 
 		return resVals;
+	}
+
+	
+	/**
+	 * Method for handling the recursive part of PCTL* checking, i.e.,
+	 * recursively checking maximal state subformulas and replacing them
+	 * with labels and the corresponding satisfaction sets.
+	 * <br>
+	 * Extracts maximal state formula from an LTL path formula,
+	 * model checks them (with the current model checker) and
+	 * replaces them with ExpressionLabel objects that correspond
+	 * to freshly generated labels attached to the model.
+	 * <br>
+	 * Returns the modified Expression.
+	 */
+	public Expression handleMaximalStateFormulas(ModelExplicit model, Expression expr) throws PrismException
+	{
+		Vector<BitSet> labelBS = new Vector<BitSet>();
+
+		LTLModelChecker ltlMC = new LTLModelChecker(this);
+		// check the maximal state subformulas and gather
+		// the satisfaction sets in labelBS, with index i
+		// in the vector corresponding to label Li in the
+		// returned formula
+		Expression exprNew = ltlMC.checkMaximalStateFormulas(this, model, expr.deepCopy(), labelBS);
+
+		HashMap<String, String> labelReplacements = new HashMap<String, String>();
+		for (int i=0; i < labelBS.size(); i++) {
+			String currentLabel = "L"+i;
+			// Attach satisfaction set for Li to the model, record necessary
+			// label renaming
+			String newLabel = model.addUniqueLabel("phi", labelBS.get(i), getDefinedLabelNames());
+			labelReplacements.put(currentLabel, newLabel);
+		}
+		// rename the labels
+		return (Expression) exprNew.accept(new ReplaceLabels(labelReplacements));
 	}
 
 	/**
@@ -1236,18 +1412,16 @@ public class StateModelChecker extends PrismComponent
 	 * (Actually, it returns a map from label name Strings to BitSets.)
 	 * (Note: the size of the BitSet may be smaller than the number of states.) 
 	 */
-	public Map<String, BitSet> loadLabelsFile(String filename) throws PrismException
+	public static Map<String, BitSet> loadLabelsFile(String filename) throws PrismException
 	{
-		BufferedReader in;
 		ArrayList<String> labels;
 		BitSet bitsets[];
 		Map<String, BitSet> res;
 		String s, ss[];
 		int i, j, k;
 
-		try {
-			// Open file
-			in = new BufferedReader(new FileReader(new File(filename)));
+		// open file for reading, automatic close when done
+		try (BufferedReader in = new BufferedReader(new FileReader(new File(filename)))) {
 			// Parse first line to get label list
 			s = in.readLine();
 			if (s == null) {
@@ -1293,8 +1467,6 @@ public class StateModelChecker extends PrismComponent
 				// Prepare for next iter
 				s = in.readLine();
 			}
-			// Close file
-			in.close();
 			// Build BitSet map
 			res = new HashMap<String, BitSet>();
 			for (i = 0; i < labels.size(); i++) {

@@ -36,7 +36,9 @@ import prism.PrismLangException;
  */
 public class TypeCheck extends ASTTraverse
 {
-    public static boolean DEBUG = false;
+public static boolean DEBUG = false;
+public static boolean SHANE_REMINDER = true;
+
 	private PropertiesFile propertiesFile = null;
 
 	public TypeCheck()
@@ -118,12 +120,13 @@ public class TypeCheck extends ASTTraverse
 	}
 
 	// ADDED BY SHANE, but not completed yet. ACTUALLY, probably doesn't need to exist, since I don't allow whole sets to be assigned.
+	// ALTERNATIVELY: maybe I could check the declType of the elements.
 	@Override
 	public void visitPost(DeclTypeIndexedSet e) throws PrismLangException
 	{
 		// Not Doing any checking yet
-System.out.println("TypeCheck.visitPost(DeclarationIndexedSet) not yet implemented - doing nothing for: " + e);
-
+if (SHANE_REMINDER) 
+	  System.out.println("~~ TypeCheck.visitPost(DeclarationIndexedSet) not yet implemented - doing nothing for: " + e);
 	}
 	
 	public void visitPost(Command e) throws PrismLangException
@@ -147,10 +150,10 @@ System.out.println("TypeCheck.visitPost(DeclarationIndexedSet) not yet implement
 
 	public void visitPost(Update e) throws PrismLangException
 	{
-//if (e == null) throw new PrismLangException("in TypeCheck.visitPost(Update) --- null Update object provided to visitPost(Update)"); else 
+		//if (e == null) throw new PrismLangException("in TypeCheck.visitPost(Update) --- null Update object provided to visitPost(Update)"); else 
 		int i, n;
 		n = e.getNumElements();
-if (DEBUG) System.out.println("\nIn TypeCheck.visitPost(Update) for update: " + e);
+		if (DEBUG) System.out.println("\nIn TypeCheck.visitPost(Update) for update: " + e);
 		for (i = 0; i < n; i++) {
 if (DEBUG) System.out.println("\nDealing with update-element " + (i+1) + "/" + n + ": " + e.getElement(i).toString());
 
@@ -222,14 +225,6 @@ if (DEBUG) System.out.println("  - Yes, it can.");
 					throw new PrismLangException("Type error: Argument of " + e.getOperatorSymbol() + " operator is not Boolean", e.getOperand2());
 			}
 			e.setType(TypePathBool.getInstance());
-			break;
-		case ExpressionTemporal.R_F:
-			if (e.getOperand2() != null) {
-				type = e.getOperand2().getType();
-				if (!(type instanceof TypeBool) && !(type instanceof TypePathBool))
-					throw new PrismLangException("Type error: Argument of " + e.getOperatorSymbol() + " operator is not Boolean", e.getOperand2());
-			}
-			e.setType(TypePathDouble.getInstance());
 			break;
 		case ExpressionTemporal.R_C:
 		case ExpressionTemporal.R_I:
@@ -391,6 +386,7 @@ if (DEBUG) System.out.println("  - Yes, it can.");
 		case ExpressionFunc.MAX:
 		case ExpressionFunc.FLOOR:
 		case ExpressionFunc.CEIL:
+		case ExpressionFunc.ROUND:
 		case ExpressionFunc.POW:
 		case ExpressionFunc.LOG:
 			// All operands must be ints or doubles
@@ -409,11 +405,18 @@ if (DEBUG) System.out.println("  - Yes, it can.");
 			}
 			break;
 		case ExpressionFunc.MULTI:
-			// All operands must be booleans or doubles
+			// All operands must be booleans or doubles, and doubles must come first.
+			boolean seenBoolean = false;
 			for (i = 0; i < n; i++) {
 				if (!(types[i] instanceof TypeBool || types[i] instanceof TypeDouble)) {
 					throw new PrismLangException("Type error: non-Boolean/Double argument to  function \"" + e.getName()
 							+ "\"", e.getOperand(i));
+				}
+				if (seenBoolean && types[i] instanceof TypeDouble) {
+					throw new PrismLangException("Type error: in the function \"" + e.getName() + "\", any Double arguments must come before any Boolean arguments.");
+				}
+				if (types[i] instanceof TypeBool) {
+					seenBoolean = true;
 				}
 			}
 			break;
@@ -436,6 +439,7 @@ if (DEBUG) System.out.println("  - Yes, it can.");
 			break;
 		case ExpressionFunc.FLOOR:
 		case ExpressionFunc.CEIL:
+		case ExpressionFunc.ROUND:
 		case ExpressionFunc.MOD:
 			// Resulting type is always int
 			e.setType(TypeInt.getInstance());
@@ -546,7 +550,8 @@ if (DEBUG) System.out.println("  - Yes, it can.");
 			}
 		}
 		// Check argument
-		if (!(e.getExpression().getType() instanceof TypePathDouble)) {
+		Type typeArg = e.getExpression().getType();
+		if (!(typeArg instanceof TypePathDouble || typeArg instanceof TypePathBool || typeArg instanceof TypeBool)) {
 			throw new PrismLangException("Type error: Contents of R operator is invalid", e.getExpression());
 		}
 		// Set type
@@ -589,7 +594,20 @@ if (DEBUG) System.out.println("  - Yes, it can.");
 
 	public void visitPost(ExpressionStrategy e) throws PrismLangException
 	{
-		e.setType(e.getExpression().getType());
+		// Get types of operands
+		int n = e.getNumOperands();
+		Type types[] = new Type[n];
+		for (int i = 0; i < n; i++) {
+			types[i] = e.getOperand(i).getType();
+		}
+
+		// Currently, resulting type is always same as first arg
+		if (types[0] instanceof TypeBool)
+			e.setType(TypeBool.getInstance());
+		else if (types.length == 1 || types[1] instanceof TypeBool) //in this case type[0] is TypeDouble
+			e.setType(TypeDouble.getInstance());
+		else
+			e.setType(TypeVoid.getInstance());
 	}
 
 	public void visitPost(ExpressionLabel e) throws PrismLangException
@@ -641,6 +659,11 @@ if (DEBUG) System.out.println("  - Yes, it can.");
 				throw new PrismLangException("Type error: Boolean argument not allowed as operand for filter of type \"" + e.getOperatorName() + "\"",
 						e.getOperand());
 			}
+			if (t instanceof TypeVoid) {
+				// e.g., complex results from multi-objective checking
+				throw new PrismLangException("Type error: Void/complex arguments not allowed as operand for filter of type \"" + e.getOperatorName() + "\"",
+						e.getOperand());
+			}
 			break;
 		case COUNT:
 		case FORALL:
@@ -652,8 +675,13 @@ if (DEBUG) System.out.println("  - Yes, it can.");
 		case FIRST:
 		case PRINT:
 		case PRINTALL:
+			if (t instanceof TypeVoid) {
+				throw new PrismLangException("Type error: Void/complex arguments not allowed as operand for filter of type \"" + e.getOperatorName() + "\"",
+						e.getOperand());
+			}
+			break;
 		case STATE:
-			// Anything goes
+			// Anything goes, has special handling for TypeVoid (e.g., some multi-objective results)
 			break;
 		default:
 			throw new PrismLangException("Cannot type check filter of unknown type", e);

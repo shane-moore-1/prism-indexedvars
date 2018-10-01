@@ -26,6 +26,10 @@
 
 package explicit;
 
+import java.util.BitSet;
+import java.util.List;
+
+import parser.State;
 import prism.PrismException;
 
 /**
@@ -40,6 +44,8 @@ public interface ModelSimple extends Model
 
 	/**
 	 * Build (anew) from a list of transitions exported explicitly by PRISM (i.e. a .tra file).
+	 * Note that initial states are not configured (since this info is not in the file),
+	 * so this needs to be done separately (using {@link #addInitialState(int)}.
 	 */
 	public abstract void buildFromPrismExplicit(String filename) throws PrismException;
 
@@ -57,4 +63,17 @@ public interface ModelSimple extends Model
 	 * Add multiple new states.
 	 */
 	public abstract void addStates(int numToAdd);
+
+	/**
+	 * Set the associated (read-only) state list.
+	 */
+	public void setStatesList(List<State> statesList);
+
+	/**
+	 * Adds a label and the set the states that satisfy it.
+	 * Any existing label with the same name is overwritten.
+	 * @param name The name of the label
+	 * @param states The states that satisfy the label 
+	 */
+	public void addLabel(String name, BitSet states);
 }

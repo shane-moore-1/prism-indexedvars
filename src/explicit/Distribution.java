@@ -29,6 +29,7 @@ package explicit;
 import java.util.BitSet;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -37,7 +38,7 @@ import prism.PrismUtils;
 
 /**
  * Explicit representation of a probability distribution.
- * Basically, a mapping from (integer-valued) state indices to (non-zero, double-valued) probabilities. 
+ * Basically, a mapping from (integer-valued) indices to (non-zero, double-valued) probabilities. 
  */
 public class Distribution implements Iterable<Entry<Integer, Double>>
 {
@@ -56,17 +57,24 @@ public class Distribution implements Iterable<Entry<Integer, Double>>
 	 */
 	public Distribution(Distribution distr)
 	{
+		this(distr.iterator());
+	}
+
+	/**
+	 * Construct a distribution from an iterator over transitions.
+	 */
+	public Distribution(Iterator<Entry<Integer, Double>> transitions)
+	{
 		this();
-		Iterator<Entry<Integer, Double>> i = distr.iterator();
-		while (i.hasNext()) {
-			Map.Entry<Integer, Double> e = i.next();
-			add(e.getKey(), e.getValue());
+		while (transitions.hasNext()) {
+			final Entry<Integer, Double> trans = transitions.next();
+			add(trans.getKey(), trans.getValue());
 		}
 	}
 
 	/**
-	 * Construct a distribution from an existing one and a state index permutation,
-	 * i.e. in which state index i becomes index permut[i].
+	 * Construct a distribution from an existing one and an index permutation,
+	 * i.e. in which index i becomes index permut[i].
 	 * Note: have to build the new distributions from scratch anyway to do this,
 	 * so may as well provide this functionality as a constructor.
 	 */
@@ -89,9 +97,9 @@ public class Distribution implements Iterable<Entry<Integer, Double>>
 	}
 
 	/**
-	 * Add 'prob' to the probability for state 'j'.
+	 * Add 'prob' to the probability for index 'j'.
 	 * Return boolean indicating whether or not there was already
-	 * non-zero probability for this state (i.e. false denotes new transition).
+	 * non-zero probability for this index (i.e. false denotes new transition).
 	 */
 	public boolean add(int j, double prob)
 	{
@@ -106,7 +114,7 @@ public class Distribution implements Iterable<Entry<Integer, Double>>
 	}
 
 	/**
-	 * Set the probability for state 'j' to 'prob'.
+	 * Set the probability for index 'j' to 'prob'.
 	 */
 	public void set(int j, double prob)
 	{
@@ -117,7 +125,7 @@ public class Distribution implements Iterable<Entry<Integer, Double>>
 	}
 
 	/**
-	 * Get the probability for state j. 
+	 * Get the probability for index j. 
 	 */
 	public double get(int j)
 	{
@@ -195,21 +203,67 @@ public class Distribution implements Iterable<Entry<Integer, Double>>
 	}
 
 	/**
-	 * Get the sum of the probabilities in the distribution.
+	 * Get the mean of the distribution.
 	 */
-	public double sum()
+	public double mean()
 	{
 		double d = 0.0;
 		Iterator<Entry<Integer, Double>> i = iterator();
 		while (i.hasNext()) {
 			Map.Entry<Integer, Double> e = i.next();
-			d += e.getValue();
+			d += e.getValue() * e.getKey();
 		}
 		return d;
 	}
+	
+	/**
+	 * Get the variance of the distribution.
+	 */
+	public double variance()
+	{
+		double mean = mean();
+		double meanSq = 0.0;
+		Iterator<Entry<Integer, Double>> i = iterator();
+		while (i.hasNext()) {
+			Map.Entry<Integer, Double> e = i.next();
+			meanSq += e.getValue() * e.getKey() * e.getKey();
+		}
+		return Math.abs(meanSq - mean * mean);
+	}
+	
+	/**
+	 * Get the standard deviation of the distribution.
+	 */
+	public double standardDeviation()
+	{
+		return Math.sqrt(variance());
+	}
+	
+	/**
+	 * Get the relative standard deviation of the distribution,
+	 * i.e., as a percentage of the mean.
+	 */
+	public double standardDeviationRelative()
+	{
+		return 100.0 * standardDeviation() / mean();
+	}
+	
+	/**
+	 * Get the sum of the probabilities in the distribution.
+	 */
+	public double sum()
+	{
+		double mean = 0.0;
+		Iterator<Entry<Integer, Double>> i = iterator();
+		while (i.hasNext()) {
+			Map.Entry<Integer, Double> e = i.next();
+			mean += e.getValue();
+		}
+		return mean;
+	}
 
 	/**
-	 * Get the sum of all the probabilities in the distribution except for state j.
+	 * Get the sum of all the probabilities in the distribution except for index j.
 	 */
 	public double sumAllBut(int j)
 	{
@@ -224,8 +278,8 @@ public class Distribution implements Iterable<Entry<Integer, Double>>
 	}
 
 	/**
-	 * Create a new distribution, based on a mapping from the state indices
-	 * used in this distribution to a different set  of state indices.
+	 * Create a new distribution, based on a mapping from the indices
+	 * used in this distribution to a different set of indices.
 	 */
 	public Distribution map(int map[])
 	{
@@ -267,5 +321,23 @@ public class Distribution implements Iterable<Entry<Integer, Double>>
 	public String toString()
 	{
 		return map.toString();
+	}
+	
+	public String toStringCSV()
+	{
+		String s = "Value";
+		Iterator<Entry<Integer, Double>> i = iterator();
+		while (i.hasNext()) {
+			Map.Entry<Integer, Double> e = i.next();
+			s += ", " + e.getKey();
+		}
+		s += "\nProbability";
+		i = iterator();
+		while (i.hasNext()) {
+			Map.Entry<Integer, Double> e = i.next();
+			s += ", " + e.getValue();
+		}
+		s += "\n";
+		return s;
 	}
 }

@@ -37,11 +37,11 @@ import odd.*;
 
 public class PrismMTBDD
 {
-	public static boolean SHANE_DEBUG = true;
-
+public static boolean SHANE_DEBUG = true;
 	//------------------------------------------------------------------------------
 	// load jni stuff from shared library
 	//------------------------------------------------------------------------------
+
 	static
 	{
 		try {

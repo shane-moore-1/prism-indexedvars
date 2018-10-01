@@ -28,9 +28,14 @@ package prism;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
 
+import common.StackTraceHelper;
 import parser.Values;
 import parser.ast.Expression;
 import parser.ast.ExpressionReward;
@@ -55,15 +60,15 @@ import simulator.method.SimulationMethod;
 
 public class PrismCL implements PrismModelListener
 {
-  // Temporary ADDED BY SHANE
-  public static boolean DEBUG = false;
-
+// Temporary ADDED BY SHANE for DEBUG OUTPUT CONTROL
+public static boolean DEBUG = false;
 	// flags
 	private boolean importpepa = false;
 	private boolean importprismpp = false;
 	private boolean importtrans = false;
 	private boolean importstates = false;
 	private boolean importlabels = false;
+	private boolean importstaterewards = false;
 	private boolean importinitdist = false;
 	private boolean steadystate = false;
 	private boolean dotransient = false;
@@ -76,6 +81,7 @@ public class PrismCL implements PrismModelListener
 	private boolean exportdot = false;
 	private boolean exporttransdot = false;
 	private boolean exporttransdotstates = false;
+	private boolean exportmodeldotview = false;
 	private boolean exportsccs = false;
 	private boolean exportbsccs = false;
 	private boolean exportmecs = false;
@@ -116,11 +122,11 @@ public class PrismCL implements PrismModelListener
 
 	// files/filenames
 	private String mainLogFilename = "stdout";
-	private String techLogFilename = "stdout";
 	private String settingsFilename = null;
 	private String modelFilename = null;
 	private String importStatesFilename = null;
 	private String importLabelsFilename = null;
+	private String importStateRewardsFilename = null;
 	private String importInitDistFilename = null;
 	private String propertiesFilename = null;
 	private String exportTransFilename = null;
@@ -143,7 +149,6 @@ public class PrismCL implements PrismModelListener
 
 	// logs
 	private PrismLog mainLog = null;
-	private PrismLog techLog = null;
 
 	// prism object
 	private Prism prism = null;
@@ -199,27 +204,78 @@ public class PrismCL implements PrismModelListener
 	private String[] paramUpperBounds = null;
 	private String[] paramNames = null;
 
-	// entry point - run method
+	private boolean exactConstants = false;
 
+	/**
+	 * Entry point: call run method, catch CuddOutOfMemoryException
+	 */
+	public void go(String[] args) {
+		try {
+			run(args);
+		} catch (jdd.JDD.CuddOutOfMemoryException e) {
+			mainLog.println("\nCUDD internal error detected, from the following stack trace:");
+			for (StackTraceElement st : e.getStackTrace()) {
+				mainLog.print("  ");
+				mainLog.println(st);
+			}
+			errorAndExit(e.getMessage() + ".\nTip: Try using the -cuddmaxmem switch to increase the memory available to CUDD");
+		} catch (com.martiansoftware.nailgun.NGExitException e) {
+			// we don't want to catch the nailgun exception below,
+			// so we catch it and rethrow
+			throw e;
+		} catch (Exception|StackOverflowError e) {
+			// We catch Exceptions/stack overflows here ourself to ensure that we actually exit
+			// In the presence of thread pools (e.g., in the JAS library when using -exact),
+			// the main thread dying does not necessarily quit the program...
+			mainLog.println();
+			if (e instanceof StackOverflowError) {
+				// print exception + limited stack trace for stack overflows
+				mainLog.println(e.toString());
+				mainLog.println(StackTraceHelper.asString(e, StackTraceHelper.DEFAULT_STACK_TRACE_LIMIT));
+				mainLog.println("Try increasing the value of the Java stack size (via the -javastack argument).");
+			} else {
+				// print exception + full stack trace for generic exceptions
+				mainLog.print(e.toString() + "\n" + StackTraceHelper.asString(e, 0));
+			}
+			errorAndExit("Caught unhandled exception, aborting...");
+		}
+	}
+
+	/**
+	 * Run PRISM.
+	 */
 	public void run(String[] args)
 	{
 		int i, j, k;
 		Result res;
-
-		// Initialise
-		initialise(args);
-
 if (DEBUG) {
-	System.out.println("in PrismCL.run(): About to call doParsing()");
+	Exception e = new Exception("in PrismCL.run(): STACK TRACE at start of method (for reference)");
+	e.printStackTrace(System.out);
+}
+		
+if (DEBUG) {
+	System.out.println("<DoParsing where=\"in PrismCL.run(): About to call doParsing()\"");
 }
 		// Parse/load model/properties
 		doParsing();
 
 if (DEBUG) {
-	System.out.println("in PrismCL.run(): About to call sortProperties()");
+	System.out.println("</DoParsing>");
+	System.out.println("<SortProperties where=\"in PrismCL.run(): About to call sortProperties()\"");
 }
 		// Sort out properties to check
 		sortProperties();
+if (DEBUG) {
+	System.out.println("</SortProperties>");
+	System.out.println("<UndefinedConstants where=\"in PrismCL.run()\"");
+}
+
+		if (param && numPropertiesToCheck == 0) {
+			errorAndExit("Parametric model checking requires at least one property to check");
+		}
+
+		// evaluate constants exactly if we are in param or exact computation mode
+		exactConstants = param || prism.getSettings().getBoolean(PrismSettings.PRISM_EXACT_ENABLED);
 
 		// process info about undefined constants
 		try {
@@ -229,9 +285,11 @@ if (DEBUG) {
 				undefinedMFConstants = new UndefinedConstants(modulesFile, propertiesFile, true);
 			else
 				undefinedMFConstants = new UndefinedConstants(modulesFile, null);
+			undefinedMFConstants.setExactMode(exactConstants);
 			undefinedConstants = new UndefinedConstants[numPropertiesToCheck];
 			for (i = 0; i < numPropertiesToCheck; i++) {
 				undefinedConstants[i] = new UndefinedConstants(modulesFile, propertiesFile, propertiesToCheck.get(i));
+				undefinedConstants[i].setExactMode(exactConstants);
 			}
 			// may need to remove some constants if they are used for parametric methods
 			if (param) {
@@ -248,6 +306,8 @@ if (DEBUG) {
 		} catch (PrismException e) {
 			errorAndExit(e.getMessage());
 		}
+if (DEBUG)
+	System.out.println("</UndefinedConstants>");
 
 		// initialise storage for results
 		results = new ResultsCollection[numPropertiesToCheck];
@@ -256,18 +316,17 @@ if (DEBUG) {
 		}
 
 if (DEBUG) {
-	Exception e = new Exception("in PrismCL.run(): About to do a massive for loop");
-	e.printStackTrace(System.out);
+	System.out.println("in PrismCL.run(): About to do a massive for loop...\n<MassiveForLoop>");
 }
 		// iterate through as many models as necessary
 		for (i = 0; i < undefinedMFConstants.getNumModelIterations(); i++) {
-if (DEBUG)
-	System.out.println("Start of Iteration " + i);
+if (DEBUG) 
+	System.out.println("<MassiveForLoopIteration i='" + i + " of "+undefinedMFConstants.getNumModelIterations()+"'>");
 
 			// set values for ModulesFile constants
 			try {
 				definedMFConstants = undefinedMFConstants.getMFConstantValues();
-				prism.setPRISMModelConstants(definedMFConstants);
+				prism.setPRISMModelConstants(definedMFConstants, exactConstants);
 			} catch (PrismException e) {
 				// in case of error, report it, store as result for any properties, and go on to the next model
 				// (might happen for example if overflow or another numerical problem is detected at this stage)
@@ -316,18 +375,32 @@ if (DEBUG)
 				continue;
 
 if (DEBUG) {
-	Exception e = new Exception("in PrismCL.run(): About to check the properties");
-	e.printStackTrace(System.out);
+	System.out.println("\nin PrismCL.run(): About to check the properties.");
+	System.out.println("<LoopOverProperties>");
 }
+
 			// Work through list of properties to be checked
 			for (j = 0; j < numPropertiesToCheck; j++) {
+if (DEBUG) {
+	System.out.println(" <CheckProperty which='" + j + "' at='PrismCL.java, Line ~382'");
+}
 
 				// for simulation we can do multiple values of property constants simultaneously
 				if (simulate && undefinedConstants[j].getNumPropertyIterations() > 1) {
 					try {
+if (DEBUG) {
+	System.out.println("PrismCL - Place CP-1");
+}
 						simMethod = processSimulationOptions(propertiesToCheck.get(j).getExpression());
+if (DEBUG) {
+	System.out.println("PrismCL - Place CP-2");
+}
 						prism.modelCheckSimulatorExperiment(propertiesFile, undefinedConstants[j], results[j], propertiesToCheck.get(j).getExpression(), null,
 								simMaxPath, simMethod);
+if (DEBUG) {
+	System.out.println("PrismCL - Place CP-3");
+}
+
 					} catch (PrismException e) {
 						// in case of (overall) error, report it, store as result for property, and proceed
 						error(e.getMessage());
@@ -339,24 +412,42 @@ if (DEBUG) {
 				}
 				// otherwise, treat each case individually
 				else {
+if (DEBUG) {
+	System.out.println("PrismCL - Place CP-4");
+}
+
 					for (k = 0; k < undefinedConstants[j].getNumPropertyIterations(); k++) {
 
 						try {
 							// Set values for PropertiesFile constants
 							if (propertiesFile != null) {
 								definedPFConstants = undefinedConstants[j].getPFConstantValues();
-								propertiesFile.setSomeUndefinedConstants(definedPFConstants);
+								propertiesFile.setSomeUndefinedConstants(definedPFConstants, exactConstants);
+if (DEBUG) {
+	System.out.println("PrismCL - Place CP-5");
+}
 							}
 							// Normal model checking
 							if (!simulate && !param) {
+if (DEBUG) {
+	System.out.println("PrismCL - Place CP-6A");
+}
 								res = prism.modelCheck(propertiesFile, propertiesToCheck.get(j));
 							}
 							// Parametric model checking
 							else if (param) {
+if (DEBUG) {
+	System.out.println("PrismCL - Place CP-6B");
+}
+
 								res = prism.modelCheckParametric(propertiesFile, propertiesToCheck.get(j), paramNames, paramLowerBounds, paramUpperBounds);
 							}
 							// Approximate (simulation-based) model checking
 							else if (simulate) {
+if (DEBUG) {
+	System.out.println("PrismCL - Place CP-6C");
+}
+
 								simMethod = processSimulationOptions(propertiesToCheck.get(j).getExpression());
 								res = prism.modelCheckSimulator(propertiesFile, propertiesToCheck.get(j).getExpression(), definedPFConstants, null, simMaxPath,
 										simMethod);
@@ -369,13 +460,28 @@ if (DEBUG) {
 							error(e.getMessage(), true);
 							res = new Result(e);
 						}
+if (DEBUG) {
+	System.out.println("PrismCL - Place CP-7");
+}
 
 						// in case of build failure during model checking, store as result for any const values and continue
 						if (modelBuildFail) {
+if (DEBUG) {
+	System.out.println("PrismCL - Place CP-8");
+}
 							results[j].setMultipleErrors(definedMFConstants, null, modelBuildException);
+							if (test) {
+if (DEBUG) {
+	System.out.println("PrismCL - Place CP-8T");
+}
+								doResultTest(propertiesToCheck.get(j), new Result(modelBuildException));
+							}
 							break;
 						}
 
+if (DEBUG) {
+	System.out.println("PrismCL - Place CP-9");
+}
 						// store result of model checking
 						results[j].setResult(definedMFConstants, definedPFConstants, res.getResult());
 
@@ -411,22 +517,7 @@ if (DEBUG) {
 
 						// if required, check result against expected value
 						if (test) {
-							try {
-								mainLog.println();
-								Values allConsts = new Values(definedMFConstants);
-								allConsts.addValues(definedPFConstants);
-								if (propertiesToCheck.get(j).checkAgainstExpectedResult(res.getResult(), allConsts)) {
-									mainLog.println("Testing result: PASS");
-								} else {
-									mainLog.println("Testing result: NOT TESTED");
-								}
-							} catch (PrismNotSupportedException e) {
-								mainLog.println("Testing result: UNSUPPORTED: " + e.getMessage());
-							} catch (PrismException e) {
-								mainLog.println("Testing result: FAIL: " + e.getMessage());
-								if (testExitsOnFail)
-									errorAndExit("Testing failed");
-							}
+							doResultTest(propertiesToCheck.get(j), res);
 						}
 
 						// iterate to next property
@@ -438,15 +529,21 @@ if (DEBUG) {
 				if (modelBuildFail) {
 					for (j++; j < numPropertiesToCheck; j++) {
 						results[j].setMultipleErrors(definedMFConstants, null, modelBuildException);
+						if (test) {
+							doResultTest(propertiesToCheck.get(j), new Result(modelBuildException));
+						}
 					}
 					break;
 				}
+if (DEBUG) {
+	System.out.println(" </CheckProperty which='" + j + "'");
+}
+
 			}
 
-if (DEBUG) {
-	Exception e = new Exception("in PrismCL.run(): About to call buildModel()");
-	e.printStackTrace(System.out);
-}
+if (DEBUG)
+	System.out.println("</LoopOverProperties>\nin PrismCL.run(): About to call buildModel()...\n<BuildModel>");
+
 			// Explicitly request a build if necessary
 			if (propertiesToCheck.size() == 0 && !steadystate && !dotransient && !simpath && !nobuild && prism.modelCanBeBuilt() && !prism.modelIsBuilt()) {
 				try {
@@ -456,24 +553,29 @@ if (DEBUG) e.printStackTrace(System.out); else
 					error(e.getMessage());
 				}
 			}
+
 if (DEBUG) {
-	System.out.println("\nin PrismCL.run(): Finished call of buildModel() with no execptions caught");
+	System.out.println("\nin PrismCL.run(): Finished call of buildModel() with no execptions caught.\n</BuildModel>");
+	System.out.println("\nin PrismCL.run(): about to call iterateModel()...\n<IterateModel>");
 }
 
 			// iterate to next model
 			undefinedMFConstants.iterateModel();
+if (DEBUG) {
+	System.out.println("\nin PrismCL.run(): Finished call of iterateModel()\n</IterateModel>");
+	System.out.println("\nin PrismCL.run(): There are " + numPropertiesToCheck + " properties to check at end of the");
+}
 			for (j = 0; j < numPropertiesToCheck; j++) {
 				undefinedConstants[j].iterateModel();
 			}
-if (DEBUG)
-	System.out.println("in PrismCL.run(): Reached end of the massive for-loop for value i=" + i); 
-		}
+if (DEBUG) System.out.println("</MassiveForLoopIteration i='" + i+"'>");
 
-if (DEBUG)
-	System.out.println("in PrismCL.run(): No more iterations to do of the massive for-loop.");
+		}
+if (DEBUG) System.out.println("</MassiveForLoop>");
 
 		// export results (if required)
 		if (exportresults) {
+if (DEBUG) System.out.println("in PrismCL: Exporting results...");
 			ResultsExporter exporter = new ResultsExporter(exportResultsFormat, "string");
 			mainLog.print("\nExporting results " + (exportresultsmatrix ? "in matrix form " : ""));
 			mainLog.println(exportResultsFilename.equals("stdout") ? "below:\n" : "to file \"" + exportResultsFilename + "\"...");
@@ -505,7 +607,7 @@ if (DEBUG)
 			tmpLog.close();
 		}
 
-System.out.println("in PrismCL.run() about to call closeDown() to end the run() method");
+if (DEBUG) System.out.println("\nIn PrismCL: about to call closeDown, then end the run() method.");
 		// close down
 		closeDown();
 	}
@@ -517,14 +619,13 @@ System.out.println("in PrismCL.run() about to call closeDown() to end the run() 
 	{
 		try {
 			// prepare storage for parametric model checking
-			// default to logs going to stdout
+			// default to log going to stdout
 			// this means all errors etc. can be safely sent to the log
 			// even if a new log is created shortly
 			mainLog = new PrismFileLog("stdout");
-			techLog = new PrismFileLog("stdout");
 
 			// create prism object(s)
-			prism = new Prism(mainLog, techLog);
+			prism = new Prism(mainLog);
 			prism.addModelListener(this);
 
 			// parse command line arguments
@@ -553,7 +654,7 @@ System.out.println("in PrismCL.run() about to call closeDown() to end the run() 
 	private void doParsing()
 	{
 		int i;
-		File sf = null, lf = null;
+		File sf = null, lf = null, srf = null;
 
 		// parse model
 
@@ -577,8 +678,12 @@ System.out.println("in PrismCL.run() about to call closeDown() to end the run() 
 					mainLog.print(", \"" + importLabelsFilename + "\"");
 					lf = new File(importLabelsFilename);
 				}
+				if (importstaterewards) {
+					mainLog.print(", \"" + importStateRewardsFilename + "\"");
+					srf = new File(importStateRewardsFilename);
+				}
 				mainLog.println("...");
-				modulesFile = prism.loadModelFromExplicitFiles(sf, new File(modelFilename), lf, typeOverride);
+				modulesFile = prism.loadModelFromExplicitFiles(sf, new File(modelFilename), lf, srf, typeOverride);
 			} else {
 				mainLog.print("\nParsing model file \"" + modelFilename + "\"...\n");
 				modulesFile = prism.parseModelFile(new File(modelFilename), typeOverride);
@@ -620,8 +725,12 @@ System.out.println("in PrismCL.run() about to call closeDown() to end the run() 
 		}
 
 		// Load model into PRISM (if not done already)
-		if (!importtrans) {
-			prism.loadPRISMModel(modulesFile);
+		try {
+			if (!importtrans) {
+				prism.loadPRISMModel(modulesFile);
+			}
+		} catch (PrismException e) {
+			errorAndExit(e.getMessage());
 		}
 	}
 
@@ -669,6 +778,25 @@ System.out.println("in PrismCL.run() about to call closeDown() to end the run() 
 
 	private void doExports()
 	{
+		if (param || prism.getSettings().getBoolean(PrismSettings.PRISM_EXACT_ENABLED)) {
+			if (exporttrans ||
+			    exportstaterewards ||
+			    exporttransrewards ||
+			    exportstates ||
+			    exportspy ||
+			    exportdot ||
+			    exporttransdot ||
+			    exporttransdotstates ||
+			    exportmodeldotview ||
+			    exportlabels ||
+			    exportsccs ||
+			    exportbsccs ||
+			    exportmecs) {
+				mainLog.printWarning("Skipping exports in parametric / exact model checking mode, currently not supported.");
+				return;
+			}
+		}
+
 		// export transition matrix to a file
 		if (exporttrans) {
 			try {
@@ -782,12 +910,29 @@ System.out.println("in PrismCL.run() about to call closeDown() to end the run() 
 			}
 		}
 
+		// export transition matrix graph to dot file and view it
+		if (exportmodeldotview) {
+			try {
+				File dotFile = File.createTempFile("prism-dot-", ".dot", null);
+				File dotPdfFile = File.createTempFile("prism-dot-", ".dot.pdf", null);
+				prism.exportTransToFile(exportordered, Prism.EXPORT_DOT_STATES, dotFile);
+				(new ProcessBuilder(new String[]{ "dot", "-Tpdf", "-o", dotPdfFile.getPath(), dotFile.getPath()})).start().waitFor();
+				(new ProcessBuilder(new String[]{ "open",dotPdfFile.getPath()})).start();
+			}
+			// in case of error, report it and proceed
+			catch (IOException | InterruptedException e) {
+				error("Problem generating dot file: " + e.getMessage());
+			} catch (PrismException e) {
+				error(e.getMessage());
+			}
+		}
+
 		// export labels/states
 		if (exportlabels) {
 			try {
 				if (propertiesFile != null) {
 					definedPFConstants = undefinedMFConstants.getPFConstantValues();
-					propertiesFile.setSomeUndefinedConstants(definedPFConstants);
+					propertiesFile.setSomeUndefinedConstants(definedPFConstants, exactConstants);
 				}
 				File f = (exportLabelsFilename.equals("stdout")) ? null : new File(exportLabelsFilename);
 				prism.exportLabelsToFile(propertiesFile, exportType, f);
@@ -851,6 +996,11 @@ System.out.println("in PrismCL.run() about to call closeDown() to end the run() 
 		File exportSteadyStateFile = null;
 
 		if (steadystate) {
+			if (param || prism.getSettings().getBoolean(PrismSettings.PRISM_EXACT_ENABLED)) {
+				mainLog.printWarning("Skipping steady-state computation in parametric / exact model checking mode, currently not supported.");
+				return;
+			}
+
 			try {
 				// Choose destination for output (file or log)
 				if (exportSteadyStateFilename == null || exportSteadyStateFilename.equals("stdout"))
@@ -876,6 +1026,11 @@ System.out.println("in PrismCL.run() about to call closeDown() to end the run() 
 
 		if (dotransient) {
 			try {
+				if (param || prism.getSettings().getBoolean(PrismSettings.PRISM_EXACT_ENABLED)) {
+					mainLog.printWarning("Skipping transient probability computation in parametric / exact model checking mode, currently not supported.");
+					return;
+				}
+
 				// Choose destination for output (file or log)
 				if (exportTransientFilename == null || exportTransientFilename.equals("stdout"))
 					exportTransientFile = null;
@@ -908,6 +1063,39 @@ System.out.println("in PrismCL.run() about to call closeDown() to end the run() 
 	}
 
 	/**
+	 * Test a model checking result against the RESULT specifications attached
+	 * to the property (test mode).
+	 * <br>
+	 * Note: This method should only be called directly after the model checking (i.e.,
+	 * from {@code run()}, as it relies on the fact that the constant values in
+	 * the {@code modulesFile} and {@propertiesFile} reflect the values used for
+	 * model checking.
+	 * <br>
+	 * Test results are output to the log. If a test fails and {@code testExitsOnFail}
+	 * is {@code true} then {@code errorAndExit} is called.
+	 * @param prop the property
+	 * @param res the result
+	 */
+	private void doResultTest(Property prop, Result res)
+	{
+		try {
+			mainLog.println();
+			Values allConsts = new Values(modulesFile.getConstantValues(), propertiesFile.getConstantValues());
+			if (prop.checkAgainstExpectedResult(res.getResult(), allConsts)) {
+				mainLog.println("Testing result: PASS");
+			} else {
+				mainLog.println("Testing result: NOT TESTED");
+			}
+		} catch (PrismNotSupportedException e) {
+			mainLog.println("Testing result: UNSUPPORTED: " + e.getMessage());
+		} catch (PrismException e) {
+			mainLog.println("Testing result: FAIL: " + e.getMessage());
+			if (testExitsOnFail)
+				errorAndExit("Testing failed");
+		}
+	}
+
+	/**
 	 * Close down.
 	 */
 	private void closeDown()
@@ -928,7 +1116,20 @@ System.out.println("in PrismCL.run() about to call closeDown() to end the run() 
 		mainLog.println();
 		// Close logs (in case they are files)
 		mainLog.close();
-		techLog.close();
+	}
+
+	/** Set a timeout, exit program if timeout is reached */
+	private void setTimeout(final int timeout)
+	{
+		common.Timeout.setTimeout(timeout, new Runnable() {
+			@Override
+			public void run()
+			{
+				mainLog.println("\nError: Timeout (after " + timeout + " seconds).");
+				mainLog.flush();
+				System.exit(1);
+			}
+		});
 	}
 
 	// PrismModelListener methods
@@ -964,6 +1165,9 @@ System.out.println("in PrismCL.run() about to call closeDown() to end the run() 
 
 				// Remove "-"
 				sw = args[i].substring(1);
+				if (sw.length() == 0) {
+					errorAndExit("Invalid empty switch");
+				}
 				// Remove optional second "-" (i.e. we allow switches of the form --sw too)
 				if (sw.charAt(0) == '-')
 					sw = sw.substring(1);
@@ -984,10 +1188,32 @@ System.out.println("in PrismCL.run() about to call closeDown() to end the run() 
 					}
 					exit();
 				}
-				// java max mem
-				else if (sw.equals("javamaxmem")) {
+	else if (sw.equals("shanelogfreq")) {
+		if (i < args.length - 1) {
+			prism.setShaneFreqOfOutput(Integer.parseInt(args[++i]));
+		} else {
+			errorAndExit("shanelogfreq switch requires an integer (how frequently to show progress)");
+		}
+	}
+				// java max mem & java stack size
+				else if (sw.equals("javamaxmem") || sw.equals("javastack")) {
 					i++;
-					// ignore - this is dealt with before java is launched
+					// ignore argument and subsequent value, this is dealt with before java is launched
+				}
+				// timeout
+				else if (sw.equals("timeout")) {
+					if (i < args.length - 1) {
+						int timeout = PrismUtils.convertTimeStringtoSeconds(args[++i]);
+						if (timeout < 0) {
+							errorAndExit("Negative timeout value \"" + timeout + "\" for -" + sw + " switch");
+						}
+						if (timeout > 0) {
+							setTimeout(timeout);
+						}
+						// timeout == 0 -> no timeout
+					} else {
+						errorAndExit("Missing timeout value for -" + sw + " switch");
+					}
 				}
 				// print version
 				else if (sw.equals("version")) {
@@ -1092,6 +1318,36 @@ System.out.println("in PrismCL.run() about to call closeDown() to end the run() 
 					testExitsOnFail = false;
 				}
 
+				// DD Debugging options
+				else if (sw.equals("dddebug")) {
+					jdd.DebugJDD.enable();
+				}
+				else if (sw.equals("ddtraceall")) {
+					jdd.DebugJDD.traceAll = true;
+				}
+				else if (sw.equals("ddtracefollowcopies")) {
+					jdd.DebugJDD.traceFollowCopies = true;
+				}
+				else if (sw.equals("dddebugwarnfatal")) {
+					jdd.DebugJDD.warningsAreFatal = true;
+				}
+				else if (sw.equals("dddebugwarnoff")) {
+					jdd.DebugJDD.warningsOff = true;
+				}
+				else if (sw.equals("ddtrace")) {
+					if (i < args.length - 1) {
+						String idString = args[++i];
+						try {
+							int id = Integer.parseInt(idString);
+							jdd.DebugJDD.enableTracingForID(id);
+						} catch (NumberFormatException e) {
+							errorAndExit("The -" + sw + " switch requires an integer argument (JDDNode ID)");
+						}
+					} else {
+						errorAndExit("The -" + sw + " switch requires an additional argument (JDDNode ID)");
+					}
+				}
+
 				// IMPORT OPTIONS:
 
 				// change model type to pepa
@@ -1133,6 +1389,15 @@ System.out.println("in PrismCL.run() about to call closeDown() to end the run() 
 					if (i < args.length - 1) {
 						importlabels = true;
 						importLabelsFilename = args[++i];
+					} else {
+						errorAndExit("No file specified for -" + sw + " switch");
+					}
+				}
+				// import state rewards for explicit model import
+				else if (sw.equals("importstaterewards")) {
+					if (i < args.length - 1) {
+						importstaterewards = true;
+						importStateRewardsFilename = args[++i];
 					} else {
 						errorAndExit("No file specified for -" + sw + " switch");
 					}
@@ -1338,6 +1603,8 @@ System.out.println("in PrismCL.run() about to call closeDown() to end the run() 
 					} else {
 						errorAndExit("No file specified for -" + sw + " switch");
 					}
+					// if we are asked to export the steady-state probs, we should compute them
+					steadystate = true;
 				}
 				// export transient probs (as opposed to displaying on screen) 
 				else if (sw.equals("exporttransient") || sw.equals("exporttr")) {
@@ -1411,6 +1678,15 @@ System.out.println("in PrismCL.run() about to call closeDown() to end the run() 
 					if (i < args.length - 1) {
 						prism.setExportProductStates(true);
 						prism.setExportProductStatesFilename(args[++i]);
+					} else {
+						errorAndExit("No file specified for -" + sw + " switch");
+					}
+				}
+				// export product vector to file (hidden option)
+				else if (sw.equals("exportprodvector")) {
+					if (i < args.length - 1) {
+						prism.setExportProductVector(true);
+						prism.setExportProductVectorFilename(args[++i]);
 					} else {
 						errorAndExit("No file specified for -" + sw + " switch");
 					}
@@ -1599,19 +1875,9 @@ System.out.println("in PrismCL.run() about to call closeDown() to end the run() 
 						errorAndExit("No file specified for -" + sw + " switch");
 					}
 				}
-				// specify mtbdd log (hidden option)
-				else if (sw.equals("techlog")) {
-					if (i < args.length - 1) {
-						techLogFilename = args[++i];
-						log = new PrismFileLog(techLogFilename);
-						if (!log.ready()) {
-							errorAndExit("Couldn't open log file \"" + techLogFilename + "\"");
-						}
-						techLog = log;
-						prism.setTechLog(techLog);
-					} else {
-						errorAndExit("No file specified for -" + sw + " switch");
-					}
+				// export transition matrix graph to dot file and view it (hidden option, for now)
+				else if (sw.equals("exportmodeldotview")) {
+					exportmodeldotview = true;
 				}
 				// mtbdd construction method (hidden option)
 				else if (sw.equals("c1")) {
@@ -1698,6 +1964,10 @@ System.out.println("in PrismCL.run() about to call closeDown() to end the run() 
 				importStatesFilename = basename + ".sta";
 				importlabels = true;
 				importLabelsFilename = basename + ".lab";
+				if (new File(basename + ".srew").exists()) {
+					importstaterewards = true;
+					importStateRewardsFilename = basename + ".srew";
+				}
 			} else if (ext.equals("tra")) {
 				importtrans = true;
 				modelFilename = basename + ".tra";
@@ -1710,6 +1980,9 @@ System.out.println("in PrismCL.run() about to call closeDown() to end the run() 
 			} else if (ext.equals("lab")) {
 				importlabels = true;
 				importLabelsFilename = basename + ".lab";
+			} else if (ext.equals("srew")) {
+				importstaterewards = true;
+				importStateRewardsFilename = basename + ".srew";
 			}
 			// Unknown extension
 			else {
@@ -1795,6 +2068,9 @@ System.out.println("in PrismCL.run() about to call closeDown() to end the run() 
 			} else if (ext.equals("lab")) {
 				exportlabels = true;
 				exportLabelsFilename = basename.equals("stdout") ? "stdout" : basename + ".lab";
+			} else if (ext.equals("dot")) {
+				exporttransdotstates = true;
+				exportTransDotStatesFilename = basename.equals("stdout") ? "stdout" : basename + ".dot";
 			}
 			// Unknown extension
 			else {
@@ -1873,6 +2149,17 @@ System.out.println("in PrismCL.run() about to call closeDown() to end the run() 
 				else
 					throw new PrismException("Unknown value \"" + optVal + "\" provided for \"type\" option of -exportstrat");
 			}
+			else if (opt.startsWith("reach")) {
+				if (!opt.startsWith("reach="))
+					throw new PrismException("No value provided for \"reach\" option of -exportstrat");
+				String optVal = opt.substring(6);
+				if (optVal.equals("true"))
+					prism.setRestrictStratToReach(true);
+				else if (optVal.equals("false"))
+					prism.setRestrictStratToReach(false);
+				else
+					throw new PrismException("Unknown value \"" + optVal + "\" provided for \"reach\" option of -exportstrat");
+			}
 			// Unknown option
 			else {
 				throw new PrismException("Unknown option \"" + opt + "\" for -exportstrat switch");
@@ -1915,13 +2202,35 @@ System.out.println("in PrismCL.run() about to call closeDown() to end the run() 
 		for (i = 0; i < args.length; i++) {
 			s = args[i];
 			// If necessary add quotes so can be pasted back into a shell
-			// (where "necessary" means contains any non-safe characters)
-			if (s.matches(".*[^_a-zA-Z0-9\\./\\-=].*")) {
-				s = "'" + s + "'";
-			}
+			s = shellQuoteSingleIfNecessary(s);
 			mainLog.print(" " + s);
 		}
 		mainLog.println();
+	}
+
+	/**
+	 * For a command-line argument, returns a quoted version
+	 * with single quotes if it contains unsafe characters.
+	 * Otherwise, just returns the unquoted argument.
+	 */
+	public static String shellQuoteSingleIfNecessary(String arg)
+	{
+		if (arg.isEmpty()) {
+			// empty argument needs to be quoted
+			return "''";
+		}
+
+		// If necessary add quotes so can be pasted back into a shell
+		// (where "necessary" means contains any non-safe characters)
+		if (arg.matches(".*[^_a-zA-Z0-9\\./\\-=].*")) {
+			// argument needs quoting, so we surround with single quotes,
+			// which neutralises all characters except '
+			// for that we have to have special handling, replacing ' by '\''
+			// (close quote, escaped-', open quote again)
+			arg = arg.replace("'", "'\\''");
+			arg = "'" + arg + "'";
+		}
+		return arg;
 	}
 
 	// do some processing of the options
@@ -1932,7 +2241,7 @@ System.out.println("in PrismCL.run() about to call closeDown() to end the run() 
 
 		// make sure a model file is specified
 		if (modelFilename == null) {
-			mainLog.println("Usage: prism [options] <model-file> [<properties-file>] [more-options]");
+			mainLog.println("Usage: " + Prism.getCommandLineName() + " [options] <model-file> [<properties-file>] [more-options]");
 			mainLog.println("\nFor more information, type: prism -help");
 			exit();
 		}
@@ -1952,7 +2261,8 @@ System.out.println("in PrismCL.run() about to call closeDown() to end the run() 
 		}
 
 		// check not trying to do gauss-seidel with mtbdd engine
-		if (prism.getEngine() == Prism.MTBDD) {
+		// (if we are in test mode, we ignore here; will lead to appropriate 'not supported' error handling during testing)
+		if (prism.getEngine() == Prism.MTBDD && !test) {
 			j = prism.getLinEqMethod();
 			if (j == Prism.GAUSSSEIDEL || j == Prism.BGAUSSSEIDEL || j == Prism.PGAUSSSEIDEL || j == Prism.BPGAUSSSEIDEL) {
 				errorAndExit("Gauss-Seidel and its variants are currently not supported by the MTBDD engine");
@@ -1963,7 +2273,8 @@ System.out.println("in PrismCL.run() about to call closeDown() to end the run() 
 		}
 
 		// or pseudo methods with sparse engine
-		else if (prism.getEngine() == Prism.SPARSE) {
+		// (if we are in test mode, we ignore here; will lead to appropriate 'not supported' error handling during testing)
+		else if (prism.getEngine() == Prism.SPARSE && !test) {
 			j = prism.getLinEqMethod();
 			if (j == Prism.PGAUSSSEIDEL || j == Prism.BPGAUSSSEIDEL || j == Prism.PSOR || j == Prism.BPSOR) {
 				errorAndExit("Pseudo Gauss-Seidel/SOR methods are currently not supported by the sparse engine");
@@ -2009,6 +2320,8 @@ System.out.println("in PrismCL.run() about to call closeDown() to end the run() 
 				exportStatesFilename = exportStatesFilename.replaceFirst("modelFileBasename", modelFileBasename);
 			if (exportlabels)
 				exportLabelsFilename = exportLabelsFilename.replaceFirst("modelFileBasename", modelFileBasename);
+			if (exporttransdotstates)
+				exportTransDotStatesFilename = exportTransDotStatesFilename.replaceFirst("modelFileBasename", modelFileBasename);
 		}
 	}
 
@@ -2140,7 +2453,7 @@ System.out.println("in PrismCL.run() about to call closeDown() to end the run() 
 	 */
 	private void printHelp()
 	{
-		mainLog.println("Usage: prism <model-file> [<properties-file>] [options]");
+		mainLog.println("Usage: " + Prism.getCommandLineName() + " [options] <model-file> [<properties-file>] [more-options]");
 		mainLog.println();
 		mainLog.println("Options:");
 		mainLog.println("========");
@@ -2158,7 +2471,10 @@ System.out.println("in PrismCL.run() about to call closeDown() to end the run() 
 		mainLog.println("-nobuild ....................... Skip model construction (just do parse/export)");
 		mainLog.println("-test .......................... Enable \"test\" mode");
 		mainLog.println("-testall ....................... Enable \"test\" mode, but don't exit on error");
-		mainLog.println("-javamaxmem .................... Set the maximum heap size for Java, e.g. 500m, 4g [default: 1g]");
+		mainLog.println("-javamaxmem <x>................. Set the maximum heap size for Java, e.g. 500m, 4g [default: 1g]");
+		mainLog.println("-javastack <x> ................. Set the Java stack size [default: 4m]");
+		mainLog.println("-timeout <n> ................... Exit after a time-out of <n> seconds if not already terminated");
+		mainLog.println("-ng ............................ Run PRISM in Nailgun server mode; subsequent calls are then made via \"ngprism\"");
 		mainLog.println();
 		mainLog.println("IMPORT OPTIONS:");
 		mainLog.println("-importpepa .................... Model description is in PEPA, not the PRISM language");
@@ -2166,6 +2482,7 @@ System.out.println("in PrismCL.run() about to call closeDown() to end the run() 
 		mainLog.println("-importtrans <file> ............ Import the transition matrix directly from a text file");
 		mainLog.println("-importstates <file>............ Import the list of states directly from a text file");
 		mainLog.println("-importlabels <file>............ Import the list of labels directly from a text file");
+		mainLog.println("-importstaterewards <file>...... Import the state rewards directly from a text file");
 		mainLog.println("-importinitdist <file>.......... Specify the initial probability distribution for transient analysis");
 		mainLog.println("-dtmc .......................... Force imported/built model to be a DTMC");
 		mainLog.println("-ctmc .......................... Force imported/built model to be a CTMC");
@@ -2250,7 +2567,7 @@ System.out.println("in PrismCL.run() about to call closeDown() to end the run() 
 			mainLog.println("Import the model directly from text file(s).");
 			mainLog.println("Use a list of file extensions to indicate which files should be read, e.g.:");
 			mainLog.println("\n -importmodel in.tra,sta\n");
-			mainLog.println("Possible extensions are: .tra, .sta, .lab");
+			mainLog.println("Possible extensions are: .tra, .sta, .lab, .srew");
 			mainLog.println("Use extension .all to import all, e.g.:");
 			mainLog.println("\n -importmodel in.all\n");
 		}
@@ -2262,7 +2579,7 @@ System.out.println("in PrismCL.run() about to call closeDown() to end the run() 
 			mainLog.println("If provided, <options> is a comma-separated list of options taken from:");
 			mainLog.println(" * csv - Export results as comma-separated values");
 			mainLog.println(" * matrix - Export results as one or more 2D matrices (e.g. for surface plots)");
-			mainLog.println(" * comment - Export results in comment format for regerssion testing)");
+			mainLog.println(" * comment - Export results in comment format for regression testing)");
 		}
 		// -exportmodel
 		else if (sw.equals("exportmodel")) {
@@ -2270,8 +2587,8 @@ System.out.println("in PrismCL.run() about to call closeDown() to end the run() 
 			mainLog.println("Export the built model to file(s) (or to the screen if <file>=\"stdout\").");
 			mainLog.println("Use a list of file extensions to indicate which files should be generated, e.g.:");
 			mainLog.println("\n -exportmodel out.tra,sta\n");
-			mainLog.println("Possible extensions are: .tra, .srew, .trew, .sta, .lab");
-			mainLog.println("Use extension .all to export all and .rew to export both .srew/.trew, e.g.:");
+			mainLog.println("Possible extensions are: .tra, .srew, .trew, .sta, .lab, .dot");
+			mainLog.println("Use extension .all to export all (except .dot) and .rew to export both .srew/.trew, e.g.:");
 			mainLog.println("\n -exportmodel out.all\n");
 			mainLog.println("Omit the file basename to use the basename of the model file, e.g.:");
 			mainLog.println("\n -exportmodel .all\n");
@@ -2296,7 +2613,7 @@ System.out.println("in PrismCL.run() about to call closeDown() to end the run() 
 
 	private void printVersion()
 	{
-		mainLog.println("PRISM version " + Prism.getVersion());
+		mainLog.println(Prism.getToolName() + " version " + Prism.getVersion());
 	}
 
 	/**
@@ -2304,7 +2621,7 @@ System.out.println("in PrismCL.run() about to call closeDown() to end the run() 
 	 */
 	private void printListOfKeywords()
 	{
-		List<String> list = Prism.getListOfKeyords();
+		List<String> list = Prism.getListOfKeywords();
 		mainLog.print("PRISM keywords:");
 		for (String s : list) {
 			mainLog.print(" " + s);
@@ -2332,6 +2649,7 @@ System.out.println("in PrismCL.run() about to call closeDown() to end the run() 
 		}
 		// Normal case: just display error message, but don't exit
 		mainLog.println("\nError: " + s + ".");
+		mainLog.flush();
 	}
 
 	/**
@@ -2341,6 +2659,7 @@ System.out.println("in PrismCL.run() about to call closeDown() to end the run() 
 	{
 		prism.closeDown(false);
 		mainLog.println("\nError: " + s + ".");
+		mainLog.flush();
 		System.exit(1);
 	}
 
@@ -2366,7 +2685,19 @@ System.out.println("in PrismCL.run() about to call closeDown() to end the run() 
 
 	public static void main(String[] args)
 	{
-		new PrismCL().run(args);
+		// Normal operation: just run PrismCL
+		if (!(args.length > 0 && "-ng".equals(args[0]))) {
+			new PrismCL().go(args);
+		}
+		// Nailgun server mode (-ng switch)
+		else {
+			try {
+				System.out.println("Starting PRISM-Nailgun server...");
+				com.martiansoftware.nailgun.NGServer.main(new String[0]);
+			} catch (NumberFormatException | UnknownHostException e) {
+				System.out.println("Failed to launch Nailgun server: " + e);
+			}
+		}
 	}
 }
 

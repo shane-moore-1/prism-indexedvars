@@ -30,6 +30,7 @@ import java.util.*;
 
 import parser.*;
 import parser.visitor.*;
+import prism.ModelInfo;
 import prism.PrismLangException;
 import prism.PrismUtils;
 
@@ -39,6 +40,7 @@ public class PropertiesFile extends ASTElement
 {
 	// Associated ModulesFile (for constants, ...)
 	private ModulesFile modulesFile;
+	private ModelInfo modelInfo;
 
 	// Components
 	private FormulaList formulaList;
@@ -55,9 +57,9 @@ public class PropertiesFile extends ASTElement
 
 	// Constructor
 
-	public PropertiesFile(ModulesFile mf)
+	public PropertiesFile(ModelInfo modelInfo)
 	{
-		setModulesFile(mf);
+		setModelInfo(modelInfo);
 		formulaList = new FormulaList();
 		labelList = new LabelList();
 		combinedLabelList = new LabelList();
@@ -69,10 +71,22 @@ public class PropertiesFile extends ASTElement
 
 	// Set methods
 
-	/** Attach to a ModulesFile (so can access labels/constants etc.) */
-	public void setModulesFile(ModulesFile mf)
+	/** Attach model information (so can access labels/constants etc.) */
+	public void setModelInfo(ModelInfo modelInfo)
 	{
-		this.modulesFile = mf;
+		// Store ModelInfo. Need a ModulesFile too for now. Create a dummy one if needed.
+		if (modelInfo  == null) {
+			this.modelInfo = this.modulesFile = new ModulesFile();
+			this.modulesFile.setFormulaList(new FormulaList());
+			this.modulesFile.setConstantList(new ConstantList());
+		} else if (modelInfo instanceof ModulesFile) {
+			this.modelInfo = this.modulesFile = (ModulesFile) modelInfo;
+		} else {
+			this.modelInfo = modelInfo;
+			this.modulesFile = new ModulesFile();
+			this.modulesFile.setFormulaList(new FormulaList());
+			this.modulesFile.setConstantList(new ConstantList());
+		}
 	}
 
 	public void setFormulaList(FormulaList fl)
@@ -277,21 +291,24 @@ public class PropertiesFile extends ASTElement
 		checkPropertyNames();
 
 		// Find all instances of variables (i.e. locate idents which are variables).
-		findAllVars(modulesFile.getVarNames(), modulesFile.getVarTypes());
+		findAllVars(modelInfo.getVarNames(), modelInfo.getVarTypes());
 
 		// Find all instances of property refs
 		findAllPropRefs(null, this);
 		// Check property references for cyclic dependencies
 		findCyclesInPropertyReferences();
-		
+
 		// Various semantic checks 
-		semanticCheck(modulesFile, this);
+		doSemanticChecks();
 		// Type checking
 		typeCheck(this);
 
 		// Set up some values for constants
 		// (without assuming any info about undefined constants)
-		setSomeUndefinedConstants(null);
+		//
+		// we use non-exact constant evaluation by default,
+		// for exact mode constants will be reevaluated later on
+		setSomeUndefinedConstants(null, false);
 	}
 
 	// check formula identifiers
@@ -442,6 +459,16 @@ public class PropertiesFile extends ASTElement
 	}
 
 	/**
+	  * Perform any required semantic checks.
+	  * These checks are done *before* any undefined constants have been defined.
+	 */
+	private void doSemanticChecks() throws PrismLangException
+	{
+		PropertiesSemanticCheck visitor = new PropertiesSemanticCheck(this, modelInfo);
+		accept(visitor);
+	}
+
+	/**
 	 * Get a list of all undefined constants in the properties files
 	 * ("const int x;" rather than "const int x = 1;") 
 	 */
@@ -508,12 +535,28 @@ public class PropertiesFile extends ASTElement
 	 * Set values for *all* undefined constants and then evaluate all constants.
 	 * If there are no undefined constants, {@code someValues} can be null.
 	 * Undefined constants can be subsequently redefined to different values with the same method.
-	 * The current constant values (if set) are available via {@link #getConstantValues()}. 
+	 * The current constant values (if set) are available via {@link #getConstantValues()}.
+	 * <br>
+	 * Constant values are evaluated using standard (integer, floating-point) arithmetic.
 	 */
 	public void setUndefinedConstants(Values someValues) throws PrismLangException
 	{
+		setUndefinedConstants(someValues, false);
+	}
+
+	/**
+	 * Set values for *all* undefined constants and then evaluate all constants.
+	 * If there are no undefined constants, {@code someValues} can be null.
+	 * Undefined constants can be subsequently redefined to different values with the same method.
+	 * The current constant values (if set) are available via {@link #getConstantValues()}.
+	 * <br>
+	 * Constant values are evaluated using either standard (integer, floating-point) arithmetic
+	 * or exact arithmetic, depending on the value of the {@code exact} flag.
+	 */
+	public void setUndefinedConstants(Values someValues, boolean exact) throws PrismLangException
+	{
 		// Might need values for ModulesFile constants too
-		constantValues = constantList.evaluateConstants(someValues, modulesFile.getConstantValues());
+		constantValues = constantList.evaluateConstants(someValues, modulesFile.getConstantValues(), exact);
 		// Note: unlike ModulesFile, we don't trigger any semantic checks at this point
 		// This will usually be done on a per-property basis later
 	}
@@ -523,11 +566,27 @@ public class PropertiesFile extends ASTElement
 	 * If there are no undefined constants, {@code someValues} can be null.
 	 * Undefined constants can be subsequently redefined to different values with the same method.
 	 * The current constant values (if set) are available via {@link #getConstantValues()}.
+	 * <br>
+	 * Constant values are evaluated using standard (integer, floating-point) arithmetic.
 	 */
 	public void setSomeUndefinedConstants(Values someValues) throws PrismLangException
 	{
+		setSomeUndefinedConstants(someValues, false);
+	}
+
+	/**
+	 * Set values for *some* undefined constants and then evaluate all constants where possible.
+	 * If there are no undefined constants, {@code someValues} can be null.
+	 * Undefined constants can be subsequently redefined to different values with the same method.
+	 * The current constant values (if set) are available via {@link #getConstantValues()}.
+	 * <br>
+	 * Constant values are evaluated using either standard (integer, floating-point) arithmetic
+	 * or exact arithmetic, depending on the value of the {@code exact} flag.
+	 */
+	public void setSomeUndefinedConstants(Values someValues, boolean exact) throws PrismLangException
+	{
 		// Might need values for ModulesFile constants too
-		constantValues = constantList.evaluateSomeConstants(someValues, modulesFile.getConstantValues());
+		constantValues = constantList.evaluateSomeConstants(someValues, modulesFile.getConstantValues(), exact);
 		// Note: unlike ModulesFile, we don't trigger any semantic checks at this point
 		// This will usually be done on a per-property basis later
 	}
@@ -602,7 +661,7 @@ public class PropertiesFile extends ASTElement
 	public ASTElement deepCopy()
 	{
 		int i, n;
-		PropertiesFile ret = new PropertiesFile(modulesFile);
+		PropertiesFile ret = new PropertiesFile(modelInfo);
 		// Copy ASTElement stuff
 		ret.setPosition(this);
 		// Deep copy main components

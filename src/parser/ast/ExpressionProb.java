@@ -26,11 +26,11 @@
 
 package parser.ast;
 
+import param.BigRational;
 import parser.EvaluateContext;
 import parser.Values;
 import parser.visitor.ASTVisitor;
 import prism.OpRelOpBound;
-import prism.PrismException;
 import prism.PrismLangException;
 
 public class ExpressionProb extends ExpressionQuant
@@ -80,12 +80,12 @@ public class ExpressionProb extends ExpressionQuant
 	}
 
 	@Override
-	public OpRelOpBound getRelopBoundInfo(Values constantValues) throws PrismException
+	public OpRelOpBound getRelopBoundInfo(Values constantValues) throws PrismLangException
 	{
 		if (getBound() != null) {
 			double boundVal = getBound().evaluateDouble(constantValues);
 			if (boundVal < 0 || boundVal > 1)
-				throw new PrismException("Invalid probability bound " + boundVal + " in P operator");
+				throw new PrismLangException("Invalid probability bound " + boundVal + " in P operator");
 			return new OpRelOpBound("P", getRelOp(), boundVal);
 		} else {
 			return new OpRelOpBound("P", getRelOp(), null);
@@ -94,9 +94,7 @@ public class ExpressionProb extends ExpressionQuant
 	
 	// Methods required for Expression:
 
-	/**
-	 * Is this expression constant?
-	 */
+	@Override
 	public boolean isConstant()
 	{
 		return false;
@@ -108,18 +106,19 @@ public class ExpressionProb extends ExpressionQuant
 		return false;
 	}
 	
-	/**
-	 * Evaluate this expression, return result.
-	 * Note: assumes that type checking has been done already.
-	 */
+	@Override
 	public Object evaluate(EvaluateContext ec) throws PrismLangException
 	{
 		throw new PrismLangException("Cannot evaluate a P operator without a model");
 	}
 
-	/**
-	  * Get "name" of the result of this expression (used for y-axis of any graphs plotted)
-	  */
+	@Override
+	public BigRational evaluateExact(EvaluateContext ec) throws PrismLangException
+	{
+		throw new PrismLangException("Cannot evaluate a P operator without a model");
+	}
+
+	@Override
 	public String getResultName()
 	{
 		if (getBound() != null)
@@ -140,17 +139,28 @@ public class ExpressionProb extends ExpressionQuant
 
 	// Methods required for ASTElement:
 
-	/**
-	 * Visitor method.
-	 */
+	@Override
 	public Object accept(ASTVisitor v) throws PrismLangException
 	{
 		return v.visit(this);
 	}
 
-	/**
-	 * Convert to string.
-	 */
+	@Override
+	public Expression deepCopy()
+	{
+		ExpressionProb expr = new ExpressionProb();
+		expr.setExpression(getExpression() == null ? null : getExpression().deepCopy());
+		expr.setRelOp(getRelOp());
+		expr.setBound(getBound() == null ? null : getBound().deepCopy());
+		expr.setFilter(getFilter() == null ? null : (Filter)getFilter().deepCopy());
+		expr.setType(type);
+		expr.setPosition(this);
+		return expr;
+	}
+
+	// Standard methods
+
+	@Override
 	public String toString()
 	{
 		String s = "";
@@ -163,21 +173,6 @@ public class ExpressionProb extends ExpressionQuant
 		s += " ]";
 
 		return s;
-	}
-
-	/**
-	 * Perform a deep copy.
-	 */
-	public Expression deepCopy()
-	{
-		ExpressionProb expr = new ExpressionProb();
-		expr.setExpression(getExpression() == null ? null : getExpression().deepCopy());
-		expr.setRelOp(getRelOp());
-		expr.setBound(getBound() == null ? null : getBound().deepCopy());
-		expr.setFilter(getFilter() == null ? null : (Filter)getFilter().deepCopy());
-		expr.setType(type);
-		expr.setPosition(this);
-		return expr;
 	}
 }
 

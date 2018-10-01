@@ -64,16 +64,21 @@ public class PrismLangException extends PrismException
 	{
 		String msg = super.getMessage();
 		if (e == null) return msg;
-		String s = e.toString();
-// SHANE TEMP:
-//		if (s.length() < MAX_ERR_STR) {
+		String s = null;
+		try {
+			s = e.toString();
+		} catch (Exception ex) {
+			// in case there is a problem converting the AST element to a string
+			// we ignore it
+		}
+		if (s != null && s.length() < MAX_ERR_STR) {
 			if (e.hasPosition()) msg += " (\"" + s + "\", " + e.getBeginString() +")";
 			else msg += " (\"" + s + "\")";
-/*		}
+		}
 		else {
 			if (e.hasPosition()) msg += " (" + e.getBeginString() +")";
 		}
-*/		return msg;
+		return msg;
 	}
 	
 	public String toString()

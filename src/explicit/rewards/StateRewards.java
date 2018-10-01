@@ -26,6 +26,9 @@
 
 package explicit.rewards;
 
+import explicit.Model;
+import explicit.Product;
+
 /**
  * Explicit-state storage of just state rewards.
  */
@@ -54,8 +57,18 @@ public abstract class StateRewards implements MCRewards, MDPRewards, STPGRewards
 		return deepCopy();
 	}
 	
+	@Override
+	public abstract StateRewards liftFromModel(Product<? extends Model> product);
+	
 	/**
 	 * Perform a deep copy.
 	 */
 	public abstract StateRewards deepCopy();
+
+	@Override
+	public boolean hasTransitionRewards()
+	{
+		// only state rewards
+		return false;
+	}
 }

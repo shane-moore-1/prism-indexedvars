@@ -26,9 +26,12 @@
 
 package parser.ast;
 
+import jltl2ba.SimpleLTL;
+import param.BigRational;
 import parser.*;
 import parser.visitor.*;
 import prism.ModelType;
+import prism.PrismException;
 import prism.PrismLangException;
 import parser.type.*;
 
@@ -53,6 +56,12 @@ private static boolean DEBUG = false;
 	 * Note: assumes that type checking has been done already.
 	 */
 	public abstract Object evaluate(EvaluateContext ec) throws PrismLangException;
+
+	/**
+	 * Evaluate this expression exactly, return the result as a BigRational.
+	 * Note: assumes that type checking has been done already.
+	 */
+	public abstract BigRational evaluateExact(EvaluateContext ec) throws PrismLangException;
 
 	/**
 	  * Get "name" of the result of this expression (used for y-axis of any graphs plotted)
@@ -157,9 +166,8 @@ private static boolean DEBUG = false;
 	 */
 	public jltl2ba.SimpleLTL convertForJltl2ba() throws PrismLangException
 	{
-		ConvertForJltl2ba visitor = new ConvertForJltl2ba();
-		accept(visitor);
-		return visitor.getFormula(this);
+		ConvertForJltl2ba converter = new ConvertForJltl2ba();
+		return converter.convert(this);
 	}
 
 	/**
@@ -350,6 +358,9 @@ if (DEBUG) System.out.println("[The class itself is an instance of: " + getClass
 		if (o instanceof Double) {
 			return ((Double) o).doubleValue();
 		}
+		if (o instanceof BigRational) {
+			return ((BigRational)o).doubleValue();
+		}
 		if (o instanceof Boolean) {
 			return ((Boolean) o).booleanValue() ? 1.0 : 0.0;
 		}
@@ -446,6 +457,7 @@ if (DEBUG) System.out.println("[The class itself is an instance of: " + getClass
 	{
 if (DEBUG) System.out.println("in base-class' evaluateBoolean(EC) for expression \'" + this.toString() + "\', about to call 'evaluate'");
 if (DEBUG) System.out.println("[The class itself is an instance of: " + getClass().getName() +"]");
+
 		Object o = evaluate(ec);
 		if (!(o instanceof Boolean)) {
 			throw new PrismLangException("Cannot evaluate to a boolean", this);
@@ -535,29 +547,112 @@ if (DEBUG) System.out.println("[The class itself is an instance of: " + getClass
 		return evaluateBoolean(new EvaluateContextSubstate(constantValues, substate, varMap));
 	}
 
+	
+	/**
+	 * Evaluate this expression exactly to a BigRational, using no constant or variable values.
+	 * Any typing issues cause an exception (but: we do allow conversion of boolean to 0/1).
+	 * Note: assumes that type checking has been done already.
+	 */
+	public BigRational evaluateExact() throws PrismLangException
+	{
+		return evaluateExact(new EvaluateContextValues(null, null));
+	}
+
+	/**
+	 * Evaluate this expression exactly to a BigRational, based on values for constants (but not variables).
+	 * Any typing issues cause an exception (but: we do allow conversion of boolean to 0/1).
+	 * Constant values are supplied as a Values object.
+	 * Note: assumes that type checking has been done already.
+	 */
+	public BigRational evaluateExact(Values constantValues) throws PrismLangException
+	{
+		return evaluateExact(new EvaluateContextValues(constantValues, null));
+	}
+
+	/**
+	 * Evaluate this expression exactly to a BigRational, based on values for constants/variables.
+	 * Any typing issues cause an exception (but: we do allow conversion of boolean to 0/1).
+	 * Each set of values is supplied as a Values object.
+	 * Note: assumes that type checking has been done already.
+	 */
+	public BigRational evaluateExact(Values constantValues, Values varValues) throws PrismLangException
+	{
+		return evaluateExact(new EvaluateContextValues(constantValues, varValues));
+	}
+
+	/**
+	 * Evaluate this expression exactly to a BigRational, based on values for variables (but not constants).
+	 * Any typing issues cause an exception (but: we do allow conversion of boolean to 0/1).
+	 * Variable values are supplied as a State object, i.e. array of variable values.
+	 * Note: assumes that constants have been evaluated and type checking has been done.
+	 */
+	public BigRational evaluateExact(State state) throws PrismLangException
+	{
+		return evaluateExact(new EvaluateContextState(state));
+	}
+
+	/**
+	 * Evaluate this expression as an integer, based on values for constants/variables.
+	 * Any typing issues cause an exception (but: we do allow conversion of boolean to 0/1).
+	 * Constant values are supplied as a Values object.
+	 * Variable values are supplied as a State object, i.e. array of variable values.
+	 * Note: assumes that type checking has been done.
+	 */
+	public BigRational evaluateExact(Values constantValues, State state) throws PrismLangException
+	{
+		return evaluateExact(new EvaluateContextState(constantValues, state));
+	}
+
+	/**
+	 * Evaluate this expression exactly to a BigRational, based on values for some variables (but not constants).
+	 * Any typing issues cause an exception (but: we do allow conversion of boolean to 0/1).
+	 * Variable values are supplied as a State object, indexed over a subset of all variables,
+	 * and a mapping from indices (over all variables) to this subset (-1 if not in subset).
+	 * If any variables required for evaluation are missing, this will fail with an exception.
+	 * Note: assumes that constants have been evaluated and type checking has been done.
+	 */
+	public BigRational evaluateExact(State substate, int[] varMap) throws PrismLangException
+	{
+		return evaluateExact(new EvaluateContextSubstate(substate, varMap));
+	}
+
+	/**
+	 * Evaluate this expression exactly to a BigRational, based on values for constants and some variables.
+	 * Any typing issues cause an exception (but: we do allow conversion of boolean to 0/1).
+	 * Constant values are supplied as a Values object.
+	 * Variable values are supplied as a State object, indexed over a subset of all variables,
+	 * and a mapping from indices (over all variables) to this subset (-1 if not in subset).
+	 * If any variables required for evaluation are missing, this will fail with an exception.
+	 * Note: assumes that type checking has been done.
+	 */
+	public BigRational evaluateExact(Values constantValues, State substate, int[] varMap) throws PrismLangException
+	{
+		return evaluateExact(new EvaluateContextSubstate(constantValues, substate, varMap));
+	}
+
 	// Static constructors for convenience
 
-	public static Expression True()
+	public static ExpressionLiteral True()
 	{
 		return new ExpressionLiteral(TypeBool.getInstance(), true);
 	}
 
-	public static Expression False()
+	public static ExpressionLiteral False()
 	{
 		return new ExpressionLiteral(TypeBool.getInstance(), false);
 	}
 
-	public static Expression Int(int i)
+	public static ExpressionLiteral Int(int i)
 	{
 		return new ExpressionLiteral(TypeInt.getInstance(), i);
 	}
 
-	public static Expression Double(double d)
+	public static ExpressionLiteral Double(double d)
 	{
 		return new ExpressionLiteral(TypeDouble.getInstance(), d);
 	}
 
-	public static Expression Literal(Object o) throws PrismLangException
+	public static ExpressionLiteral Literal(Object o) throws PrismLangException
 	{
 		if (o instanceof Integer) {
 			return Int(((Integer) o).intValue());
@@ -570,54 +665,63 @@ if (DEBUG) System.out.println("[The class itself is an instance of: " + getClass
 		}
 	}
 
-	public static Expression Not(Expression expr)
+	public static ExpressionUnaryOp Not(Expression expr)
 	{
 		return new ExpressionUnaryOp(ExpressionUnaryOp.NOT, expr);
 	}
 
-	public static Expression And(Expression expr1, Expression expr2)
+	public static ExpressionBinaryOp And(Expression expr1, Expression expr2)
 	{
 		return new ExpressionBinaryOp(ExpressionBinaryOp.AND, expr1, expr2);
 	}
 
-	public static Expression Or(Expression expr1, Expression expr2)
+	public static ExpressionBinaryOp Or(Expression expr1, Expression expr2)
 	{
 		return new ExpressionBinaryOp(ExpressionBinaryOp.OR, expr1, expr2);
 	}
 
-	public static Expression Iff(Expression expr1, Expression expr2)
+	public static ExpressionBinaryOp Iff(Expression expr1, Expression expr2)
 	{
 		return new ExpressionBinaryOp(ExpressionBinaryOp.IFF, expr1, expr2);
 	}
 
-	public static Expression Implies(Expression expr1, Expression expr2)
+	public static ExpressionBinaryOp Implies(Expression expr1, Expression expr2)
 	{
 		return new ExpressionBinaryOp(ExpressionBinaryOp.IMPLIES, expr1, expr2);
 	}
 
-	public static Expression Plus(Expression expr1, Expression expr2)
+	public static ExpressionBinaryOp Plus(Expression expr1, Expression expr2)
 	{
 		return new ExpressionBinaryOp(ExpressionBinaryOp.PLUS, expr1, expr2);
 	}
 
-	public static Expression Minus(Expression expr1, Expression expr2)
+	public static ExpressionUnaryOp Minus(Expression expr)
+	{
+		return new ExpressionUnaryOp(ExpressionUnaryOp.MINUS, expr);
+	}
+
+	public static ExpressionBinaryOp Minus(Expression expr1, Expression expr2)
 	{
 		return new ExpressionBinaryOp(ExpressionBinaryOp.MINUS, expr1, expr2);
 	}
 
-	public static Expression Times(Expression expr1, Expression expr2)
+	public static ExpressionBinaryOp Times(Expression expr1, Expression expr2)
 	{
 		return new ExpressionBinaryOp(ExpressionBinaryOp.TIMES, expr1, expr2);
 	}
 
-	public static Expression Divide(Expression expr1, Expression expr2)
+	public static ExpressionBinaryOp Divide(Expression expr1, Expression expr2)
 	{
 		return new ExpressionBinaryOp(ExpressionBinaryOp.DIVIDE, expr1, expr2);
 	}
 
-	public static Expression Parenth(Expression expr)
+	public static ExpressionUnaryOp Parenth(Expression expr)
 	{
 		return new ExpressionUnaryOp(ExpressionUnaryOp.PARENTH, expr);
+	}
+
+	public static ExpressionTemporal Next(Expression expr) {
+		return new ExpressionTemporal(ExpressionTemporal.P_X, null, expr);
 	}
 
 	// Static testers for convenience
@@ -708,21 +812,60 @@ if (DEBUG) System.out.println("[The class itself is an instance of: " + getClass
 	}
 
 	/**
+	 * Test if an expression is a reachability path formula (F phi), possibly with a time bound.
+	 */
+	public static boolean isReach(Expression expr)
+	{
+		if (expr instanceof ExpressionTemporal) {
+			if (((ExpressionTemporal) expr).getOperator() == ExpressionTemporal.P_F) {
+				return ((ExpressionTemporal) expr).getOperand2().isProposition();
+			}
+		}
+		return false;
+	}
+
+	/**
 	 * Test if an expression contains time bounds on temporal operators 
 	 */
 	public static boolean containsTemporalTimeBounds(Expression expr)
 	{
 		try {
-			expr.accept(new ASTTraverse()
+			// check for time bounds, don't recurse into P/R/SS subformulas
+			expr.accept(new ExpressionTraverseNonNested()
 			{
 				public void visitPre(ExpressionTemporal e) throws PrismLangException
 				{
-					if (e.getLowerBound() != null)
-						throw new PrismLangException(e.getOperatorSymbol());
-					if (e.getUpperBound() != null)
-						throw new PrismLangException(e.getOperatorSymbol());
+					if (e.hasBounds())
+						throw new PrismLangException("");
 				}
 			});
+		} catch (PrismLangException e) {
+			return true;
+		}
+		return false;
+	}
+	
+	/**
+	 * Test if an expression contains a non-probabilistic LTL formula (i.e., a non-simple path formula). 
+	 */
+	public static boolean containsNonProbLTLFormula(Expression expr)
+	{
+		try {
+			ASTTraverse astt = new ASTTraverse()
+			{
+				public void visitPost(ExpressionForAll e) throws PrismLangException
+				{
+					if (!e.getExpression().isSimplePathFormula())
+						throw new PrismLangException("Found one", e);
+				}
+				
+				public void visitPost(ExpressionExists e) throws PrismLangException
+				{
+					if (!e.getExpression().isSimplePathFormula())
+						throw new PrismLangException("Found one", e);
+				}
+			};
+			expr.accept(astt);
 		} catch (PrismLangException e) {
 			return true;
 		}
@@ -748,6 +891,103 @@ if (DEBUG) System.out.println("[The class itself is an instance of: " + getClass
 			return true;
 		}
 		return false;
+	}
+	
+	/**
+	 * Test if an expression is an LTL formula and is in positive normal form,
+	 * i.e. where negation only occurs at the level of state formulae.
+	 * This means that the operators => and <=> are also disallowed. 
+	 */
+	public static boolean isPositiveNormalFormLTL(Expression expr)
+	{
+		// State formulae (negated or otherwise) are OK
+		if (expr.getType() instanceof TypeBool)
+			return true;
+		// Otherwise recurse, looking for negations...
+		else if (expr instanceof ExpressionUnaryOp) {
+			ExpressionUnaryOp exprUnOp = (ExpressionUnaryOp) expr;
+			int op = exprUnOp.getOperator();
+			switch (op) {
+			// Negation is not allowed
+			// (since we already checked for state formulae that include negation)
+			case ExpressionUnaryOp.NOT:
+				return false;
+			default:
+				return isPositiveNormalFormLTL(exprUnOp.getOperand());
+			}
+		}
+		else if (expr instanceof ExpressionBinaryOp) {
+			ExpressionBinaryOp exprBinOp = (ExpressionBinaryOp) expr;
+			int op = exprBinOp.getOperator();
+			switch (op) {
+			// => and <=> are not allowed
+			case ExpressionBinaryOp.IMPLIES:
+			case ExpressionBinaryOp.IFF:
+				return false;
+			default:
+				return isPositiveNormalFormLTL(exprBinOp.getOperand1()) && isPositiveNormalFormLTL(exprBinOp.getOperand2());
+			}
+		}
+		else if (expr instanceof ExpressionTemporal) {
+			ExpressionTemporal exprTemp = (ExpressionTemporal) expr;
+			if (exprTemp.getOperand1() != null && !isPositiveNormalFormLTL(exprTemp.getOperand1())) {
+				return false;
+			}
+			if (exprTemp.getOperand2() != null && !isPositiveNormalFormLTL(exprTemp.getOperand2())) {
+				return false;
+			}
+			return true;
+		}
+		// If we get here, it is probably not even LTL
+		return false;
+	}
+	
+	/**
+	 * Test if an expression is a co-safe LTL formula, detected syntactically
+	 * (i.e. if it is in positive normal form and only uses X, F and U).
+	 */
+	public static boolean isCoSafeLTLSyntactic(Expression expr)
+	{
+		return isCoSafeLTLSyntactic(expr, false);
+	}
+
+	/**
+	 * Test if an expression is a co-safe LTL formula, detected syntactically
+	 * (i.e. if it is in positive normal form and only uses X, F and U).
+	 * If {@code convert} is true, the expression is first converted into positive normal form,
+	 * and then it is checked whether it only uses X, F and U.
+	 * For example, a => ! (G b) would return true if (and only if) {@code convert} was true.
+	 */
+	public static boolean isCoSafeLTLSyntactic(Expression expr, boolean convert)
+	{
+		// Convert to or check for positive normal form
+		if (convert) {
+			expr = BooleanUtils.convertLTLToPositiveNormalForm(expr.deepCopy());
+		} else {
+			if (!isPositiveNormalFormLTL(expr))
+				return false;
+		}
+		// Check temporal operators
+		try {
+			ASTTraverse astt = new ASTTraverse()
+			{
+				public void visitPost(ExpressionTemporal e) throws PrismLangException
+				{
+					if (e.getOperator() == ExpressionTemporal.P_X)
+						return;
+					if (e.getOperator() == ExpressionTemporal.P_F)
+						return;
+					if (e.getOperator() == ExpressionTemporal.P_U)
+						return;
+					throw new PrismLangException("Found non-X/F/U", e);
+				}
+			};
+			expr.accept(astt);
+		} catch (PrismLangException e) {
+			return false;
+		}
+		// All good
+		return true;
 	}
 
 	/**
@@ -820,6 +1060,43 @@ if (DEBUG) System.out.println("[The class itself is an instance of: " + getClass
 		}
 
 		return expr;
+	}
+
+	/**
+	 * Create a property expression (an LTL formula) from the classes used by the jltl2ba (and jltl2dstar) libraries.
+	 */
+	public static Expression createFromJltl2ba(SimpleLTL ltl) throws PrismException
+	{
+		switch (ltl.kind) {
+		case AND:
+			return Expression.And(createFromJltl2ba(ltl.left), createFromJltl2ba(ltl.right));
+		case AP:
+			return new ExpressionLabel(ltl.ap);
+		case EQUIV:
+			return Expression.Iff(createFromJltl2ba(ltl.left), createFromJltl2ba(ltl.right));
+		case FALSE:
+			return Expression.False();
+		case FINALLY:
+			return new ExpressionTemporal(ExpressionTemporal.P_F, null, createFromJltl2ba(ltl.left));
+		case GLOBALLY:
+			return new ExpressionTemporal(ExpressionTemporal.P_G, null, createFromJltl2ba(ltl.left));
+		case IMPLIES:
+			return Expression.Implies(createFromJltl2ba(ltl.left), createFromJltl2ba(ltl.right));
+		case NEXT:
+			return new ExpressionTemporal(ExpressionTemporal.P_X, null, createFromJltl2ba(ltl.left));
+		case NOT:
+			return Expression.Not(createFromJltl2ba(ltl.left));
+		case OR:
+			return Expression.Or(createFromJltl2ba(ltl.left), createFromJltl2ba(ltl.right));
+		case RELEASE:
+			return new ExpressionTemporal(ExpressionTemporal.P_R, createFromJltl2ba(ltl.left), createFromJltl2ba(ltl.right));
+		case TRUE:
+			return Expression.True();
+		case UNTIL:
+			return new ExpressionTemporal(ExpressionTemporal.P_U, createFromJltl2ba(ltl.left), createFromJltl2ba(ltl.right));
+		default:
+			throw new PrismException("Cannot convert jltl2ba formula " + ltl);
+		}
 	}
 }
 

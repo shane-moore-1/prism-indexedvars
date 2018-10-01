@@ -26,6 +26,7 @@
 
 package parser.ast;
 
+import param.BigRational;
 import parser.*;
 import parser.visitor.*;
 import prism.PrismLangException;
@@ -64,6 +65,20 @@ public class ExpressionUnaryOp extends Expression
 		op = i;
 	}
 
+	/**
+	 * Set the operator from the operator symbol.
+	 */
+	public void setOperator(String s) throws PrismLangException
+	{
+		for (int i = 1; i < opSymbols.length; i++) {
+			if (opSymbols[i].equals(s)) {
+				setOperator(i);
+				return;
+			}
+		}
+		throw new PrismLangException("Unknown unary operator '" + s + "'");
+	}
+
 	public void setOperand(Expression e)
 	{
 		operand = e;
@@ -88,9 +103,7 @@ public class ExpressionUnaryOp extends Expression
 
 	// Methods required for Expression:
 
-	/**
-	 * Is this expression constant?
-	 */
+	@Override
 	public boolean isConstant()
 	{
 		return operand.isConstant();
@@ -102,10 +115,7 @@ public class ExpressionUnaryOp extends Expression
 		return operand.isProposition();
 	}
 	
-	/**
-	 * Evaluate this expression, return result. Note: assumes that type checking
-	 * has been done already.
-	 */
+	@Override
 	public Object evaluate(EvaluateContext ec) throws PrismLangException
 	{
 		switch (op) {
@@ -124,6 +134,20 @@ public class ExpressionUnaryOp extends Expression
 	}
 
 	@Override
+	public BigRational evaluateExact(EvaluateContext ec) throws PrismLangException
+	{
+		switch (op) {
+		case NOT:
+			return BigRational.from(!operand.evaluateExact(ec).toBoolean());
+		case MINUS:
+			return operand.evaluateExact().negate();
+		case PARENTH:
+			return operand.evaluateExact(ec);
+		}
+		throw new PrismLangException("Unknown unary operator", this);
+	}
+
+	@Override
 	public boolean returnsSingleValue()
 	{
 		return operand.returnsSingleValue();
@@ -131,17 +155,24 @@ public class ExpressionUnaryOp extends Expression
 
 	// Methods required for ASTElement:
 
-	/**
-	 * Visitor method.
-	 */
+	@Override
 	public Object accept(ASTVisitor v) throws PrismLangException
 	{
 		return v.visit(this);
 	}
 
-	/**
-	 * Convert to string.
-	 */
+	@Override
+	public Expression deepCopy()
+	{
+		ExpressionUnaryOp expr = new ExpressionUnaryOp(op, operand.deepCopy());
+		expr.setType(type);
+		expr.setPosition(this);
+		return expr;
+	}
+
+	// Standard methods
+
+	@Override
 	public String toString()
 	{
 		if (op == PARENTH)
@@ -150,15 +181,34 @@ public class ExpressionUnaryOp extends Expression
 			return opSymbols[op] + operand;
 	}
 
-	/**
-	 * Perform a deep copy.
-	 */
-	public Expression deepCopy()
+	@Override
+	public int hashCode()
 	{
-		ExpressionUnaryOp expr = new ExpressionUnaryOp(op, operand.deepCopy());
-		expr.setType(type);
-		expr.setPosition(this);
-		return expr;
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + op;
+		result = prime * result + ((operand == null) ? 0 : operand.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj)
+	{
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		ExpressionUnaryOp other = (ExpressionUnaryOp) obj;
+		if (op != other.op)
+			return false;
+		if (operand == null) {
+			if (other.operand != null)
+				return false;
+		} else if (!operand.equals(other.operand))
+			return false;
+		return true;
 	}
 }
 

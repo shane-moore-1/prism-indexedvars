@@ -316,6 +316,19 @@ final class BoxRegion extends Region {
 						allDecided = false;
 						break;
 					}
+				} else if (op == Region.NE) {
+					if (op1Val instanceof StateBoolean) {
+						newValues.setStateValue(state, !op1Val.equals(op2Val));
+					} else if (op1Val.equals(op2Val)) {
+						newValues.setStateValue(state, false);
+					} else if (checker.check(region, op1ValFn.subtract(op2ValFn), true)) {
+						newValues.setStateValue(state, true);
+					} else if (checker.check(region, op2ValFn.subtract(op1ValFn), true)) {
+						newValues.setStateValue(state, true);
+					} else {
+						allDecided = false;
+						break;
+					}
 				} else {
 					boolean strict = op == Region.GT || op == Region.LT;
 					Function cmpTrue = (op == Region.LT || op == Region.LE) ? op2ValFn.subtract(op1ValFn) : op1ValFn.subtract(op2ValFn);
@@ -403,6 +416,24 @@ final class BoxRegion extends Region {
 		return result;
 	}
 	
+	@Override
+	RegionValues ITE(StateValues valuesI, StateValues valuesT, StateValues valuesE)
+	{
+		RegionValues result = new RegionValues(factory);
+		int numStates = valuesI.getNumStates();
+		StateValues values = new StateValues(numStates, factory.getInitialState());
+		for (int state = 0; state < numStates; state++) {
+			if (valuesI.getStateValueAsBoolean(state)) {
+				values.setStateValue(state, valuesT.getStateValue(state));
+			} else {
+				values.setStateValue(state, valuesE.getStateValue(state));
+			}
+		}
+		result.add(this, values);
+
+		return result;
+	}
+
 	/**
 	 * Split region in longest dimension.
 	 * 
@@ -457,11 +488,17 @@ final class BoxRegion extends Region {
 		}
 		return result;
 	}
-	
+
 	@Override
 	ArrayList<Region> split(Function constraint)
 	{
 		// TODO could implement more clever splitting using constraints
+		return split();
+	}
+
+	@Override
+	ArrayList<Region> split()
+	{
 		if (((BoxRegionFactory) factory).getSplitMethod() == SPLIT_LONGEST) {
 			return splitLongest();
 		} else if (((BoxRegionFactory) factory).getSplitMethod() == SPLIT_ALL) {

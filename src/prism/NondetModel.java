@@ -44,6 +44,7 @@ import sparse.*;
  */
 public class NondetModel extends ProbModel
 {
+public static boolean DEBUG = true;
 	// Extra info
 	protected double numChoices; // number of choices
 
@@ -189,6 +190,11 @@ public class NondetModel extends ProbModel
 			JDDVars andv, ModelVariablesDD mvdd, int nm, String[] mn, JDDVars[] mrv, JDDVars[] mcv, int nv, VarList vl, JDDVars[] vrv, JDDVars[] vcv, Values cv)
 	{
 		super(tr, s, sr, trr, rsn, arv, acv, mvdd, nm, mn, mrv, mcv, nv, vl, vrv, vcv, cv);
+if (DEBUG) {
+   System.out.println("In NondetModel constructor; the varlist is:");
+   for (int i = 0; i < vl.getNumVars(); i++)
+       System.out.println("[" + i + "] is " + vl.getName(i));
+}
 
 		allDDSynchVars = asyv;
 		allDDSchedVars = asv;

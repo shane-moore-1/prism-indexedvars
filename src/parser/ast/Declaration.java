@@ -35,7 +35,8 @@ import prism.PrismLangException;
  */
 public class Declaration extends ASTElement
 {
-  public static boolean DEBUG = false;
+	
+public static boolean DEBUG = false;
 
 	// Name
 	protected String name;
@@ -43,16 +44,16 @@ public class Declaration extends ASTElement
 	protected DeclarationType declType;
 	// Initial value - null if none specified
 	protected Expression start;
-	
+
+// ADDED BY SHANE
 	// Whether this declaration is part of the realisation of an indexed-set (true), or standalone non-indexed (false)
 	protected boolean isPartOfIndexedVar;
-		
+
 	public Declaration(String name, DeclarationType declType)
 	{
 		setName(name);
 		setDeclType(declType);
 		setStart(null);
-		isPartOfIndexedVar = false;
 	}
 	
 	// Set methods
@@ -72,7 +73,7 @@ if (DEBUG) System.out.println("In setDeclType() for Declaration Object " + hashC
 		parser.type.Type fromDeclType = declType.getType();
 if (DEBUG) System.out.println(" - trying to set declType to be: \"" + declType + "\", which is conformant to type: " + declType.getType());
 System.out.flush();
-		setType(fromDeclType);	// was setType(declType.getType());   BUT expanded/split-out for debugging output
+		setType(declType.getType());
 	}	
 
 	public void setStart(Expression start)
@@ -87,10 +88,6 @@ System.out.flush();
 		return name;
 	}
 
-	/**
-	 * Determine the Data Type that the variable declared by this Declaration will be of.
-	 * @return The DeclarationType subclass.
-	 */
 	public DeclarationType getDeclType()
 	{
 		return declType;
@@ -132,13 +129,14 @@ System.out.flush();
 	/** Method to determine whether this Declaration is part of realisation of an indexed set.
 	 * @return true if it is, false otherwise.
 	 */
-	 
+// ADDED BY SHANE	 
 	public boolean getIsPartOfIndexedVar()
 	{
 		return isPartOfIndexedVar;
 	}
 	
 	/** Method to make this Declaration note that it is part of realisation of an indexed set. */
+// ADDED BY SHANE
 	public void setIsPartOfIndexedVar()
 	{
 		isPartOfIndexedVar = true;

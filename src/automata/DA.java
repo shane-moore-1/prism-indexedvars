@@ -38,6 +38,7 @@ import jltl2ba.APElement;
 import jltl2ba.APElementIterator;
 import prism.PrismException;
 import prism.PrismLog;
+import prism.PrismNotSupportedException;
 import prism.PrismPrintStreamLog;
 import acceptance.AcceptanceOmega;
 import acceptance.AcceptanceRabin;
@@ -70,6 +71,14 @@ public class DA<Symbol, Acceptance extends AcceptanceOmega>
 			this.label = label;
 			this.dest = dest;
 		}
+	}
+
+	/**
+	 * Construct a DRA with zero states, use addState to add states.
+	 */
+	public DA()
+	{
+		this(0);
 	}
 
 	/**
@@ -107,6 +116,17 @@ public class DA<Symbol, Acceptance extends AcceptanceOmega>
 	}
 
 	// Mutators
+
+	/**
+	 * Add a state.
+	 * @return index of the fresh state
+	 */
+	public int addState()
+	{
+		edges.add(new ArrayList<Edge>());
+		size++;
+		return size-1;
+	}
 
 	/**
 	 * Set the start state (index)
@@ -271,6 +291,43 @@ public class DA<Symbol, Acceptance extends AcceptanceOmega>
 	}
 
 	/**
+	 * Print the DA in HOA format to the output stream.
+	 * @param out the output stream
+	 */
+	public void printHOA(PrintStream out) throws PrismException {
+		out.println("HOA: v1");
+		out.println("States: "+size());
+		
+		// AP
+		out.print("AP: "+apList.size());
+		for (String ap : apList) {
+			// TODO(JK): Proper quoting
+			out.print(" \""+ap+"\"");
+		}
+		out.println();
+
+		out.println("Start: "+start);
+		acceptance.outputHOAHeader(out);
+		out.println("properties: trans-labels explicit-labels state-acc no-univ-branch deterministic");
+		out.println("--BODY--");
+		for (int i = 0; i < size(); i++) {
+			out.print("State: "+i+" ");  // id
+			out.println(acceptance.getSignatureForStateHOA(i));
+
+			for (Edge edge : edges.get(i)) {
+				Symbol label = edge.label;
+				if (!(label instanceof BitSet))
+					throw new PrismNotSupportedException("Can not print automaton with "+label.getClass()+" labels");
+				String labelString = "["+APElement.toStringHOA((BitSet)label, apList.size())+"]";
+				out.print(labelString);
+				out.print(" ");
+				out.println(edge.dest);
+			}
+		}
+		out.println("--END--");
+	}
+
+	/**
 	 * Print automaton to a PrismLog in a specified format ("dot" or "txt").
 	 */
 	public void print(PrismLog out, String type) throws PrismException
@@ -281,6 +338,32 @@ public class DA<Symbol, Acceptance extends AcceptanceOmega>
 			break;
 		case "dot":
 			printDot(out);
+			break;
+		// Default to txt
+		default:
+			out.println(toString());
+			break;
+		}
+	}
+
+	/**
+	 * Print automaton to a PrintStream in a specified format ("dot", "txt" or "hoa").
+	 */
+	public void print(PrintStream out, String type) throws PrismException
+	{
+		switch (type) {
+		case "txt":
+			out.println(toString());
+			break;
+		case "dot":
+			printDot(out);
+			break;
+		case "hoa":
+			printHOA(out);
+			break;
+		// Default to txt
+		default:
+			out.println(toString());
 			break;
 		}
 	}
@@ -301,14 +384,14 @@ public class DA<Symbol, Acceptance extends AcceptanceOmega>
 				s += " " + i + "-" + e.label + "->" + e.dest;
 			}
 		}
-		s += "; " + acceptance.getTypeName() + " acceptance: ";
+		s += "; " + acceptance.getType() + " acceptance: ";
 		s += acceptance;
 		return s;
 	}
 
 	public String getAutomataType()
 	{
-		return "D"+acceptance.getTypeAbbreviated()+"A";
+		return "D"+acceptance.getType().getNameAbbreviated()+"A";
 	}
 
 	/**

@@ -4,7 +4,7 @@ import parser.EvaluateContext;
 import parser.visitor.ASTVisitor;
 import prism.PrismLangException;
 import prism.PrismOutOfBoundsException;
-import java.util.Vector;
+import java.util.List;
 
 /**
  * Represents an indexed identifier (i.e. an array, being accessed by an index) used as an expression, e.g. an element position of an Indexed Set is being given as the thing containing a value to be assigned during an Update (to another variable) 
@@ -20,7 +20,7 @@ public static boolean DEBUG_VISITOR = false;
 //	String name; <<-- inherited, no need to redeclare;
 	Expression indexExpression;			// The expression which specifies (evaluates to) an index
 
-	private Vector<String> varIdents;		// A reference to the one provided during the FindAllVars visitor, so that
+	private List<String> varIdents;		// A reference to the one provided during the FindAllVars visitor, so that
 							// the 'index' of the relevant variable can be found during evaluate()
 
 	// Constructors
@@ -74,7 +74,7 @@ public static boolean DEBUG_VISITOR = false;
 	/**
 	 * This should be called during the FindAllVars visitor, to enable run-time resolution of an index (where it may be dynamically determined).
 	 */
-	public void setVarIdentsVector(Vector<String> original)
+	public void setVarIdentsList(List<String> original)
 	{
 		varIdents = original;
 	}
@@ -115,12 +115,14 @@ public static boolean DEBUG_VISITOR = false;
 
 // SHANE NOTE: This method will be invoked, at ****simulation time****, if we have a guard (for example) where the index to access 
 // is given by a variable (thus not known at model-construction time).
+// SHANE Wonders if this will run during ModelChecking time??
 	@Override
 	public Object evaluate(EvaluateContext ec) throws PrismLangException
 	{
 		String nameToFind;
 		PrismLangException ple;			// possible exception could be thrown.
 
+System.out.println("ExpressionIndexedSetAccess.evaluate(EvaluateContext) has been called.");
 
 		Object idx = indexExpression.evaluate(ec);
 		if (!(idx instanceof Integer))
@@ -181,7 +183,7 @@ public static boolean DEBUG_VISITOR = false;
 	@Override
 	public Object accept(ASTVisitor v) throws PrismLangException
 	{
-if (DEBUG_VISITOR) System.out.println("The " + v.getClass().getName() + " visitor has reached ExpressionIndexedSetAccess.access() for: " + toString());
+if (DEBUG_VISITOR) System.out.println("The " + v.getClass().getName() + " visitor has invoked accept() in ExpressionIndexedSetAccess on this instance: " + toString());
 		return v.visit(this);
 	}
 	

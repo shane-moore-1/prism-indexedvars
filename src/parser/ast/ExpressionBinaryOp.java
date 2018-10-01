@@ -26,10 +26,11 @@
 
 package parser.ast;
 
-import parser.*;
-import parser.visitor.*;
+import param.BigRational;
+import parser.EvaluateContext;
+import parser.type.TypeInt;
+import parser.visitor.ASTVisitor;
 import prism.PrismLangException;
-import parser.type.*;
 
 public class ExpressionBinaryOp extends Expression
 {
@@ -81,6 +82,20 @@ public class ExpressionBinaryOp extends Expression
 		op = i;
 	}
 
+	/**
+	 * Set the operator from the operator symbol.
+	 */
+	public void setOperator(String s) throws PrismLangException
+	{
+		for (int i = 1; i < opSymbols.length; i++) {
+			if (opSymbols[i].equals(s)) {
+				setOperator(i);
+				return;
+			}
+		}
+		throw new PrismLangException("Unknown binary operator '" + s + "'");
+	}
+
 	public void setOperand1(Expression e1)
 	{
 		operand1 = e1;
@@ -115,9 +130,7 @@ public class ExpressionBinaryOp extends Expression
 
 	// Methods required for Expression:
 
-	/**
-	 * Is this expression constant?
-	 */
+	@Override
 	public boolean isConstant()
 	{
 		return operand1.isConstant() && operand2.isConstant();
@@ -129,10 +142,7 @@ public class ExpressionBinaryOp extends Expression
 		return operand1.isProposition() && operand2.isProposition();
 	}
 
-	/**
-	 * Evaluate this expression, return result.
-	 * Note: assumes that type checking has been done already.
-	 */
+	@Override
 	public Object evaluate(EvaluateContext ec) throws PrismLangException
 	{
 		switch (op) {
@@ -203,6 +213,46 @@ public class ExpressionBinaryOp extends Expression
 		}
 		throw new PrismLangException("Unknown binary operator", this);
 	}
+	
+	@Override
+	public BigRational evaluateExact(EvaluateContext ec) throws PrismLangException
+	{
+		BigRational v1 = operand1.evaluateExact(ec);
+		BigRational v2 = operand2.evaluateExact(ec);
+
+		switch (op) {
+		case IMPLIES:
+			return BigRational.from(!v1.toBoolean() || v2.toBoolean());
+		case IFF:
+			return BigRational.from(v1.toBoolean() == v2.toBoolean());
+		case OR:
+			return BigRational.from(v1.toBoolean() || v2.toBoolean());
+		case AND:
+			return BigRational.from(v1.toBoolean() && v2.toBoolean());
+		case EQ:
+			return BigRational.from(v1.equals(v2));
+		case NE:
+			return BigRational.from(!v1.equals(v2));
+		case GT:
+			return BigRational.from(v1.compareTo(v2) > 0);
+		case GE:
+			return BigRational.from(v1.equals(v2) || v1.compareTo(v2) > 0);
+		case LT:
+			return BigRational.from(v1.compareTo(v2) < 0);
+		case LE:
+			return BigRational.from(v1.equals(v2) || v1.compareTo(v2) < 0);
+		case PLUS:
+			return v1.add(v2);
+		case MINUS:
+			return v1.subtract(v2);
+		case TIMES:
+			return v1.multiply(v2);
+		case DIVIDE:
+			return v1.divide(v2);
+		}
+		throw new PrismLangException("Unknown binary operator", this);
+	}
+
 
 	@Override
 	public boolean returnsSingleValue()
@@ -212,31 +262,62 @@ public class ExpressionBinaryOp extends Expression
 
 	// Methods required for ASTElement:
 
-	/**
-	 * Visitor method.
-	 */
+	@Override
 	public Object accept(ASTVisitor v) throws PrismLangException
 	{
 		return v.visit(this);
 	}
 
-	/**
-	 * Convert to string.
-	 */
-	public String toString()
-	{
-		return operand1 + opSymbols[op] + operand2;
-	}
-
-	/**
-	 * Perform a deep copy.
-	 */
+	@Override
 	public Expression deepCopy()
 	{
 		ExpressionBinaryOp expr = new ExpressionBinaryOp(op, operand1.deepCopy(), operand2.deepCopy());
 		expr.setType(type);
 		expr.setPosition(this);
 		return expr;
+	}
+
+	// Standard methods
+	
+	@Override
+	public String toString()
+	{
+		return operand1 + opSymbols[op] + operand2;
+	}
+
+	@Override
+	public int hashCode()
+	{
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + op;
+		result = prime * result + ((operand1 == null) ? 0 : operand1.hashCode());
+		result = prime * result + ((operand2 == null) ? 0 : operand2.hashCode());
+		return result;
+	}
+	@Override
+	public boolean equals(Object obj)
+	{
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		ExpressionBinaryOp other = (ExpressionBinaryOp) obj;
+		if (op != other.op)
+			return false;
+		if (operand1 == null) {
+			if (other.operand1 != null)
+				return false;
+		} else if (!operand1.equals(other.operand1))
+			return false;
+		if (operand2 == null) {
+			if (other.operand2 != null)
+				return false;
+		} else if (!operand2.equals(other.operand2))
+			return false;
+		return true;
 	}
 }
 

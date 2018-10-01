@@ -25,10 +25,11 @@
 //==============================================================================
 
 #include "PrismNative.h"
-#include <stdio.h>
-#include <string.h>
-#include <limits.h>
+#include <cstdio>
+#include <cstring>
+#include <limits>
 #include <locale.h>
+#include <unistd.h>
 #include "PrismNativeGlob.h"
 #include "jnipointer.h"
 
@@ -57,6 +58,8 @@ EXPORT bool do_ss_detect;
 EXPORT int export_adv;
 // adversary export filename
 EXPORT const char *export_adv_filename;
+// export iterations filename
+EXPORT const char *export_iterations_filename = "iterations.html";
 
 //------------------------------------------------------------------------------
 // Prism object
@@ -179,13 +182,40 @@ JNIEXPORT void JNICALL Java_prism_PrismNative_PN_1SetExportAdvFilename(JNIEnv *e
 		export_adv_filename = NULL;
 	}
 }
+
+//------------------------------------------------------------------------------
+
+JNIEXPORT void JNICALL Java_prism_PrismNative_PN_1SetDefaultExportIterationsFilename(JNIEnv *env, jclass cls, jstring fn)
+{
+	if (fn) {
+		export_iterations_filename = env->GetStringUTFChars(fn, 0);
+		// This never gets released. Oops.
+	} else {
+		export_iterations_filename = NULL;
+	}
+}
+
+//------------------------------------------------------------------------------
+
+JNIEXPORT jint JNICALL Java_prism_PrismNative_PN_1SetWorkingDirectory(JNIEnv *env, jclass cls, jstring dn) {
+	int rv;
+	const char* dirname = env->GetStringUTFChars(dn, 0);
+	rv = chdir(dirname);
+	env->ReleaseStringUTFChars(dn, dirname);
+	return rv;
+}
+
 //------------------------------------------------------------------------------
 // Some miscellaneous native methods
 //------------------------------------------------------------------------------
 
 JNIEXPORT jlong __jlongpointer JNICALL Java_prism_PrismNative_PN_1GetStdout(JNIEnv *env, jclass cls)
 {
+#ifdef _WIN32
+	setvbuf(stdout, NULL, _IONBF, 0);
+#else
 	setvbuf(stdout, NULL, _IOLBF, 1024);
+#endif
 	return ptr_to_jlong(stdout);
 }
 

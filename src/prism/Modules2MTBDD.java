@@ -34,11 +34,17 @@ import jdd.*;
 import parser.*;
 import parser.ast.*;
 
-// class to translate a modules description file into an MTBDD model (Multi-Terminal Binary Decision Diagram)
+// class to translate a modules description file into an MTBDD model
 
 public class Modules2MTBDD
 {
-    	public static boolean DEBUG = false;
+public static boolean DEBUG_SHANE = true;
+public static boolean DEBUG_TraSysMod = true;
+public static boolean DEBUG_TransMod = true;
+public static boolean DEBUG_TransUpd = true;
+public static boolean DEBUG_TransUpd_ShowStack = true;
+public static int DebugIndent = 0;
+public static void PrintDebugIndent() { for (int i = 0; i < DebugIndent; i++) System.out.print(" "); }
 
 	// Prism object
 	private Prism prism;
@@ -48,7 +54,6 @@ public class Modules2MTBDD
 	
 	// logs
 	private PrismLog mainLog;		// main log
-	private PrismLog techLog;		// tech log
 
 	// ModulesFile object to store syntax tree from parser
 	private ModulesFile modulesFile;
@@ -107,8 +112,9 @@ public class Modules2MTBDD
 	private JDDNode[] ddSynchVars;		// individual dd vars for synchronising actions
 	private JDDNode[] ddSchedVars;		// individual dd vars for scheduling non-det.
 	private JDDNode[] ddChoiceVars;		// individual dd vars for local non-det.
-	// names for all dd vars used
-	private Vector<String> ddVarNames;
+
+	private ModelVariablesDD modelVariables;
+	
 	// flags for keeping track of which variables have been used
 	private boolean[] varsUsed;
 	
@@ -163,7 +169,6 @@ public class Modules2MTBDD
 	{
 		prism = p;
 		mainLog = p.getMainLog();
-		techLog = p.getTechLog();
 		modulesFile = mf;
 		// get symmetry reduction info
 		String s = prism.getSettings().getString(PrismSettings.PRISM_SYMM_RED_PARAMS);
@@ -179,13 +184,25 @@ public class Modules2MTBDD
 		JDDNode tmp, tmp2;
 		JDDVars ddv;
 		int i;
+if (DEBUG_SHANE) mainLog.println("<m2m_translate>");
 		
 		// get variable info from ModulesFile
 		varList = modulesFile.createVarList();
-		if (varList.containsUnboundedVariables())
+		if (modulesFile.containsUnboundedVariables())
 			throw new PrismNotSupportedException("Cannot build a model that contains a variable with unbounded range (try the explicit engine instead)");
 		numVars = varList.getNumVars();
+if (DEBUG_SHANE) {
+	mainLog.println("numVars is " + numVars + " and these are the variables:");
+	for (i = 0; i < numVars; i++)
+		mainLog.println("\t["+ i + "] is " + varList.getName(i));
+}
+
 		constantValues = modulesFile.getConstantValues();
+if (DEBUG_SHANE) {
+	mainLog.println("constantValues is " + constantValues + " there are " + constantValues.getNumValues() + " values:");
+	for (i = 0; i < constantValues.getNumValues(); i++)
+		mainLog.println("\t["+ i + "] is " + constantValues.getName(i));
+}
 		
 		// get basic system info
 		modelType = modulesFile.getModelType();
@@ -242,10 +259,23 @@ public class Modules2MTBDD
 			mainLog.print(JDD.GetNumNodes(trans) + " nodes (");
 			mainLog.print(JDD.GetNumTerminals(trans) + " terminal)\n");
 		}
+if (DEBUG_SHANE) {		// Replicates the thing immediately preceding
+	mainLog.print("Transition matrix (pre-reachability): ");
+	mainLog.print(JDD.GetNumNodes(trans) + " nodes (");
+	mainLog.print(JDD.GetNumTerminals(trans) + " terminal)\n");
+
+}
 		
 		// build bdd for initial state(s)
 		buildInitialStates();
 		
+if (DEBUG_SHANE) {		// Replicates the above
+	mainLog.print("Transition matrix (pre-reachability but after buildInitialStates): ");
+	mainLog.print(JDD.GetNumNodes(trans) + " nodes (");
+	mainLog.print(JDD.GetNumTerminals(trans) + " terminal)\n");
+
+}
+
 		// store reward struct names
 		rewardStructNames = new String[numRewardStructs];
 		for (i = 0; i < numRewardStructs; i++) {
@@ -254,18 +284,21 @@ public class Modules2MTBDD
 		
 		// create new Model object to be returned
 		if (modelType == ModelType.DTMC) {
-			model = new ProbModel(trans, start, stateRewards, transRewards, rewardStructNames, allDDRowVars, allDDColVars, ddVarNames,
+if (DEBUG_SHANE) mainLog.println("will instantiate a ProbModel");
+			model = new ProbModel(trans, start, stateRewards, transRewards, rewardStructNames, allDDRowVars, allDDColVars, modelVariables,
 						   numModules, moduleNames, moduleDDRowVars, moduleDDColVars,
 						   numVars, varList, varDDRowVars, varDDColVars, constantValues);
 		}
 		else if (modelType == ModelType.MDP) {
+if (DEBUG_SHANE) mainLog.println("will instantiate a NondetModel");
 			model = new NondetModel(trans, start, stateRewards, transRewards, rewardStructNames, allDDRowVars, allDDColVars,
-						     allDDSynchVars, allDDSchedVars, allDDChoiceVars, allDDNondetVars, ddVarNames,
+						     allDDSynchVars, allDDSchedVars, allDDChoiceVars, allDDNondetVars, modelVariables,
 						     numModules, moduleNames, moduleDDRowVars, moduleDDColVars,
 						     numVars, varList, varDDRowVars, varDDColVars, constantValues);
 		}
 		else if (modelType == ModelType.CTMC) {
-			model = new StochModel(trans, start, stateRewards, transRewards, rewardStructNames, allDDRowVars, allDDColVars, ddVarNames,
+if (DEBUG_SHANE) mainLog.println("will instantiate a StochModel");
+			model = new StochModel(trans, start, stateRewards, transRewards, rewardStructNames, allDDRowVars, allDDColVars, modelVariables,
 						    numModules, moduleNames, moduleDDRowVars, moduleDDColVars,
 						    numVars, varList, varDDRowVars, varDDColVars, constantValues);
 		}
@@ -290,9 +323,19 @@ public class Modules2MTBDD
 		
 		// do reachability (or not)
 		if (prism.getDoReach()) {
+DebugIndent = 0;
+PrintDebugIndent();
+System.out.println("<CALL_doReach wherefrom='prism.Modules2MTBDD.translate'>\nCalling doReachability() for model of type " + model.getClass().getName() + "...");
 			mainLog.print("\nComputing reachable states...\n");
 			model.doReachability();
+System.out.println("</CALL_doReach>");
+
+System.out.println("<CALL_filterReachable>");
+PrintDebugIndent();
+System.out.println("[In Modules2MTBDD.translate()] finished doReachability(), calling filterReachableStates()...");
+
 			model.filterReachableStates();
+System.out.println("</CALL_filterReachable>");
 		}
 		else {
 			mainLog.print("\nSkipping reachable state computation.\n");
@@ -304,45 +347,50 @@ public class Modules2MTBDD
 		if (prism.getExtraDDInfo()) {
 			mainLog.print("Reach: " + JDD.GetNumNodes(model.getReach()) + " nodes\n");
 		}
-		
+if (DEBUG_SHANE) {		// Copied from earlier, and from the immediately prior 'ExtraDD' thing
+	mainLog.print("Transition matrix (after reachability [if was desired]): ");
+	mainLog.print(JDD.GetNumNodes(trans) + " nodes (");
+	mainLog.print(JDD.GetNumTerminals(trans) + " terminal)\n");
+	mainLog.print("Reach: " + JDD.GetNumNodes(model.getReach()) + " nodes\n");
+}
+
+if (DEBUG_SHANE & doSymmetry) {
+	PrintDebugIndent();
+	System.out.println("[In Modules2MTBDD.translate()] approx line 357, about to call doSymmetry()");
+}
 		// symmetrification
 		if (doSymmetry) doSymmetry(model);
-		
+
+PrintDebugIndent();
+System.out.println("[In Modules2MTBDD.translate()] approx line 365, about to call getFixDeadlocks() then possibly findDeadlocks()");
+
 		// find/fix any deadlocks
 		model.findDeadlocks(prism.getFixDeadlocks());
 		
 		// deref spare dds
 		globalDDRowVars.derefAll();
 		globalDDColVars.derefAll();
-		for (i = 0; i < numModules; i++) {
-			JDD.Deref(moduleIdentities[i]);
-			JDD.Deref(moduleRangeDDs[i]);
-		}
-		for (i = 0; i < numVars; i++) {
-			JDD.Deref(varIdentities[i]);
-			JDD.Deref(varRangeDDs[i]);
-			JDD.Deref(varColRangeDDs[i]);
-		}
+		JDD.DerefArray(moduleIdentities, numModules);
+		JDD.DerefArray(moduleRangeDDs, numModules);
+		JDD.DerefArray(varIdentities, numVars);
+		JDD.DerefArray(varRangeDDs, numVars);
+		JDD.DerefArray(varColRangeDDs, numVars);
 		JDD.Deref(range);
 		if (modelType == ModelType.MDP) {
-			for (i = 0; i < ddSynchVars.length; i++) {
-				JDD.Deref(ddSynchVars[i]);
-			}
-			for (i = 0; i < ddSchedVars.length; i++) {
-				JDD.Deref(ddSchedVars[i]);
-			}
-			for (i = 0; i < ddChoiceVars.length; i++) {
-				JDD.Deref(ddChoiceVars[i]);
-			}
+			JDD.DerefArray(ddSynchVars, ddSynchVars.length);
+			JDD.DerefArray(ddSchedVars, ddSchedVars.length);
+			JDD.DerefArray(ddChoiceVars, ddChoiceVars.length);
 		}
 		if (doSymmetry) {
 			JDD.Deref(symm);
-			for (i = 0; i < numSymmModules-1; i++) {
-				JDD.Deref(nonSymms[i]);
-			}
+			JDD.DerefArray(nonSymms, numSymmModules-1);
 		}
-		
+
+
 		expr2mtbdd.clearDummyModel();
+PrintDebugIndent();
+System.out.println("[In Modules2MTBDD.translate()] Reached End of method (at approx line 389)");
+if (DEBUG_SHANE) mainLog.println("</m2m_translate>");
 		
 		return model;
 	}
@@ -352,16 +400,17 @@ public class Modules2MTBDD
 			
 	private void allocateDDVars()
 	{
-		JDDNode v, vr, vc;
 		int i, j, m, n, last;
-		int ddVarsUsed = 0;
-		ddVarNames = new Vector<String>();
-
+		
+		modelVariables = new ModelVariablesDD();
+		
 		switch (prism.getOrdering()) {
 		
 		case 1:
 		// ordering: (a ... a) (s ... s) (l ... l) (r c ... r c)
 		
+			modelVariables.preallocateExtraActionVariables(prism.getSettings().getInteger(PrismSettings.PRISM_DD_EXTRA_ACTION_VARS));
+
 			// create arrays/etc. first
 			
 			// nondeterministic variables
@@ -393,9 +442,7 @@ public class Modules2MTBDD
 			if (modelType == ModelType.MDP) {
 				// allocate vars
 				for (i = 0; i < numSynchs; i++) {
-					v = JDD.Var(ddVarsUsed++);
-					ddSynchVars[i] = v;
-					ddVarNames.add(synchs.elementAt(i)+".a");
+					ddSynchVars[i] = modelVariables.allocateVariable(synchs.elementAt(i)+".a");
 				}
 			}
 		
@@ -403,9 +450,7 @@ public class Modules2MTBDD
 			if (modelType == ModelType.MDP) {
 				// allocate vars
 				for (i = 0; i < numModules; i++) {
-					v = JDD.Var(ddVarsUsed++);
-					ddSchedVars[i] = v;
-					ddVarNames.add(moduleNames[i] + ".s");
+					ddSchedVars[i] = modelVariables.allocateVariable(moduleNames[i] + ".s");
 				}
 			}
 			
@@ -413,19 +458,15 @@ public class Modules2MTBDD
 			if (modelType == ModelType.MDP) {
 				m = ddChoiceVars.length;
 				for (i = 0; i < m; i++) {
-					v = JDD.Var(ddVarsUsed++);
-					ddChoiceVars[i] = v;
-					ddVarNames.add("l" + i);
+					ddChoiceVars[i] = modelVariables.allocateVariable("l" + i);
 				}
 			}
 			
 			// create a gap in the dd variables
-			// this allows to prepend additionl row/col vars, e.g. for constructing
+			// this allows to prepend additional row/col vars, e.g. for constructing
 			// a product model when doing LTL model checking
-			for (i = 0; i < 20; i++) {
-				ddVarsUsed++;
-				ddVarNames.add("");
-			}
+			modelVariables.preallocateExtraStateVariables(prism.getSettings().getInteger(PrismSettings.PRISM_DD_EXTRA_STATE_VARS));
+
 			
 			// allocate dd variables for module variables (i.e. rows/cols)
 			// go through all vars in order (incl. global variables)
@@ -437,14 +478,9 @@ public class Modules2MTBDD
 				// add pairs of variables (row/col)
 				for (j = 0; j < n; j++) {
 					// new dd row variable
-					vr = JDD.Var(ddVarsUsed++);
+					varDDRowVars[i].addVar(modelVariables.allocateVariable(varList.getName(i) + "." + j));
 					// new dd col variable
-					vc = JDD.Var(ddVarsUsed++);
-					varDDRowVars[i].addVar(vr);
-					varDDColVars[i].addVar(vc);
-					// add names to list
-					ddVarNames.add(varList.getName(i) + "." + j);
-					ddVarNames.add(varList.getName(i) + "'." + j);
+					varDDColVars[i].addVar(modelVariables.allocateVariable(varList.getName(i) + "'." + j));
 				}
 			}
 
@@ -453,6 +489,8 @@ public class Modules2MTBDD
 		case 2:
 		// ordering: (a ... a) (l ... l) (s r c ... r c) (s r c ... r c) ...
 	
+			modelVariables.preallocateExtraActionVariables(prism.getSettings().getInteger(PrismSettings.PRISM_DD_EXTRA_ACTION_VARS));
+
 			// create arrays/etc. first
 			
 			// nondeterministic variables
@@ -481,9 +519,7 @@ public class Modules2MTBDD
 			// allocate synchronizing action variables
 			if (modelType == ModelType.MDP) {
 				for (i = 0; i < numSynchs; i++) {
-					v = JDD.Var(ddVarsUsed++);
-					ddSynchVars[i] = v;
-					ddVarNames.add(synchs.elementAt(i)+".a");
+					ddSynchVars[i] = modelVariables.allocateVariable(synchs.elementAt(i)+".a");
 				}
 			}
 
@@ -491,12 +527,16 @@ public class Modules2MTBDD
 			if (modelType == ModelType.MDP) {
 				m = ddChoiceVars.length;
 				for (i = 0; i < m; i++) {
-					v = JDD.Var(ddVarsUsed++);
-					ddChoiceVars[i] = v;
-					ddVarNames.add("l" + i);
+					ddChoiceVars[i] = modelVariables.allocateVariable("l" + i);
 				}
 			}
-			
+
+			// TODO: For the other variable order (-o1, used for sparse/hybrid by default,
+			// see above), we preallocate a certain number of state variables.
+			// For consistency, it would make sense to do the same here. However,
+			// we should first do some testing to see if this negatively impacts
+			// performance.
+
 			// go through all vars in order (incl. global variables)
 			// so overall ordering can be specified by ordering in the input file
 			// use 'last' to detect when starting a new module
@@ -507,9 +547,7 @@ public class Modules2MTBDD
 				if ((modelType == ModelType.MDP) && (last != varList.getModule(i))) {
 					// add scheduling dd var(s) (may do multiple ones here if modules have no vars)
 					for (j = last+1; j <= varList.getModule(i); j++) {
-						v = JDD.Var(ddVarsUsed++);
-						ddSchedVars[j] = v;
-						ddVarNames.add(moduleNames[j] + ".s");
+						ddSchedVars[j] = modelVariables.allocateVariable(moduleNames[j] + ".s");
 					}
 					// change 'last'
 					last = varList.getModule(i);
@@ -520,19 +558,13 @@ public class Modules2MTBDD
 				n = varList.getRangeLogTwo(i);
 				// add pairs of variables (row/col)
 				for (j = 0; j < n; j++) {
-					vr = JDD.Var(ddVarsUsed++);
-					vc = JDD.Var(ddVarsUsed++);
-					varDDRowVars[i].addVar(vr);
-					varDDColVars[i].addVar(vc);
-					ddVarNames.add(varList.getName(i) + "." + j);
-					ddVarNames.add(varList.getName(i) + "'." + j);
+					varDDRowVars[i].addVar(modelVariables.allocateVariable(varList.getName(i) + "." + j));
+					varDDColVars[i].addVar(modelVariables.allocateVariable(varList.getName(i) + "'." + j));
 				}
 			}
 			// add any remaining scheduling dd var(s) (happens if some modules have no vars)
 			if (modelType == ModelType.MDP) for (j = last+1; j <numModules; j++) {
-				v = JDD.Var(ddVarsUsed++);
-				ddSchedVars[j] = v;
-				ddVarNames.add(moduleNames[j] + ".s");
+				ddSchedVars[j] = modelVariables.allocateVariable(moduleNames[j] + ".s");
 			}
 			break;
 			
@@ -568,19 +600,17 @@ public class Modules2MTBDD
 		}
 		// go thru all variables
 		for (i = 0; i < numVars; i++) {
-			varDDRowVars[i].refAll();
-			varDDColVars[i].refAll();
 			// check which module it belongs to
 			m = varList.getModule(i);
 			// if global...
 			if (m == -1) {
-				globalDDRowVars.addVars(varDDRowVars[i]);
-				globalDDColVars.addVars(varDDColVars[i]);
+				globalDDRowVars.copyVarsFrom(varDDRowVars[i]);
+				globalDDColVars.copyVarsFrom(varDDColVars[i]);
 			}
 			// otherwise...
 			else {
-				moduleDDRowVars[m].addVars(varDDRowVars[i]);
-				moduleDDColVars[m].addVars(varDDColVars[i]);
+				moduleDDRowVars[m].copyVarsFrom(varDDRowVars[i]);
+				moduleDDColVars[m].copyVarsFrom(varDDColVars[i]);
 			}
 		}
 		
@@ -597,35 +627,27 @@ public class Modules2MTBDD
 		// go thru all variables
 		for (i = 0; i < numVars; i++) {
 			// add to list
-			varDDRowVars[i].refAll();
-			varDDColVars[i].refAll();
-			allDDRowVars.addVars(varDDRowVars[i]);
-			allDDColVars.addVars(varDDColVars[i]);
+			allDDRowVars.copyVarsFrom(varDDRowVars[i]);
+			allDDColVars.copyVarsFrom(varDDColVars[i]);
 		}
 		if (modelType == ModelType.MDP) {
 			// go thru all syncronising action vars
 			for (i = 0; i < ddSynchVars.length; i++) {
 				// add to list
-				JDD.Ref(ddSynchVars[i]);
-				JDD.Ref(ddSynchVars[i]);
-				allDDSynchVars.addVar(ddSynchVars[i]);
-				allDDNondetVars.addVar(ddSynchVars[i]);
+				allDDSynchVars.addVar(ddSynchVars[i].copy());
+				allDDNondetVars.addVar(ddSynchVars[i].copy());
 			}
 			// go thru all scheduler nondet vars
 			for (i = 0; i < ddSchedVars.length; i++) {
 				// add to list
-				JDD.Ref(ddSchedVars[i]);
-				JDD.Ref(ddSchedVars[i]);
-				allDDSchedVars.addVar(ddSchedVars[i]);
-				allDDNondetVars.addVar(ddSchedVars[i]);
+				allDDSchedVars.addVar(ddSchedVars[i].copy());
+				allDDNondetVars.addVar(ddSchedVars[i].copy());
 			}
 			// go thru all local nondet vars
 			for (i = 0; i < ddChoiceVars.length; i++) {
 				// add to list
-				JDD.Ref(ddChoiceVars[i]);
-				JDD.Ref(ddChoiceVars[i]);
-				allDDChoiceVars.addVar(ddChoiceVars[i]);
-				allDDNondetVars.addVar(ddChoiceVars[i]);
+				allDDChoiceVars.addVar(ddChoiceVars[i].copy());
+				allDDNondetVars.addVar(ddChoiceVars[i].copy());
 			}
 		}
 	}
@@ -654,8 +676,7 @@ public class Modules2MTBDD
 			id = JDD.Constant(1);
 			for (j = 0; j < numVars; j++) {
 				if (varList.getModule(j) == i) {
-					JDD.Ref(varIdentities[j]);
-					id = JDD.Apply(JDD.TIMES, id, varIdentities[j]);
+					id = JDD.Apply(JDD.TIMES, id, varIdentities[j].copy());
 				}
 			}
 			moduleIdentities[i] = id;
@@ -676,21 +697,17 @@ public class Modules2MTBDD
 		varColRangeDDs = new JDDNode[numVars];
 		for (i = 0; i < numVars; i++) {
 			// obtain range dd by abstracting from identity matrix
-			JDD.Ref(varIdentities[i]);
-			varRangeDDs[i] = JDD.SumAbstract(varIdentities[i], varDDColVars[i]);
+			varRangeDDs[i] = JDD.SumAbstract(varIdentities[i].copy(), varDDColVars[i]);
 			// obtain range dd by abstracting from identity matrix
-			JDD.Ref(varIdentities[i]);
-			varColRangeDDs[i] = JDD.SumAbstract(varIdentities[i], varDDRowVars[i]);
+			varColRangeDDs[i] = JDD.SumAbstract(varIdentities[i].copy(), varDDRowVars[i]);
 			// build up range for whole system as we go
-			JDD.Ref(varRangeDDs[i]);
-			range = JDD.Apply(JDD.TIMES, range, varRangeDDs[i]);
+			range = JDD.Apply(JDD.TIMES, range, varRangeDDs[i].copy());
 		}
 		// module ranges
 		moduleRangeDDs = new JDDNode[numModules];
 		for (i = 0; i < numModules; i++) {
 			// obtain range dd by abstracting from identity matrix
-			JDD.Ref(moduleIdentities[i]);
-			moduleRangeDDs[i] = JDD.SumAbstract(moduleIdentities[i], moduleDDColVars[i]);			
+			moduleRangeDDs[i] = JDD.SumAbstract(moduleIdentities[i].copy(), moduleDDColVars[i]);
 		}
 	}
 
@@ -723,8 +740,7 @@ public class Modules2MTBDD
 		// for dtmcs, need to normalise each row to remove local nondeterminism
 		if (modelType == ModelType.DTMC) {
 			// divide each row by row sum
-			JDD.Ref(trans);
-			tmp = JDD.SumAbstract(trans, allDDColVars);
+			tmp = JDD.SumAbstract(trans.copy(), allDDColVars);
 			trans = JDD.Apply(JDD.DIVIDE, trans, tmp);
 		}
 	}
@@ -791,8 +807,7 @@ public class Modules2MTBDD
 			// independent bit
 			tmp = JDD.Constant(1);
 			for (i = 0; i < numSynchs; i++) {
-				JDD.Ref(ddSynchVars[i]);
-				tmp = JDD.And(tmp, JDD.Not(ddSynchVars[i]));
+				tmp = JDD.And(tmp, JDD.Not(ddSynchVars[i].copy()));
 			}
 			sysDDs.ind.trans = JDD.Apply(JDD.TIMES, tmp, sysDDs.ind.trans);
 			//JDD.Ref(tmp);
@@ -801,12 +816,11 @@ public class Modules2MTBDD
 			for (i = 0; i < numSynchs; i++) {
 				tmp = JDD.Constant(1);
 				for (j = 0; j < numSynchs; j++) {
-					JDD.Ref(ddSynchVars[j]);
 					if (j == i) {
-						tmp = JDD.And(tmp, ddSynchVars[j]);
+						tmp = JDD.And(tmp, ddSynchVars[j].copy());
 					}
 					else {
-						tmp = JDD.And(tmp, JDD.Not(ddSynchVars[j]));
+						tmp = JDD.And(tmp, JDD.Not(ddSynchVars[j].copy()));
 					}
 				}
 				sysDDs.synchs[i].trans = JDD.Apply(JDD.TIMES, tmp, sysDDs.synchs[i].trans);
@@ -821,14 +835,12 @@ public class Modules2MTBDD
 		// now, for all model types, transition matrix can be built by summing over all actions
 		// also build transition rewards at the same time
 		n = modulesFile.getNumRewardStructs();
-		JDD.Ref(sysDDs.ind.trans);
-		trans = sysDDs.ind.trans;
+		trans = sysDDs.ind.trans.copy();
 		for (j = 0; j < n; j++) {
 			transRewards[j] = sysDDs.ind.rewards[j];
 		}
 		for (i = 0; i < numSynchs; i++) {
-			JDD.Ref(sysDDs.synchs[i].trans);
-			trans = JDD.Apply(JDD.PLUS, trans, sysDDs.synchs[i].trans);
+			trans = JDD.Apply(JDD.PLUS, trans, sysDDs.synchs[i].trans.copy());
 			for (j = 0; j < n; j++) {
 				transRewards[j] = JDD.Apply(JDD.PLUS, transRewards[j], sysDDs.synchs[i].rewards[j]);
 			}
@@ -841,20 +853,17 @@ public class Modules2MTBDD
 		if (modelType != ModelType.MDP) {
 			n = modulesFile.getNumRewardStructs();
 			for (j = 0; j < n; j++) {
-				JDD.Ref(trans);
-				transRewards[j] = JDD.Apply(JDD.DIVIDE, transRewards[j], trans);
+				transRewards[j] = JDD.Apply(JDD.DIVIDE, transRewards[j], trans.copy());
 			}
 		}
 		
 		// For MDPs, we take a copy of the DDs used to construct the part
 		// of the transition matrix that corresponds to each action
 		if (modelType == ModelType.MDP && storeTransParts) {
-			JDD.Ref(sysDDs.ind.trans);
-			transInd = JDD.ThereExists(JDD.GreaterThan(sysDDs.ind.trans, 0), allDDColVars);
+			transInd = JDD.ThereExists(JDD.GreaterThan(sysDDs.ind.trans.copy(), 0), allDDColVars);
 			transSynch = new JDDNode[numSynchs];
 			for (i = 0; i < numSynchs; i++) {
-				JDD.Ref(sysDDs.synchs[i].trans);
-				transSynch[i] = JDD.ThereExists(JDD.GreaterThan(sysDDs.synchs[i].trans, 0), allDDColVars);
+				transSynch[i] = JDD.ThereExists(JDD.GreaterThan(sysDDs.synchs[i].trans.copy(), 0), allDDColVars);
 			}
 		}
 		
@@ -882,8 +891,7 @@ public class Modules2MTBDD
 				//tmp = JDD.ThereExists(JDD.GreaterThan(sysDDs.ind.trans, 0), allDDColVars);
 				//transActions = JDD.Apply(JDD.PLUS, transActions, JDD.Apply(JDD.TIMES, tmp, JDD.Constant(1)));
 				for (i = 0; i < numSynchs; i++) {
-					JDD.Ref(sysDDs.synchs[i].trans);
-					tmp = JDD.ThereExists(JDD.GreaterThan(sysDDs.synchs[i].trans, 0), allDDColVars);
+					tmp = JDD.ThereExists(JDD.GreaterThan(sysDDs.synchs[i].trans.copy(), 0), allDDColVars);
 					transActions = JDD.Apply(JDD.PLUS, transActions, JDD.Apply(JDD.TIMES, tmp, JDD.Constant(1+i)));
 				}
 				break;
@@ -891,11 +899,9 @@ public class Modules2MTBDD
 			case CTMC:
 				// Just reference DDs and copy them to new array
 				transPerAction = new JDDNode[numSynchs + 1];
-				JDD.Ref(sysDDs.ind.trans);
-				transPerAction[0] = sysDDs.ind.trans;
+				transPerAction[0] = sysDDs.ind.trans.copy();
 				for (i = 0; i < numSynchs; i++) {
-					JDD.Ref(sysDDs.synchs[i].trans);
-					transPerAction[i + 1] = sysDDs.synchs[i].trans;
+					transPerAction[i + 1] = sysDDs.synchs[i].trans.copy();
 				}
 				break;
 			}
@@ -959,31 +965,58 @@ public class Modules2MTBDD
 	private SystemDDs translateSystemModule(SystemModule sys, int[] synchMin) throws PrismException
 	{
 		SystemDDs sysDDs;
-		Module module;
+		parser.ast.Module module;
 		String synch;
 		int i, m;
-		
+
+if (DEBUG_TraSysMod) {
+	System.out.println("<TransSysMod module='" + sys.getName() + "'>\n");
+	PrintDebugIndent();
+	System.out.println("\nCommencing Modules2MTBDD.tranSysMod for  " + sys.getName() + ", where numSynchs is: " + numSynchs);
+	DebugIndent++;
+}
+
 		// create object to store result
 		sysDDs = new SystemDDs(numSynchs);
 		
 		// determine which module it is
 		m = modulesFile.getModuleIndex(sys.getName());
 		module = modulesFile.getModule(m);
-		
+
+if (DEBUG_TraSysMod) {
+	PrintDebugIndent();
+	System.out.println("in Modules2MTBDD.tranSysMod, Place 985, about to call translateModule() without synchs");
+}
+
 		// build mtbdd for independent bit
 		sysDDs.ind = translateModule(m, module, "", 0);
+
+if (DEBUG_TraSysMod) {		
+	PrintDebugIndent();
+	System.out.println("in Modules2MTBDD.tranSysMod, numSynchs is: " + numSynchs); 
+}
 		// build mtbdd for each synchronising action
 		for (i = 0; i < numSynchs; i++) {
 			synch = synchs.elementAt(i);
 			sysDDs.synchs[i] = translateModule(m, module, synch, synchMin[i]);
 		}
+
+if (DEBUG_TraSysMod) {		
+	PrintDebugIndent();
+	System.out.println("in Modules2MTBDD.tranSysMod, Place 1002"); 
+}
+		
 		// store identity matrix
-		JDD.Ref(moduleIdentities[m]);
-		sysDDs.id = moduleIdentities[m];
+		sysDDs.id = moduleIdentities[m].copy();
 		
 		// store synchs used
 		sysDDs.allSynchs.addAll(module.getAllSynchs());
-		
+
+DebugIndent--;
+PrintDebugIndent();
+System.out.println("Concluding Modules2MTBDD.tranSysMod for  " + sys.getName());
+System.out.println("</TransSysMod>\n");
+
 		return sysDDs;
 	}
 
@@ -1424,7 +1457,7 @@ public class Modules2MTBDD
 	// translate a single module to a dd
 	// for a given synchronizing action ("" = none)
 	
-	private ComponentDDs translateModule(int m, Module module, String synch, int synchMin) throws PrismException
+	private ComponentDDs translateModule(int m, parser.ast.Module module, String synch, int synchMin) throws PrismException
 	{
 		ComponentDDs compDDs;
 		JDDNode guardDDs[], upDDs[], tmp;
@@ -1432,17 +1465,27 @@ public class Modules2MTBDD
 		int l, numCommands;
 		double dmin = 0, dmax = 0;
 		boolean match;
-		
+
+if (DEBUG_TraSysMod) {
+	PrintDebugIndent();
+	System.out.println("<TranslateModule mod='"+ module.getName() + "', synch='" + synch + "'>");
+}
+DebugIndent++;
+
 		// get number of commands and set up arrays accordingly
 		numCommands = module.getNumCommands();
 		guardDDs = new JDDNode[numCommands];
 		upDDs = new JDDNode[numCommands];
 		//rewDDs = new JDDNode[numCommands];
-		
+
+if (DEBUG_TransMod)
+{
+	PrintDebugIndent();
+	System.out.println("[in prism.Modules2MTBDD::translateModule()], Module: " + module.getName() + " has " + numCommands + " commands. Looking for those with matching sync of: " + synch);
+}
 		// translate guard/updates for each command of the module
 		for (l = 0; l < numCommands; l++) {
 			command = module.getCommand(l);
-if (DEBUG) System.out.println("in Modules2MTBDD.translateModule(), considering command " + l + ": " + command);
 			// check if command matches requested synch
 			match = false;
 			if (synch == "") {
@@ -1453,16 +1496,31 @@ if (DEBUG) System.out.println("in Modules2MTBDD.translateModule(), considering c
 			}
 			// if so translate
 			if (match) {
+if (DEBUG_TransMod) {
+	PrintDebugIndent();
+	System.out.println("[in prism.Modules2MTBDD::translateModule()], 'match' is true for command " + (l+1) +":" + command + ",\nso calling translateExpr for its guard...");
+}
 				// translate guard
 				guardDDs[l] = translateExpression(command.getGuard());
+
+if (DEBUG_TransMod) {
+	PrintDebugIndent();
+	System.out.println("[in prism.Modules2MTBDD::translateModule()], concluded calling translateExpr for guard of command " + (l+1) );
+}
+
 				JDD.Ref(range);
 				guardDDs[l] = JDD.Apply(JDD.TIMES, guardDDs[l], range);
 				// check for false guard
 				if (guardDDs[l].equals(JDD.ZERO)) {
+if (DEBUG_TransMod) {
+	PrintDebugIndent();
+	System.out.println("[in prism.Modules2MTBDD::translateModule()]: guardDDs actually IS equal to JDD.ZERO...");
+}
 					// display a warning (unless guard is "false", in which case was probably intentional
 					if (!Expression.isFalse(command.getGuard())) {
 						String s = "Guard for command " + (l+1) + " of module \"" + module.getName() + "\" is never satisfied.";
 						mainLog.printWarning(s);
+/*SHANE*/		mainLog.println("I think the guard that is never satisfied, was: " + command.getGuard());
 					}
 					// no point bothering to compute the mtbdds for the update
 					// if the guard is never satisfied
@@ -1470,7 +1528,10 @@ if (DEBUG) System.out.println("in Modules2MTBDD.translateModule(), considering c
 					//rewDDs[l] = JDD.Constant(0);
 				}
 				else {
-
+if (DEBUG_TransMod) {
+	PrintDebugIndent();
+	System.out.println("[in Modules2MTBDD.translateModule()]: guardDDs was not JDD.ZERO, so calling translateUpdates()...");
+}
 					// translate updates and do some checks on probs/rates
 					upDDs[l] = translateUpdates(m, l, command.getUpdates(), (command.getSynch()=="")?false:true, guardDDs[l]);
 					JDD.Ref(guardDDs[l]);
@@ -1485,8 +1546,16 @@ if (DEBUG) System.out.println("in Modules2MTBDD.translateModule(), considering c
 						throw new PrismLangException(s, command);
 					}
 					// only do remaining checks if 'doprobchecks' flag is set
+if (DEBUG_TransMod)
+{
+	PrintDebugIndent();
+	System.out.print("[in Modules2MTBDD.translateModule()]: Place 1549 - calling prism.getDoProbChecks()... ");
+}
 					if (prism.getDoProbChecks()) {
-if (DEBUG) System.out.println("in Modules2MTBDD.translateModule(): Checking Probability for upDDs["+l+"] being: " + upDDs[l].getValue());
+if (DEBUG_TransMod)
+{
+	System.out.println("was true");
+}
 						// sum probs/rates in updates
 						JDD.Ref(upDDs[l]);
 						tmp = JDD.SumAbstract(upDDs[l], moduleDDColVars[m]);
@@ -1497,8 +1566,11 @@ if (DEBUG) System.out.println("in Modules2MTBDD.translateModule(): Checking Prob
 						// compute min/max sums
 						dmin = JDD.FindMin(tmp);
 						dmax = JDD.FindMax(tmp);
-if (DEBUG) System.out.println("dmin is: " + dmin + ", dmax is: " + dmax + ", prism.getSumRoundOff() is " +prism.getSumRoundOff());
 						// check sums for NaNs (note how to check if x=NaN i.e. x!=x)
+if (DEBUG_TransMod) {
+	PrintDebugIndent();
+	System.out.println("[in Modules2MTBDD.translateModule()]: dmin is: " + dmin + ", dmax is: " + dmax + ", prism.getSumRoundOff() is " +prism.getSumRoundOff());
+}
 						if (dmin != dmin || dmax != dmax) {
 							JDD.Deref(tmp);
 							String s = (modelType == ModelType.CTMC) ? "Rates" : "Probabilities";
@@ -1510,7 +1582,6 @@ if (DEBUG) System.out.println("dmin is: " + dmin + ", dmax is: " + dmax + ", pri
 						// check min sums - 1 (ish) for dtmcs/mdps, 0 for ctmcs
 						if (modelType != ModelType.CTMC && dmin < 1-prism.getSumRoundOff()) {
 							JDD.Deref(tmp);
-if (DEBUG) System.out.println("About to display ERROR, after calling JDD.Deref(tmp) for which tmp is currently: " + tmp.getValue());
 							String s = "Probabilities in command " + (l+1) + " of module \"" + module.getName() + "\" sum to less than one";
 							s += " (e.g. " + dmin + ") for some states. ";
 							s += "Perhaps some of the updates give out-of-range values. ";
@@ -1541,6 +1612,12 @@ if (DEBUG) System.out.println("About to display ERROR, after calling JDD.Deref(t
 						}
 						JDD.Deref(tmp);
 					}
+else	// Else to getDoProbChecks; not in original code, just here for debug.
+if (DEBUG_TransMod)
+{
+	System.out.println("was false");
+}
+
 					// translate reward, if present
 					// if (command.getReward() != null) {
 					// 	tmp = translateExpression(command.getReward());
@@ -1565,7 +1642,13 @@ if (DEBUG) System.out.println("About to display ERROR, after calling JDD.Deref(t
 				//rewDDs[l] = JDD.Constant(0);
 			}
 		}
-		
+
+if (DEBUG_TransMod)
+{
+	PrintDebugIndent();
+	System.out.print("[in Modules2MTBDD.translateModule()]: @ line 1645");
+}
+
 		// combine guard/updates dds for each command
 		if (modelType == ModelType.DTMC) {
 			compDDs = combineCommandsProb(m, numCommands, guardDDs, upDDs);
@@ -1579,14 +1662,23 @@ if (DEBUG) System.out.println("About to display ERROR, after calling JDD.Deref(t
 		else {
 			 throw new PrismException("Unknown model type");
 		}
-		
+
+if (DEBUG_TransMod)
+{
+	PrintDebugIndent();
+	System.out.print("[in Modules2MTBDD.translateModule()]: @ line 1666");
+}
+
 		// deref guards/updates
-		for (l = 0; l < numCommands; l++) {
-			JDD.Deref(guardDDs[l]);
-			JDD.Deref(upDDs[l]);
-			//JDD.Deref(rewDDs[l]);
-		}
+		JDD.DerefArray(guardDDs, numCommands);
+		JDD.DerefArray(upDDs, numCommands);
+		//JDD.DerefArray(rewDDs, numCommands);
 		
+if (DEBUG_TraSysMod) {
+	DebugIndent--;
+	PrintDebugIndent();
+	System.out.println("</TranslateModule>");
+}		
 		return compDDs;
 	}
 	
@@ -1929,19 +2021,34 @@ if (DEBUG) System.out.println("About to display ERROR, after calling JDD.Deref(t
 		// take product of clauses
 		dd = JDD.Constant(1);
 		n = c.getNumElements();
+if (DEBUG_TransUpd) {
+	System.out.println("<Mod2MTBDD_translateUpdate numUpdates='"+n+"'>");
+	System.out.println("  The Update is: " + c);
+	if (DEBUG_TransUpd_ShowStack) {
+		(new Exception("Stack Trace ONLY - no actual exception")).printStackTrace(System.out);
+	}
+}
 		for (i = 0; i < n; i++) {
-if (DEBUG) System.out.println("in translateUpdate() [Modules2MTBDD.java:1933] - for synch val \'"+synch+"\", value of i is: " + i + ", means we are considering: " + c.getVarIdent(i) );
+if (DEBUG_TransUpd) {
+	System.out.println("<IterationForUpdateElement which='"+i+"'>");
+}
+			
+// SHANE INSERTED CONDITIONAL BRANCH:  to deal with indexed-set variable accesses.
 			if (c.getVarIdent(i).isIndexedVariable() )
 			{
 				// get variable
 				s = c.getVar(i);		// This will be the name of indexed set (without index expression)
 
 				Expression accExpr = ((ExpressionIndexedSetAccess) c.getVarIdent(i)).getIndexExpression();
+if (DEBUG_TransUpd) {
+	System.out.println("in Modules2MTBDD.translateUpdate(): Case 1 - it is an indexed variable: " + s);
+	System.out.println("The access expression is: " + accExpr);
+}
+
 
 				// Evaluate the expression to find the definite index to retrieve
 				int indexToUse = 0;
 
-System.out.println("Calling translateExpression for the following access-expression: "+accExpr);
 				indAccTmp = translateExpression(accExpr);
 				indexToUse = (int) indAccTmp.getValue();	// It gives as a double, we need an int.
 				if (indexToUse < 0)
@@ -1950,12 +2057,14 @@ System.out.println("Calling translateExpression for the following access-express
 
 				// construct the name of the definitive variable to be accessed
 				s = c.getVar(i) + "[" + indexToUse + "]";
-
+if (DEBUG_TransUpd) {
+	System.out.println("in Modules2MTBDD.translateUpdate(): The resultant exact variable will be: " + s);
+}
 			} else {
 				// get variable's name
 				s = c.getVar(i);
+if (DEBUG_TransUpd) System.out.println("in Modules2MTBDD.translateUpdate(): Case 2 - a non-indexed variable: " + s);
 			}
-
 
 			v = varList.getIndex(s);
 			if (v == -1) {
@@ -1980,9 +2089,7 @@ System.out.println("Calling translateExpression for the following access-express
 			for (j = l; j <= h; j++) {
 				tmp1 = JDD.SetVectorElement(tmp1, varDDColVars[v], j-l, j);
 			}
-if (DEBUG) System.out.println("Going to call translateExpression for: " + c.getExpression(i));
 			tmp2 = translateExpression(c.getExpression(i));
-if (DEBUG) System.out.println("Finished call of translateExpression for: " + c.getExpression(i));
 			JDD.Ref(guard);
 			tmp2 = JDD.Apply(JDD.TIMES, tmp2, guard);
 			cl = JDD.Apply(JDD.EQUALS, tmp1, tmp2);
@@ -1994,7 +2101,9 @@ if (DEBUG) System.out.println("Finished call of translateExpression for: " + c.g
 			JDD.Ref(range);
 			cl = JDD.Apply(JDD.TIMES, cl, range);
 			dd = JDD.Apply(JDD.TIMES, dd, cl);
-if (DEBUG) System.out.println("End of iteration " + i);
+if (DEBUG_TransUpd) {
+	System.out.println("</IterationForUpdateElement which='"+i+"'>");
+}
 		}
 		// if a variable from this module or a global variable
 		// does not appear in this update assume it does not change value
@@ -2005,6 +2114,9 @@ if (DEBUG) System.out.println("End of iteration " + i);
 				dd = JDD.Apply(JDD.TIMES, dd, varIdentities[i]);
 			}
 		}
+if (DEBUG_TransUpd) {
+	System.out.println("</Mod2MTBDD_translateUpdate>");
+}
 		
 		return dd;
 	}
@@ -2013,8 +2125,18 @@ if (DEBUG) System.out.println("End of iteration " + i);
 	
 	private JDDNode translateExpression(Expression e) throws PrismException
 	{
+/*SHANE*/expr2mtbdd.DebugIndent = DebugIndent;
+if (DEBUG_TransUpd) System.out.println(" <transExpr>");
+
 		// pass this work onto the Expression2MTBDD object
-		return expr2mtbdd.checkExpressionDD(e);
+		// states of interest = JDD.ONE = true = all possible states
+//ORIG:		return expr2mtbdd.checkExpressionDD(e, JDD.ONE.copy());
+//SHANE has broken it up for debugging output:
+		JDDNode result;
+		result = expr2mtbdd.checkExpressionDD(e, JDD.ONE.copy());
+if (DEBUG_TransUpd) System.out.println(" </transExpr>");
+		return result;
+
 	}
 
 	// build state and transition rewards
@@ -2113,6 +2235,8 @@ if (DEBUG) System.out.println("End of iteration " + i);
 		int i;
 		JDDNode tmp;
 		
+if (DEBUG_SHANE) mainLog.println("<call method='buildInitialStates()'>");
+		
 		// first, handle case where multiple initial states specified with init...endinit
 		if (modulesFile.getInitialStates() != null) {
 			start = translateExpression(modulesFile.getInitialStates());
@@ -2128,6 +2252,7 @@ if (DEBUG) System.out.println("End of iteration " + i);
 				start = JDD.And(start, tmp);
 			}
 		}
+if (DEBUG_SHANE) mainLog.println("</call method='buildInitialStates()'>");
 	}
 	
 	// symmetrification

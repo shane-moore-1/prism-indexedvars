@@ -26,7 +26,7 @@
 
 // includes
 #include "PrismMTBDD.h"
-#include <math.h>
+#include <cmath>
 #include <util.h>
 #include <cudd.h>
 #include <dd.h>
@@ -99,7 +99,7 @@ jlong __jlongpointer mu	// probs for multiplying
 	diags = DD_SumAbstract(ddman, trans, cvars, num_rvars);
 	diags = DD_Apply(ddman, APPLY_TIMES, diags, DD_Constant(ddman, -1));
 	i = DD_GetNumNodes(ddman, diags);
-	PM_PrintToMainLog(env, "[nodes=%d] [%.1f Kb]\n", i, i*20.0/1024.0);
+	PM_PrintToMainLog(env, "[nodes=%ld] [%.1f Kb]\n", i, i*20.0/1024.0);
 	
 	if (combine) {
 		
@@ -137,7 +137,7 @@ jlong __jlongpointer mu	// probs for multiplying
 //		PM_PrintToMainLog(env, "Q (final) = %d %d %.0f\n", DD_GetNumNodes(ddman, q), DD_GetNumTerminals(ddman, q), DD_GetNumMinterms(ddman, q, num_rvars+num_cvars));
 		
 		i = DD_GetNumNodes(ddman, q);
-		PM_PrintToMainLog(env, "[nodes=%d] [%.1f Kb]\n", i, i*20.0/1024.0);
+		PM_PrintToMainLog(env, "[nodes=%ld] [%.1f Kb]\n", i, i*20.0/1024.0);
 	}
 	else {
 		
@@ -174,7 +174,7 @@ jlong __jlongpointer mu	// probs for multiplying
 //		PM_PrintToMainLog(env, "diags (final) = %d %d %.0f\n", DD_GetNumNodes(ddman, d), DD_GetNumTerminals(ddman, d), DD_GetNumMinterms(ddman, d, num_rvars));
 		
 		i = DD_GetNumNodes(ddman, r);
-		PM_PrintToMainLog(env, "[nodes=%d] [%.1f Kb]\n", i, i*20.0/1024.0);
+		PM_PrintToMainLog(env, "[nodes=%ld] [%.1f Kb]\n", i, i*20.0/1024.0);
 	}
 	
 	// compute new termination criterion parameter (epsilon/8)
@@ -183,7 +183,21 @@ jlong __jlongpointer mu	// probs for multiplying
 	// compute poisson probabilities (fox/glynn)
 	PM_PrintToMainLog(env, "\nUniformisation: q.t = %f x %f = %f\n", unif, time, unif * time);
 	fgw = fox_glynn(unif * time, 1.0e-300, 1.0e+300, term_crit_param_unif);
-	if (fgw.right < 0) { PM_SetErrorMessage("Overflow in Fox-Glynn computation (time bound too big?)"); return 0; }
+	if (fgw.right < 0) {
+		PM_SetErrorMessage("Overflow in Fox-Glynn computation (time bound too big?)");
+
+		if (combine) {
+			// METHOD 1
+			Cudd_RecursiveDeref(ddman, q);
+		}
+		else {
+			// METHOD 2
+			Cudd_RecursiveDeref(ddman, r);
+			Cudd_RecursiveDeref(ddman, d);
+		}
+		Cudd_RecursiveDeref(ddman, diags);
+		return 0;
+	}
 	for (i = fgw.left; i <= fgw.right; i++) {
 		fgw.weights[i-fgw.left] /= fgw.total_weight;
 	}
@@ -294,7 +308,7 @@ jlong __jlongpointer mu	// probs for multiplying
 		
 		// print occasional status update
 		if ((util_cpu_time() - start3) > UPDATE_DELAY) {
-			PM_PrintToMainLog(env, "Iteration %d (of %d): ", iters, fgw.right);
+			PM_PrintToMainLog(env, "Iteration %ld (of %ld): ", iters, fgw.right);
 			PM_PrintToMainLog(env, "%.2f sec so far\n", ((double)(util_cpu_time() - start2)/1000));
 			start3 = util_cpu_time();
 		}
@@ -331,7 +345,6 @@ jlong __jlongpointer mu	// probs for multiplying
 	}
 	Cudd_RecursiveDeref(ddman, diags);
 	Cudd_RecursiveDeref(ddman, sol);
-
 	if (fgw.weights) delete[] fgw.weights;
 	
 	return ptr_to_jlong(sum);

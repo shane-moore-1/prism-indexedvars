@@ -40,6 +40,7 @@ import prism.PrismLog;
 import prism.PrismPrintStreamLog;
 import prism.PrismNotSupportedException;
 import prism.UndefinedConstants;
+import simulator.ModulesFileModelGenerator;
 
 public class QuantAbstractRefineExample extends QuantAbstractRefine
 {
@@ -319,7 +320,7 @@ public class QuantAbstractRefineExample extends QuantAbstractRefine
 		try {
 			// Load/parse a PRISM model description
 			PrismLog mainLog = new PrismPrintStreamLog(System.out);
-			Prism prism = new Prism(mainLog, mainLog);
+			Prism prism = new Prism(mainLog);
 			ModulesFile modulesFile = prism.parseModelFile(new File(args[0]));
 			UndefinedConstants undefinedConstants = new UndefinedConstants(modulesFile, null);
 			undefinedConstants.defineUsingConstSwitch("");
@@ -327,8 +328,9 @@ public class QuantAbstractRefineExample extends QuantAbstractRefine
 			modulesFile = (ModulesFile) modulesFile.deepCopy().expandConstants(modulesFile.getConstantList());
 			
 			// Build the model (explicit-state reachability) 
-			ConstructModel constructModel = new ConstructModel(prism, prism.getSimulator());
-			ModelSimple model = (ModelSimple) constructModel.constructModel(modulesFile, false, false);
+			ConstructModel constructModel = new ConstructModel(prism);
+			constructModel.setBuildSparse(false);
+			ModelSimple model = (ModelSimple) constructModel.constructModel(new ModulesFileModelGenerator(modulesFile, prism));
 			model.exportToPrismExplicitTra(args[1]);
 			
 			// Create/initialise abstraction-refinement engine

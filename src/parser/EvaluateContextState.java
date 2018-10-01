@@ -33,26 +33,45 @@ package parser;
  */
 public class EvaluateContextState implements EvaluateContext
 {
+public static boolean DEBUG_Constructors = false;
+public static boolean DEBUG_getCV = true;
+
 	private Values constantValues;
 	private Object[] varValues;
 
 	public EvaluateContextState(State state)
 	{
+Exception e = new Exception("Constructor 1 of parser.EvaluateContextState");
+if (DEBUG_Constructors) e.printStackTrace(System.out);
 		this.constantValues = null;
 		this.varValues = state.varValues;
 	}
 
 	public EvaluateContextState(Values constantValues, State state)
 	{
+Exception e = new Exception("Constructor 2 of parser.EvaluateContextState");
+if (DEBUG_Constructors) e.printStackTrace(System.out);
 		this.constantValues = constantValues;
 		this.varValues = state.varValues;
 	}
 
 	public Object getConstantValue(String name)
 	{
+if (DEBUG_getCV) {
+System.out.println("\n~~ in parser.EvaluateContextState: Looking for constant: " + name);
+if (constantValues == null)
+System.out.println(" -- but the constantValues is null!!");
+}
 		if (constantValues == null)
 			return null;
+if (DEBUG_getCV) {
+System.out.println("The following constants are defined: ");
+  System.out.println(constantValues);
+}
 		int i = constantValues.getIndexOf(name);
+if (DEBUG_getCV && i == -1) {
+	  System.out.println("It apparently doesn't exist!");
+	}
 		if (i == -1)
 			return null;
 		return constantValues.getValue(i);
@@ -60,6 +79,9 @@ public class EvaluateContextState implements EvaluateContext
 
 	public Object getVarValue(String name, int index)
 	{
+if (DEBUG_getCV) {
+	System.out.println("\n~~ in parser.EvaluateContextState: Looking for variable: " + name + " using index " + index);
+}
 		// Use index to look up value
 		return index == -1 ? null : varValues[index];
 	}

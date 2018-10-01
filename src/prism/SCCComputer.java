@@ -59,7 +59,7 @@ public abstract class SCCComputer extends PrismComponent
 	 */
 	public static SCCComputer createSCCComputer(PrismComponent parent, Model model) throws PrismException
 	{
-		return createSCCComputer(parent, model.getReach(), model.getTrans01(), model.getAllDDRowVars(), model.getAllDDColVars());
+		return createSCCComputer(parent, model.getReach(), model.getTransReln(), model.getAllDDRowVars(), model.getAllDDColVars());
 	}
 
 	/**
@@ -104,6 +104,11 @@ public abstract class SCCComputer extends PrismComponent
 		this.reach = reach;
 		this.allDDRowVars = allDDRowVars;
 		this.allDDColVars = allDDColVars;
+
+		if (jdd.SanityJDD.enabled) {
+			jdd.SanityJDD.checkIsDDOverVars(trans01, allDDRowVars, allDDColVars);
+			jdd.SanityJDD.checkIsDDOverVars(reach, allDDRowVars);
+		}
 	}
 
 	/**
@@ -201,10 +206,16 @@ public abstract class SCCComputer extends PrismComponent
 		mainLog.print("\nSCCs: " + sccs.size()); // Note: the BDDs in sccs have been derefed but the array still exists
 		mainLog.print(", BSCCs: " + bsccs.size());
 		mainLog.println(", non-BSCC states: " + JDD.GetNumMintermsString(notInBSCCs, allDDRowVars.n()));
-		mainLog.print("BSCC sizes:");
-		for (i = 0; i < bsccs.size(); i++) {
-			mainLog.print(" " + (i + 1) + ":" + JDD.GetNumMintermsString(bsccs.elementAt(i), allDDRowVars.n()));
+
+		boolean verbose = getSettings().getBoolean(PrismSettings.PRISM_VERBOSE);
+		if (!verbose && bsccs.size() > 10) {
+			mainLog.print("BSCC sizes: More than 10 BSCCs, use verbose mode to view sizes for all.\n");
+		} else {
+			mainLog.print("BSCC sizes:");
+			for (i = 0; i < bsccs.size(); i++) {
+				mainLog.print(" " + (i + 1) + ":" + JDD.GetNumMintermsString(bsccs.elementAt(i), allDDRowVars.n()));
+			}
+			mainLog.println();
 		}
-		mainLog.println();
 	}
 }

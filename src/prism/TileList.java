@@ -75,7 +75,7 @@ public class TileList
 	 */
 	protected static List<Expression> storedFormulasX;
 	protected static List<Expression> storedFormulasY;
-	protected static List<Expression> storedFormulas;
+	protected static List<List<Expression>> storedFormulas;
 
 	public static List<Expression> getStoredFormulasX()
 	{
@@ -87,7 +87,7 @@ public class TileList
 		return storedFormulasY;
 	}
 
-	public static List<Expression> getStoredFormulas()
+	public static List<List<Expression>> getStoredFormulas()
 	{
 		return storedFormulas;
 	}
@@ -104,7 +104,7 @@ public class TileList
 	static {
 		storedFormulasX = new ArrayList<Expression>();
 		storedFormulasY = new ArrayList<Expression>();
-		storedFormulas = new ArrayList<Expression>();
+		storedFormulas = new ArrayList<List<Expression>>();
 		storedTileLists = new ArrayList<TileList>();
 	}
 
@@ -148,30 +148,8 @@ public class TileList
 	@Override
 	public String toString()
 	{
-		String s = "[";
-		boolean first = true;
-		for (int j = 0; j < this.list.size(); j++) {
-			Tile t = this.list.get(j);
-			for (Point p : t.cornerPoints) {
-				// We want to print the user-readable values if possible
-				if (this.opsAndBoundsList != null) {
-					p = p.toRealProperties(this.opsAndBoundsList);
-				}
-				if (first)
-					first = false;
-				else
-					s += ",\n";
-				s += "(";
-				for (int i = 0; i < p.getDimension(); i++) {
-					if (i > 0)
-						s += ",";
-					s += p.getCoord(i);
-				}
-				s += ")";
-			}
-		}
-		s += "]";
-		return s;
+		List<Point> li = getRealPoints();
+		return li.toString();
 	}
 
 	/**
@@ -243,7 +221,7 @@ public class TileList
 	/**
 	 * Returns the points that form the tiles of this
 	 * TileList. The implementation is rather inefficient and is intended
-	 * only for debugging pusposes.
+	 * only for debugging purposes.
 	 */
 	public List<Point> getPoints()
 	{
@@ -252,6 +230,60 @@ public class TileList
 			for (Point p : t.cornerPoints)
 				if (!a.contains(p))
 					a.add(p);
+		}
+		return a;
+	}
+
+	/**
+	 * Returns the points that form the tiles of this
+	 * TileList, omitting the points that are covered by other points.
+	 * The implementation is rather inefficient and is intended
+	 * only for debugging purposes.
+	 */
+	public List<Point> getPointsWithoutCovered()
+	{
+		List<Point> a = getPoints();
+
+		boolean changed;
+		do {
+			changed = false;
+			for (int i = 0; i < a.size(); i++) {
+				boolean covered = false;
+				for (int j = 0; j < a.size(); j++) {
+					if (i==j)
+						continue;
+					if (a.get(i).isCoveredBy(a.get(j))) {
+						covered = true;
+						break;
+					}
+				}
+				if (covered) {
+					a.remove(i);
+					changed = true;
+					break;
+				}
+			}
+			
+		
+		} while(changed);
+		
+		return a;
+	}
+
+	/**
+	 * Returns the points that form the actual Pareto curve (modifying the points from tiles
+	 * according to the operator bound changes).
+	 * The implementation is rather inefficient and is intended
+	 * only for debugging purposes.
+	 */
+	public List<Point> getRealPoints()
+	{
+		List<Point> a = this.getPointsWithoutCovered();
+		if (this.opsAndBoundsList != null) {
+			for (int i = 0; i < a.size(); i++) {
+				Point p = a.get(i).toRealProperties(this.opsAndBoundsList);
+				a.set(i,p);
+			}
 		}
 		return a;
 	}

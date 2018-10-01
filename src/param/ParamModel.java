@@ -30,13 +30,19 @@ import java.io.File;
 import java.util.BitSet;
 import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.Map.Entry;
 import java.util.TreeSet;
 
 import parser.Values;
 import prism.ModelType;
 import prism.PrismException;
 import prism.PrismLog;
+import strat.MDStrategy;
+import explicit.MDPGeneric;
+import explicit.Model;
 import explicit.ModelExplicit;
+import explicit.SuccessorsIterator;
+import explicit.graphviz.Decorator;
 
 /**
  * Represents a parametric Markov model.
@@ -45,12 +51,14 @@ import explicit.ModelExplicit;
  * This turned out the be the most convenient way to implement model checking
  * for parametric models.
  */
-final class ParamModel extends ModelExplicit
+public final class ParamModel extends ModelExplicit implements MDPGeneric<Function>
 {
 	/** total number of nondeterministic choices over all states */
 	private int numTotalChoices;
 	/** total number of probabilistic transitions over all states */
 	private int numTotalTransitions;
+	/** the maximal number of choices per state, over all states */
+	private int numMaxChoices;
 	/** begin and end of state transitions */
 	private int[] rows;
 	/** begin and end of a distribution in a nondeterministic choice */
@@ -111,9 +119,60 @@ final class ParamModel extends ModelExplicit
 	}
 
 	@Override
-	public Iterator<Integer> getSuccessorsIterator(int s)
+	public SuccessorsIterator getSuccessors(final int s)
 	{
-		throw new UnsupportedOperationException();
+		return SuccessorsIterator.chain(new Iterator<SuccessorsIterator>() {
+			private int choice = 0;
+			private int choices = getNumChoices(s);
+
+			@Override
+			public boolean hasNext()
+			{
+				return choice < choices;
+			}
+
+			@Override
+			public SuccessorsIterator next()
+			{
+				return getSuccessors(s, choice++);
+			}
+		});
+	}
+
+	/**
+	 * Get a SuccessorsIterator for state s and choice i.
+	 * @param s The state
+	 * @param i Choice index
+	 */
+	public SuccessorsIterator getSuccessors(int s, int i)
+	{
+		return new SuccessorsIterator()
+		{
+			final int start = choiceBegin(stateBegin(s) + i);
+			int col = start;
+			final int end = choiceBegin(stateBegin(s) + i + 1);
+
+			@Override
+			public boolean hasNext()
+			{
+				return col < end;
+			}
+
+			@Override
+			public int nextInt()
+			{
+				assert (col < end);
+				int i = col;
+				col++;
+				return cols[i];
+			}
+
+			@Override
+			public boolean successorsAreDistinct()
+			{
+				return false;
+			}
+		};
 	}
 	
 	@Override
@@ -129,16 +188,56 @@ final class ParamModel extends ModelExplicit
 		return false;
 	}
 
-	@Override
-	public boolean allSuccessorsInSet(int s, BitSet set)
+	/**
+	 * Get an iterator over the transitions from choice {@code i} of state {@code s}.
+	 * <br>
+	 * For DTMC/CTMCs, there is only a single choice.
+	 */
+	public Iterator<Entry<Integer, Function>> getTransitionsIterator(final int s, final int i)
 	{
-		throw new UnsupportedOperationException();
-	}
+		return new Iterator<Entry<Integer, Function>>()
+		{
+			final int start = choiceBegin(stateBegin(s) + i);
+			int col = start;
+			final int end = choiceBegin(stateBegin(s) + i + 1);
 
-	@Override
-	public boolean someSuccessorsInSet(int s, BitSet set)
-	{
-		throw new UnsupportedOperationException();
+			@Override
+			public boolean hasNext()
+			{
+				return col < end;
+			}
+
+			@Override
+			public Entry<Integer, Function> next()
+			{
+				assert (col < end);
+				final int i = col;
+				col++;
+				return new Entry<Integer, Function>()
+				{
+					int key = cols[i];
+					Function value = nonZeros[i];
+
+					@Override
+					public Integer getKey()
+					{
+						return key;
+					}
+
+					@Override
+					public Function getValue()
+					{
+						return value;
+					}
+
+					@Override
+					public Function setValue(Function arg0)
+					{
+						throw new UnsupportedOperationException();
+					}
+				};
+			}
+		};
 	}
 
 	@Override
@@ -184,37 +283,82 @@ final class ParamModel extends ModelExplicit
 	}
 
 	@Override
-	public void exportToDotFile(String filename) throws PrismException
+	public void exportTransitionsToDotFile(int i, PrismLog out, Iterable<explicit.graphviz.Decorator> decorators)
+	{
+		int numChoices = getNumChoices(i);
+		for (int j = 0; j < numChoices; j++) {
+			// action = getAction(i, j);
+			String nij = null;
+			if (modelType.nondeterministic()) {
+				nij = "n" + i + "_" + j;
+				out.print(i + " -> " + nij + " ");
+				explicit.graphviz.Decoration d = new explicit.graphviz.Decoration();
+				d.attributes().put("arrowhead", "none");
+				d.setLabel(Integer.toString(j));
+
+				if (decorators != null) {
+					for (Decorator decorator : decorators) {
+						d = decorator.decorateTransition(i, j, d);
+					}
+				}
+				out.print(d);
+				out.println(";");
+
+				out.print(nij + " [ shape=point,width=0.1,height=0.1,label=\"\" ];\n");
+			}
+
+			Iterator<Entry<Integer, Function>> it = getTransitionsIterator(i, j);
+			while (it.hasNext()) {
+				Entry<Integer, Function> e = it.next();
+
+				// Note: For CTMCs, param stores the embedded DTMC, so we output that
+
+				if (!modelType.nondeterministic()) {
+					out.print(i + " -> " + e.getKey() + " ");
+				} else {
+					out.print(nij + " -> " + e.getKey() + " ");
+				}
+
+				Object value;
+				if (e.getValue().isConstant()) {
+					value = e.getValue().asBigRational();
+				} else {
+					value = e.getValue();
+				}
+
+				explicit.graphviz.Decoration d = new explicit.graphviz.Decoration();
+				d.setLabel(value.toString());
+
+				if (decorators != null) {
+					for (Decorator decorator : decorators) {
+						if (!modelType.nondeterministic()) {
+							d = decorator.decorateProbability(i, e.getKey(), value, d);
+						} else {
+							d = decorator.decorateProbability(i, e.getKey(), j, value, d);
+						}
+					}
+				}
+
+				out.print(d);
+				out.println(";");
+			}
+		}
+	}
+
+	@Override
+	public void exportToDotFileWithStrat(PrismLog out, BitSet mark, int[] strat)
 	{
 		throw new UnsupportedOperationException();
 	}
 
-	@Override
-	public void exportToDotFile(String filename, BitSet mark) throws PrismException
-	{
-		throw new UnsupportedOperationException();
-	}
-
-	@Override
-	public void exportToDotFile(PrismLog out)
-	{
-		throw new UnsupportedOperationException();
-	}
-
-	@Override
-	public void exportToDotFile(PrismLog out, BitSet mark)
-	{
-		throw new UnsupportedOperationException();
-	}
-
-	@Override
-	protected void exportTransitionsToDotFile(int i, PrismLog out)
-	{
-		throw new UnsupportedOperationException();
-	}
-	
 	@Override
 	public void exportToPrismLanguage(String filename) throws PrismException
+	{
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
+	public Model constructInducedModel(MDStrategy strat)
 	{
 		throw new UnsupportedOperationException();
 	}
@@ -241,9 +385,35 @@ final class ParamModel extends ModelExplicit
 		return stateEnd(state) - stateBegin(state);
 	}
 
-	public int getNumTotalChoices()
+	@Override
+	public int getMaxNumChoices()
+	{
+		return numMaxChoices;
+	}
+
+	@Override
+	public int getNumChoices()
 	{
 		return numTotalChoices;
+	}
+
+	@Override
+	public int getNumTransitions(int s, int i)
+	{
+		return choiceEnd(stateBegin(s) + i) - choiceBegin(stateBegin(s) + i);
+	}
+
+	@Override
+	public Object getAction(int s, int i)
+	{
+		return null;
+	}
+
+	@Override
+	public boolean areAllChoiceActionsUnique()
+	{
+		// we don't know
+		return false;
 	}
 
 	/**
@@ -274,8 +444,11 @@ final class ParamModel extends ModelExplicit
 	 */
 	void finishState()
 	{
+		int state = numStates;
 		rows[numStates + 1] = numTotalChoices;
 		numStates++;
+
+		numMaxChoices = Math.max(numMaxChoices, getNumChoices(state));
 	}
 
 	/**
@@ -415,19 +588,35 @@ final class ParamModel extends ModelExplicit
 	 * Instantiates the parametric model at a given point.
 	 * All transition probabilities, etc. will be evaluated and set as
 	 * probabilities of the concrete model at the given point. 
+	 * <br>
+	 * If {@code checkWellDefinedness} is {@code true}, checks that the
+	 * instantiated probabilities are actually probabilities and graph-preserving.
+	 * If that is not the case, this method then returns {@code null}.
 	 * 
 	 * @param point point to instantiate model at
+	 * @param checkWellDefinedness should we check that the model is well-defined?
 	 * @return nonparametric model instantiated at {@code point}
 	 */
-	ParamModel instantiate(Point point)
+	ParamModel instantiate(Point point, boolean checkWellDefinedness)
 	{
 		ParamModel result = new ParamModel();
+		result.setModelType(getModelType());
 		result.reserveMem(numStates, numTotalChoices, numTotalTransitions);
 		result.initialStates = new LinkedList<Integer>(this.initialStates);
 		for (int state = 0; state < numStates; state++) {
 			for (int choice = stateBegin(state); choice < stateEnd(state); choice++) {
 				for (int succ = choiceBegin(choice); succ < choiceEnd(choice); succ++) {
-					result.addTransition(succState(succ), functionFactory.fromBigRational(succProb(succ).evaluate(point)), labels[succ]);
+					BigRational p = succProb(succ).evaluate(point);
+					if (checkWellDefinedness) {
+						if (p.isSpecial() || p.compareTo(BigRational.ONE) == 1 || p.signum() <= 0) {
+							// For graph-preservation, probabilities have to be >0 and <=1
+							// Note: for CTMCs, succProb yields the probabilities of the embedded
+							// DTMC, while the rates are available separately (sumLeaving)
+							return null;
+						}
+					}
+					result.addTransition(succState(succ), functionFactory.fromBigRational(p), labels[succ]);
+
 				}
 				result.setSumLeaving(functionFactory.fromBigRational(this.sumLeaving(choice).evaluate(point)));
 				result.finishChoice();
@@ -464,4 +653,5 @@ final class ParamModel extends ModelExplicit
 	{
 		return functionFactory;
 	}
+
 }

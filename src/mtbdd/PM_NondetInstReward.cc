@@ -26,7 +26,7 @@
 
 // includes
 #include "PrismMTBDD.h"
-#include <math.h>
+#include <cmath>
 #include <util.h>
 #include <cudd.h>
 #include <dd.h>
@@ -95,7 +95,7 @@ jlong __jlongpointer in
 	iters = 0;
 	PM_PrintToMainLog(env, "\nStarting iterations...\n");
 	
-	// note that we ignore max_iters as we know how any iterations _should_ be performed
+	// note that we ignore max_iters as we know how many iterations _should_ be performed
 	for (iters = 0; iters < bound; iters++) {
 		
 		// matrix-vector multiply
@@ -119,7 +119,7 @@ jlong __jlongpointer in
 		
 		// print occasional status update
 		if ((util_cpu_time() - start3) > UPDATE_DELAY) {
-			PM_PrintToMainLog(env, "Iteration %d (of %d): ", iters, bound);
+			PM_PrintToMainLog(env, "Iteration %d (of %d): ", iters, (int)bound);
 			PM_PrintToMainLog(env, "%.2f sec so far\n", ((double)(util_cpu_time() - start2)/1000));
 			start3 = util_cpu_time();
 		}

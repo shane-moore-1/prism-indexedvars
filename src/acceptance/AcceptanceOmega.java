@@ -26,8 +26,10 @@
 
 package acceptance;
 
+import java.io.PrintStream;
 import java.util.BitSet;
 
+import prism.PrismException;
 import jdd.JDDVars;
 
 /**
@@ -40,9 +42,13 @@ public interface AcceptanceOmega extends Cloneable
 	 **/
 	public boolean isBSCCAccepting(BitSet bscc_states);
 
-	/** Get the acceptance signature for state i.
+	/** Get the acceptance signature for state {@code stateIndex}.
 	 **/
-	public String getSignatureForState(int i);
+	public String getSignatureForState(int stateIndex);
+
+	/** Get the acceptance signature for state {@code stateIndex} (HOA format).
+	 */
+	public String getSignatureForStateHOA(int stateIndex);
 
 	/**
 	 * Get a string describing the acceptance condition's size,
@@ -54,15 +60,32 @@ public interface AcceptanceOmega extends Cloneable
 	public AcceptanceType getType();
 
 	/** Returns the type of this acceptance condition as a String,
-	 * i.e., "R" for Rabin
+	 * i.e., "R" for Rabin.
+	 * <br>
+	 * Deprecated, use {@code getType().getNameAbbreviated()}
 	 */
+	@Deprecated
 	public String getTypeAbbreviated();
 
-	/** Returns a full name for this acceptance condition */
+	/** Returns a full name for this acceptance condition
+	 * <br>
+	 * Deprecated, use {@code getType()} in String context or {@code getType().getName()}
+	 */
+	@Deprecated
 	public String getTypeName();
+
+	/** Print the appropriate Acceptance (and potentially acc-name) header */
+	public void outputHOAHeader(PrintStream out);
 
 	/** Make a copy of the acceptance condition. */
 	public AcceptanceOmega clone();
+
+	/**
+	 * Complement the acceptance condition if possible.
+	 * @param numStates the number of states in the underlying model / automaton (needed for complementing BitSets)
+	 * @param allowedAcceptance the allowed acceptance types that may be used for complementing
+	 */
+	public AcceptanceOmega complement(int numStates, AcceptanceType... allowedAcceptance) throws PrismException;
 
 	/** Abstract functor for use with the lift function. */
 	public static abstract class LiftBitSet {

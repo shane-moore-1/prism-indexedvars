@@ -28,6 +28,7 @@ package parser.ast;
 
 import java.util.ArrayList;
 
+import param.BigRational;
 import parser.*;
 import parser.visitor.*;
 import prism.PrismLangException;
@@ -41,15 +42,16 @@ public class ExpressionFunc extends Expression
 	public static final int MAX = 1;
 	public static final int FLOOR = 2;
 	public static final int CEIL = 3;
-	public static final int POW = 4;
-	public static final int MOD = 5;
-	public static final int LOG = 6;
-	public static final int MULTI = 7;
+	public static final int ROUND = 4;
+	public static final int POW = 5;
+	public static final int MOD = 6;
+	public static final int LOG = 7;
+	public static final int MULTI = 8;
 	// Built-in function names
-	public static final String names[] = { "min", "max", "floor", "ceil", "pow", "mod", "log", "multi" };
+	public static final String names[] = { "min", "max", "floor", "ceil", "round", "pow", "mod", "log", "multi"};
 	// Min/max function arities
-	public static final int minArities[] = { 2, 2, 1, 1, 2, 2, 2, 1 };
-	public static final int maxArities[] = { -1, -1, 1, 1, 2, 2, 2, -1 };
+	public static final int minArities[] = { 2, 2, 1, 1, 1, 2, 2, 2, 1 };
+	public static final int maxArities[] = { -1, -1, 1, 1, 1, 2, 2, 2, -1 };
 
 	// Function name
 	private String name = "";
@@ -144,9 +146,7 @@ public class ExpressionFunc extends Expression
 
 	// Methods required for Expression:
 
-	/**
-	 * Is this expression constant?
-	 */
+	@Override
 	public boolean isConstant()
 	{
 		int i, n;
@@ -170,10 +170,7 @@ public class ExpressionFunc extends Expression
 		return true;
 	}
 	
-	/**
-	 * Evaluate this expression, return result. Note: assumes that type checking
-	 * has been done already.
-	 */
+	@Override
 	public Object evaluate(EvaluateContext ec) throws PrismLangException
 	{
 		switch (code) {
@@ -185,6 +182,8 @@ public class ExpressionFunc extends Expression
 			return evaluateFloor(ec);
 		case CEIL:
 			return evaluateCeil(ec);
+		case ROUND:
+			return evaluateRound(ec);
 		case POW:
 			return evaluatePow(ec);
 		case MOD:
@@ -195,6 +194,31 @@ public class ExpressionFunc extends Expression
 		throw new PrismLangException("Unknown function \"" + name + "\"", this);
 	}
 
+	@Override
+	public BigRational evaluateExact(EvaluateContext ec) throws PrismLangException
+	{
+		switch (code) {
+		case MIN:
+			return evaluateMinExact(ec);
+		case MAX:
+			return evaluateMaxExact(ec);
+		case FLOOR:
+			return evaluateFloorExact(ec);
+		case CEIL:
+			return evaluateCeilExact(ec);
+		case ROUND:
+			return evaluateRoundExact(ec);
+		case POW:
+			return evaluatePowExact(ec);
+		case MOD:
+			return evaluateModExact(ec);
+		case LOG:
+			return evaluateLogExact(ec);
+		}
+		throw new PrismLangException("Unknown function \"" + name + "\"", this);
+	}
+
+	
 	private Object evaluateMin(EvaluateContext ec) throws PrismLangException
 	{
 		int i, j, n, iMin;
@@ -217,6 +241,17 @@ public class ExpressionFunc extends Expression
 			}
 			return new Double(dMin);
 		}
+	}
+
+	private BigRational evaluateMinExact(EvaluateContext ec) throws PrismLangException
+	{
+		BigRational min;
+	
+		min = getOperand(0).evaluateExact(ec);
+		for (int i = 1, n = getNumOperands(); i < n; i++) {
+			min = min.min(getOperand(i).evaluateExact(ec));
+		}
+		return min;
 	}
 
 	private Object evaluateMax(EvaluateContext ec) throws PrismLangException
@@ -243,10 +278,21 @@ public class ExpressionFunc extends Expression
 		}
 	}
 
-	public Object evaluateFloor(EvaluateContext ec) throws PrismLangException
+	private BigRational evaluateMaxExact(EvaluateContext ec) throws PrismLangException
+	{
+		BigRational max;
+
+		max = getOperand(0).evaluateExact(ec);
+		for (int i = 1, n = getNumOperands(); i < n; i++) {
+			max = max.max(getOperand(i).evaluateExact(ec));
+		}
+		return max;
+	}
+
+	public Integer evaluateFloor(EvaluateContext ec) throws PrismLangException
 	{
 		try {
-			return new Integer(evaluateFloor(getOperand(0).evaluateDouble(ec)));
+			return evaluateFloor(getOperand(0).evaluateDouble(ec));
 		} catch (PrismLangException e) {
 			e.setASTElement(this);
 			throw e;
@@ -255,17 +301,16 @@ public class ExpressionFunc extends Expression
 
 	public static int evaluateFloor(double arg) throws PrismLangException
 	{
-		double d = Math.floor(arg);
 		// Check for NaN or +/-inf, otherwise possible errors lost in cast to int
-		if (Double.isNaN(d) || Double.isInfinite(d))
-			throw new PrismLangException("Cannot take floor() of " + d);
-		return (int) d;
+		if (Double.isNaN(arg) || Double.isInfinite(arg))
+			throw new PrismLangException("Cannot take floor() of " + arg);
+		return (int) Math.floor(arg);
 	}
 
-	public Object evaluateCeil(EvaluateContext ec) throws PrismLangException
+	public Integer evaluateCeil(EvaluateContext ec) throws PrismLangException
 	{
 		try {
-			return new Integer(evaluateCeil(getOperand(0).evaluateDouble(ec)));
+			return evaluateCeil(getOperand(0).evaluateDouble(ec));
 		} catch (PrismLangException e) {
 			e.setASTElement(this);
 			throw e;
@@ -274,11 +319,43 @@ public class ExpressionFunc extends Expression
 
 	public static int evaluateCeil(double arg) throws PrismLangException
 	{
-		double d = Math.ceil(arg);
 		// Check for NaN or +/-inf, otherwise possible errors lost in cast to int
-		if (Double.isNaN(d) || Double.isInfinite(d))
-			throw new PrismLangException("Cannot take ceil() of " + d);
-		return (int) d;
+		if (Double.isNaN(arg) || Double.isInfinite(arg))
+			throw new PrismLangException("Cannot take ceil() of " + arg);
+		return (int) Math.ceil(arg);
+	}
+
+	public Integer evaluateRound(EvaluateContext ec) throws PrismLangException
+	{
+		try {
+			return evaluateRound(getOperand(0).evaluateDouble(ec));
+		} catch (PrismLangException e) {
+			e.setASTElement(this);
+			throw e;
+		}
+	}
+
+	public static int evaluateRound(double arg) throws PrismLangException
+	{
+		// Check for NaN, otherwise possible errors lost in cast to int
+		if (Double.isNaN(arg))
+			throw new PrismLangException("Cannot take round() of " + arg);
+		return (int) Math.round(arg);
+	}
+
+	public BigRational evaluateFloorExact(EvaluateContext ec) throws PrismLangException
+	{
+		return getOperand(0).evaluateExact(ec).floor();
+	}
+
+	public BigRational evaluateCeilExact(EvaluateContext ec) throws PrismLangException
+	{
+		return getOperand(0).evaluateExact(ec).ceil();
+	}
+
+	public BigRational evaluateRoundExact(EvaluateContext ec) throws PrismLangException
+	{
+		return getOperand(0).evaluateExact(ec).round();
 	}
 
 	public Object evaluatePow(EvaluateContext ec) throws PrismLangException
@@ -304,12 +381,28 @@ public class ExpressionFunc extends Expression
 		// Check for overflow
 		if (res > Integer.MAX_VALUE)
 			throw new PrismLangException("Overflow evaluating integer power");
+		// Check for underflow
+		if (res < Integer.MIN_VALUE)
+			throw new PrismLangException("Underflow evaluating integer power");
 		return (int) res;
 	}
 
 	public static double evaluatePowDouble(double base, double exp) throws PrismLangException
 	{
 		return Math.pow(base, exp);
+	}
+
+	public BigRational evaluatePowExact(EvaluateContext ec) throws PrismLangException
+	{
+		BigRational base = getOperand(0).evaluateExact(ec);
+		BigRational exp = getOperand(1).evaluateExact(ec);
+
+		try {
+			int expInt = exp.toInt();
+			return base.pow(expInt);
+		} catch (PrismLangException e) {
+			throw new PrismLangException("Can not compute pow exactly, as there is a problem with the exponent: " + e.getMessage(), this);
+		}
 	}
 
 	public Object evaluateMod(EvaluateContext ec) throws PrismLangException
@@ -331,7 +424,18 @@ public class ExpressionFunc extends Expression
 		int rem = i % j;
 		return (rem < 0) ? rem + j : rem;
 	}
-	
+
+	public BigRational evaluateModExact(EvaluateContext ec) throws PrismLangException
+	{
+		BigRational a = getOperand(0).evaluateExact(ec);
+		BigRational b = getOperand(1).evaluateExact(ec);
+
+		if (!a.isInteger() && !b.isInteger()) {
+			throw new PrismLangException("Can not compute mod for non-integer arguments", this);
+		}
+		return new BigRational(a.getNum().mod(b.getNum()));
+	}
+
 	public Object evaluateLog(EvaluateContext ec) throws PrismLangException
 	{
 		try {
@@ -345,6 +449,11 @@ public class ExpressionFunc extends Expression
 	public static double evaluateLog(double x, double b) throws PrismLangException
 	{
 		return PrismUtils.log(x, b);
+	}
+
+	public BigRational evaluateLogExact(EvaluateContext ec) throws PrismLangException
+	{
+		throw new PrismLangException("Currently, can not compute log exactly", this);
 	}
 
 	@Override
@@ -362,17 +471,33 @@ public class ExpressionFunc extends Expression
 
 	// Methods required for ASTElement:
 
-	/**
-	 * Visitor method.
-	 */
+	@Override
 	public Object accept(ASTVisitor v) throws PrismLangException
 	{
 		return v.visit(this);
 	}
 
-	/**
-	 * Convert to string.
-	 */
+	@Override
+	public Expression deepCopy()
+	{
+		int i, n;
+		ExpressionFunc e;
+
+		e = new ExpressionFunc(name);
+		e.setOldStyle(oldStyle);
+		n = getNumOperands();
+		for (i = 0; i < n; i++) {
+			e.addOperand((Expression) getOperand(i).deepCopy());
+		}
+		e.setType(type);
+		e.setPosition(this);
+
+		return e;
+	}
+	
+	// Standard methods
+	
+	@Override
 	public String toString()
 	{
 		int i, n;
@@ -396,24 +521,43 @@ public class ExpressionFunc extends Expression
 		return s;
 	}
 
-	/**
-	 * Perform a deep copy.
-	 */
-	public Expression deepCopy()
+	@Override
+	public int hashCode()
 	{
-		int i, n;
-		ExpressionFunc e;
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + code;
+		result = prime * result + ((name == null) ? 0 : name.hashCode());
+		result = prime * result + (oldStyle ? 1231 : 1237);
+		result = prime * result + ((operands == null) ? 0 : operands.hashCode());
+		return result;
+	}
 
-		e = new ExpressionFunc(name);
-		e.setOldStyle(oldStyle);
-		n = getNumOperands();
-		for (i = 0; i < n; i++) {
-			e.addOperand((Expression) getOperand(i).deepCopy());
-		}
-		e.setType(type);
-		e.setPosition(this);
-
-		return e;
+	@Override
+	public boolean equals(Object obj)
+	{
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		ExpressionFunc other = (ExpressionFunc) obj;
+		if (code != other.code)
+			return false;
+		if (name == null) {
+			if (other.name != null)
+				return false;
+		} else if (!name.equals(other.name))
+			return false;
+		if (oldStyle != other.oldStyle)
+			return false;
+		if (operands == null) {
+			if (other.operands != null)
+				return false;
+		} else if (!operands.equals(other.operands))
+			return false;
+		return true;
 	}
 }
 

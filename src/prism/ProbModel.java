@@ -45,6 +45,7 @@ import sparse.*;
 public class ProbModel implements Model
 {
 	// model info
+public static boolean DEBUG = true;
 
 	// modules
 	protected int numModules; // number of modules
@@ -607,8 +608,10 @@ public class ProbModel implements Model
 			JDD.Deref(this.reach);
 		this.reach = reach;
 
+if (DEBUG) System.out.println("in ProbModel.setReach(): About to call JDD.GetNumMinterms()");
 		// work out number of reachable states
 		numStates = JDD.GetNumMinterms(reach, allDDRowVars.n());
+if (DEBUG) System.out.println("result (numStates) = " + numStates + "\n About to construct odd...");
 
 		// build odd, clear old one
 		if (odd != null) {
@@ -616,6 +619,7 @@ public class ProbModel implements Model
 			odd = null;
 		}
 		odd = ODDUtils.BuildODD(reach, allDDRowVars);
+if (DEBUG) System.out.println("Completed constructing odd; exiting ProbModel.setReach().");
 	}
 
 	/**

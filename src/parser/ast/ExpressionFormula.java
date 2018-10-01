@@ -26,14 +26,15 @@
 
 package parser.ast;
 
+import param.BigRational;
 import parser.*;
 import parser.visitor.*;
 import prism.PrismLangException;
 
 public class ExpressionFormula extends Expression
 {
-	String name;
-	Expression definition;
+	protected String name;
+	protected Expression definition;
 	
 	// Constructors
 	
@@ -73,9 +74,7 @@ public class ExpressionFormula extends Expression
 	
 	// Methods required for Expression:
 	
-	/**
-	 * Is this expression constant?
-	 */
+	@Override
 	public boolean isConstant()
 	{
 		// Unless defined, don't know so err on the side of caution
@@ -88,19 +87,30 @@ public class ExpressionFormula extends Expression
 		// Unless defined, don't know so err on the side of caution
 		return definition == null ? false : definition.isProposition();
 	}
-	
+
 	/**
-	 * Evaluate this expression, return result.
-	 * Note: assumes that type checking has been done already.
-	 */
+	* Evaluate this expression, return result.
+	* Note: assumes that type checking has been done already.
+	*/
+	@Override
 	public Object evaluate(EvaluateContext ec) throws PrismLangException
 	{
-		// Should only be called (if at all) after definition has been set 
+		// Should only be called (if at all) after definition has been set
 		// (which is done by ExpandFormulas visitor, during ModulesFile.tidyUp() )
 		if (definition == null)
 			throw new PrismLangException("Could not evaluate formula", this);
 		else
 			return definition.evaluate(ec);
+	}
+
+	@Override
+	public BigRational evaluateExact(EvaluateContext ec) throws PrismLangException
+	{
+		// Should only be called (if at all) after definition has been set
+		if (definition == null)
+			throw new PrismLangException("Could not evaluate formula", this);
+		else
+			return definition.evaluateExact(ec);
 	}
 
 	@Override
@@ -112,31 +122,60 @@ public class ExpressionFormula extends Expression
 
 	// Methods required for ASTElement:
 	
-	/**
-	 * Visitor method.
-	 */
+	@Override
 	public Object accept(ASTVisitor v) throws PrismLangException
 	{
 		return v.visit(this);
 	}
 		
-	/**
-	 * Convert to string.
-	 */
-	public String toString()
-	{
-		return name;
-	}
-
-	/**
-	 * Perform a deep copy.
-	 */
+	@Override
 	public Expression deepCopy()
 	{
 		ExpressionFormula ret = new ExpressionFormula(name);
 		ret.setDefinition(definition == null ? null : definition.deepCopy());
 		ret.setPosition(this);
 		return ret;
+	}
+
+	// Standard methods
+	
+	@Override
+	public String toString()
+	{
+		return name;
+	}
+
+	@Override
+	public int hashCode()
+	{
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((definition == null) ? 0 : definition.hashCode());
+		result = prime * result + ((name == null) ? 0 : name.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj)
+	{
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		ExpressionFormula other = (ExpressionFormula) obj;
+		if (definition == null) {
+			if (other.definition != null)
+				return false;
+		} else if (!definition.equals(other.definition))
+			return false;
+		if (name == null) {
+			if (other.name != null)
+				return false;
+		} else if (!name.equals(other.name))
+			return false;
+		return true;
 	}
 }
 

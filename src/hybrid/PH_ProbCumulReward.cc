@@ -26,7 +26,7 @@
 
 // includes
 #include "PrismHybrid.h"
-#include <math.h>
+#include <cmath>
 #include <util.h>
 #include <cudd.h>
 #include <dd.h>
@@ -194,7 +194,7 @@ jint bound			// time bound
 		
 		// print occasional status update
 		if ((util_cpu_time() - start3) > UPDATE_DELAY) {
-			PH_PrintToMainLog(env, "Iteration %d (of %d): ", iters, bound);
+			PH_PrintToMainLog(env, "Iteration %d (of %d): ", iters, (int)bound);
 			PH_PrintToMainLog(env, "%.2f sec so far\n", ((double)(util_cpu_time() - start2)/1000));
 			start3 = util_cpu_time();
 		}
@@ -225,7 +225,7 @@ jint bound			// time bound
 	if (hddm) delete hddm;
 	if (rew_vec) delete[] rew_vec;
 	if (rew_dist) delete rew_dist;
-	if (soln2) delete soln2;
+	if (soln2) delete[] soln2;
 	
 	return ptr_to_jlong(soln);
 }

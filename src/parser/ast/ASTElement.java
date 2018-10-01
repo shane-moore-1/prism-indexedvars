@@ -314,10 +314,11 @@ public abstract class ASTElement
 	 * The purpose of this method is to cause the Visitor that converts DeclarationIndexedSet
 	 * objects, into individual declarations of the individual elements of the indexed set.
 	 * ADDED BY SHANE. Not Sure if would be better to move into ModulesFile instead of here?
-	 * NOTE: Would probably not cope with 'renaming'.
-	 * TO-DO: fix to allow renaming of indexed-sets  
+	 * NOTE: Would probably not cope with 'modules renaming'.
+	 * TO-DO: fix, to allow renaming of indexed-sets  
 	 * @returns an ASTElement that has possibly been modified by the recursive process
 	 */
+// ADDED BY SHANE
 	public ASTElement convertIndexedDeclarations(ConstantList consts, ModulesFile moduleFile) throws PrismLangException
 	{
 		ConvertIndexedSetDeclarations visitor = new ConvertIndexedSetDeclarations(consts);
@@ -327,8 +328,8 @@ public abstract class ASTElement
 	/**
 	 * Find all references to variables, replace any identifier objects with variable objects,
 	 * check variables exist and store their index (as defined by the containing ModuleFile).
-	 */		// CALLED BY THE ModulesFile.tidyUp() and PropertiesFile.tidyUp() method
-	public ASTElement findAllVars(Vector<String> varIdents, Vector<Type> varTypes) throws PrismLangException
+	 */
+	public ASTElement findAllVars(List<String> varIdents, List<Type> varTypes) throws PrismLangException
 	{
 		FindAllVars visitor = new FindAllVars(varIdents, varTypes);
 		return (ASTElement) accept(visitor);
@@ -452,40 +453,14 @@ public abstract class ASTElement
 	}
 
 	/**
-	 * Perform any required semantic checks.
+	 * Perform any required semantic checks. These are just simple checks on expressions, mostly.
+	 * For semantic checks on models and properties, specifically, see:
+	 * {@link parser.visitor.ModulesFileSemanticCheck} and {@link parser.visitor.PropertiesSemanticCheck}. 
+	 * These checks are done *before* any undefined constants have been defined.
 	 */
 	public void semanticCheck() throws PrismLangException
 	{
-		semanticCheck(null, null);
-	}
-
-	/**
-	 * Perform any required semantic checks.
-	 */
-	public void semanticCheck(ModulesFile modulesFile) throws PrismLangException
-	{
-		semanticCheck(modulesFile, null);
-	}
-
-	/**
-	 * Perform any required semantic checks. Optionally pass in parent ModulesFile
-	 * and PropertiesFile for some additional checks (or leave null);
-	 * These checks are done *before* any undefined constants have been defined.
-	 */
-	public void semanticCheck(ModulesFile modulesFile, PropertiesFile propertiesFile) throws PrismLangException
-	{
-		SemanticCheck visitor = new SemanticCheck(modulesFile, propertiesFile);
-		accept(visitor);
-	}
-
-	/**
-	 * Perform further semantic checks that can only be done once values
-	 * for any undefined constants have been defined. Optionally pass in parent
-	 * ModulesFile and PropertiesFile for some additional checks (or leave null);
-	 */
-	public void semanticCheckAfterConstants(ModulesFile modulesFile, PropertiesFile propertiesFile) throws PrismLangException
-	{
-		SemanticCheckAfterConstants visitor = new SemanticCheckAfterConstants(modulesFile, propertiesFile);
+		SemanticCheck visitor = new SemanticCheck();
 		accept(visitor);
 	}
 

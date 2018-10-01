@@ -27,6 +27,8 @@
 package prism;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Vector;
 
@@ -52,6 +54,8 @@ public class UndefinedConstants
 	private List<Property> props = null;
 	// just get constants from labels (in properties file)?
 	private boolean justLabels = false;
+	// computation / evaluation of constants via double or exact arithmetic?
+	private boolean exact = false;
 
 	// info about constants
 	private int mfNumConsts = 0;
@@ -148,6 +152,11 @@ public class UndefinedConstants
 		this.justLabels = justLabels;
 	}
 
+	public void setExactMode(boolean exact)
+	{
+		this.exact = exact;
+	}
+
 	/**
 	 * Initialise this UndefinedConstants object:
 	 * determine which constants are undefined and then set up data structures.
@@ -240,14 +249,24 @@ public class UndefinedConstants
 
 	/**
 	 * Remove some constants. This is used if you decide that you do not want to treat
-	 * some constants as undefined once you have created the UndefinedConstants object.  
-	 * @return how many constants were actually removed.  
+	 * some constants as undefined once you have created the UndefinedConstants object.
+	 * @return how many constants were actually removed.
 	 */
 	public int removeConstants(String constNames[])
 	{
-		int removed = 0, n = constNames.length;
-		for (int i = 0; i < n; i++) {
-			if (removeConstant(constNames[i]))
+		return removeConstants(Arrays.asList(constNames));
+	}
+
+	/**
+	 * Remove some constants. This is used if you decide that you do not want to treat
+	 * some constants as undefined once you have created the UndefinedConstants object.
+	 * @return how many constants were actually removed.
+	 */
+	public int removeConstants(Collection<String> constNames)
+	{
+		int removed = 0;
+		for (String name : constNames) {
+			if (removeConstant(name))
 				removed++;
 		}
 		return removed;
@@ -491,13 +510,13 @@ public class UndefinedConstants
 		if (index != -1) {
 			// const is in modules file
 			overwrite = (mfConsts.get(index).isDefined());
-			mfConsts.get(index).define(sl, sh, ss);
+			mfConsts.get(index).define(sl, sh, ss, exact);
 		} else {
 			index = getPFConstIndex(name);
 			if (index != -1) {
 				// const is in properties file
 				overwrite = (pfConsts.get(index).isDefined());
-				pfConsts.get(index).define(sl, sh, ss);
+				pfConsts.get(index).define(sl, sh, ss, exact);
 			} else {
 				// If we are required to use all supplied const values, check for this
 				// (by default we don't care about un-needed or non-existent const values)

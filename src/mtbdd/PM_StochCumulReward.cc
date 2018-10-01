@@ -26,7 +26,7 @@
 
 // includes
 #include "PrismMTBDD.h"
-#include <math.h>
+#include <cmath>
 #include <util.h>
 #include <cudd.h>
 #include <dd.h>
@@ -89,7 +89,7 @@ jdouble time		// time bound
 	diags = DD_SumAbstract(ddman, trans, cvars, num_rvars);
 	diags = DD_Apply(ddman, APPLY_TIMES, diags, DD_Constant(ddman, -1));
 	i = DD_GetNumNodes(ddman, diags);
-	PM_PrintToMainLog(env, "[nodes=%d] [%.1f Kb]\n", i, i*20.0/1024.0);
+	PM_PrintToMainLog(env, "[nodes=%ld] [%.1f Kb]\n", i, i*20.0/1024.0);
 	
 	PM_PrintToMainLog(env, "Building iteration matrix MTBDD... ");
 	
@@ -112,7 +112,7 @@ jdouble time		// time bound
 	Cudd_Ref(reach);
 	q = DD_Apply(ddman, APPLY_PLUS, q, DD_Apply(ddman, APPLY_TIMES, DD_Identity(ddman, rvars, cvars, num_rvars), reach));
 	i = DD_GetNumNodes(ddman, q);
-	PM_PrintToMainLog(env, "[nodes=%d] [%.1f Kb]\n", i, i*20.0/1024.0);
+	PM_PrintToMainLog(env, "[nodes=%ld] [%.1f Kb]\n", i, i*20.0/1024.0);
 	
 	// combine state/transition rewards into a single vector - this is the initial solution vector
 	Cudd_Ref(trans);
@@ -131,7 +131,14 @@ jdouble time		// time bound
 	// compute poisson probabilities (fox/glynn)
 	PM_PrintToMainLog(env, "\nUniformisation: q.t = %f x %f = %f\n", unif, time, unif * time);
 	fgw = fox_glynn(unif * time, 1.0e-300, 1.0e+300, term_crit_param_unif);
-	if (fgw.right < 0) { PM_SetErrorMessage("Overflow in Fox-Glynn computation (time bound too big?)"); return 0; }
+	if (fgw.right < 0) {
+		PM_SetErrorMessage("Overflow in Fox-Glynn computation (time bound too big?)");
+		Cudd_RecursiveDeref(ddman, q);
+		Cudd_RecursiveDeref(ddman, diags);
+		Cudd_RecursiveDeref(ddman, sol);
+		Cudd_RecursiveDeref(ddman, sum);
+		return 0;
+	}
 	for (i = fgw.left; i <= fgw.right; i++) {
 		fgw.weights[i-fgw.left] /= fgw.total_weight;
 	}
@@ -212,7 +219,7 @@ jdouble time		// time bound
 		
 		// print occasional status update
 		if ((util_cpu_time() - start3) > UPDATE_DELAY) {
-			PM_PrintToMainLog(env, "Iteration %d (of %d): ", iters, fgw.right);
+			PM_PrintToMainLog(env, "Iteration %ld (of %ld): ", iters, fgw.right);
 			PM_PrintToMainLog(env, "%.2f sec so far\n", ((double)(util_cpu_time() - start2)/1000));
 			start3 = util_cpu_time();
 		}
@@ -244,7 +251,8 @@ jdouble time		// time bound
 	Cudd_RecursiveDeref(ddman, q);
 	Cudd_RecursiveDeref(ddman, diags);
 	Cudd_RecursiveDeref(ddman, sol);
-	
+	if (fgw.weights) delete[] fgw.weights;
+
 	return ptr_to_jlong(sum);
 }
 

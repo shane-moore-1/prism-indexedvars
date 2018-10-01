@@ -31,12 +31,11 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import common.IterableStateSet;
 import parser.State;
 import parser.Values;
 import parser.VarList;
@@ -166,12 +165,18 @@ public class SubNondetModel implements NondetModel
 	private List<State> generateSubStateList(BitSet states)
 	{
 		List<State> statesList = new ArrayList<State>();
-		for (int i = 0; i < model.getNumStates(); i++) {
-			if (states.get(i)) {
-				statesList.add(model.getStatesList().get(i));
-			}
+		for (int i : new IterableStateSet(states, model.getNumStates())){
+			statesList.add(model.getStatesList().get(i));
 		}
 		return statesList;
+	}
+
+	@Override
+	public VarList getVarList()
+	{
+		// we can return the varList of the model, as we do not change
+		// the variables in the model
+		return model.getVarList();
 	}
 
 	@Override
@@ -192,60 +197,15 @@ public class SubNondetModel implements NondetModel
 	}
 
 	@Override
+	public boolean hasLabel(String name)
+	{
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
 	public int getNumTransitions()
 	{
 		return numTransitions;
-	}
-
-	@Override
-	public Iterator<Integer> getSuccessorsIterator(int s)
-	{
-		s = translateState(s);
-		HashSet<Integer> succs = new HashSet<Integer>();
-		for (int i = 0; i < model.getNumChoices(s); i++) {
-			if (actions.get(s).get(i)) {
-				Iterator<Integer> it = model.getSuccessorsIterator(s, i);
-				while (it.hasNext()) {
-					int j = it.next();
-					succs.add(inverseTranslateState(j));
-				}
-			}
-		}
-		return succs.iterator();
-	}
-
-	@Override
-	public boolean isSuccessor(int s1, int s2)
-	{
-		s1 = translateState(s1);
-		s2 = translateState(s2);
-		return model.isSuccessor(s1, s2);
-	}
-
-	@Override
-	public boolean allSuccessorsInSet(int s, BitSet set)
-	{
-		Iterator<Integer> successors = getSuccessorsIterator(s);
-		while (successors.hasNext()) {
-			Integer successor = successors.next();
-			if (set.get(successor)) {
-				return true;
-			}
-		}
-		return false;
-	}
-
-	@Override
-	public boolean someSuccessorsInSet(int s, BitSet set)
-	{
-		Iterator<Integer> successors = getSuccessorsIterator(s);
-		while (successors.hasNext()) {
-			Integer successor = successors.next();
-			if (set.get(successor)) {
-				return true;
-			}
-		}
-		return false;
 	}
 
 	@Override
@@ -290,35 +250,6 @@ public class SubNondetModel implements NondetModel
 		throw new UnsupportedOperationException();
 	}
 
-	@Override
-	public void exportToDotFile(String filename) throws PrismException
-	{
-		throw new UnsupportedOperationException();
-	}
-
-	@Override
-	public void exportToDotFile(String filename, BitSet mark) throws PrismException
-	{
-		throw new UnsupportedOperationException();
-	}
-
-	@Override
-	public void exportToDotFile(PrismLog out)
-	{
-		throw new UnsupportedOperationException();
-	}
-
-	@Override
-	public void exportToDotFile(PrismLog out, BitSet mark)
-	{
-		throw new UnsupportedOperationException();
-	}
-
-	@Override
-	public void exportToDotFile(PrismLog out, BitSet mark, boolean showStates)
-	{
-		throw new UnsupportedOperationException();
-	}
 
 	@Override
 	public void exportToDotFileWithStrat(PrismLog out, BitSet mark, int strat[])
@@ -391,45 +322,35 @@ public class SubNondetModel implements NondetModel
 		int iOriginal = translateAction(s, i);
 		return model.getNumTransitions(sOriginal, iOriginal);
 	}
-	
-	@Override
-	public boolean allSuccessorsInSet(int s, int i, BitSet set)
-	{
-		Iterator<Integer> successors = getSuccessorsIterator(s, i);
-		while (successors.hasNext()) {
-			Integer successor = successors.next();
-			if (!set.get(successor)) {
-				return false;
-			}
-		}
-		return true;
-	}
 
 	@Override
-	public boolean someSuccessorsInSet(int s, int i, BitSet set)
-	{
-		Iterator<Integer> successors = getSuccessorsIterator(s, i);
-		while (successors.hasNext()) {
-			Integer successor = successors.next();
-			if (set.get(successor)) {
-				return true;
-			}
-		}
-		return false;
-	}
-
-	@Override
-	public Iterator<Integer> getSuccessorsIterator(int s, int i)
+	public SuccessorsIterator getSuccessors(int s, int i)
 	{
 		int sOriginal = translateState(s);
 		int iOriginal = translateAction(s, i);
-		List<Integer> succ = new ArrayList<Integer>();
-		Iterator<Integer> it = model.getSuccessorsIterator(sOriginal, iOriginal);
-		while (it.hasNext()) {
-			int j = it.next();
-			succ.add(inverseTranslateState(j));
-		}
-		return succ.iterator();
+
+		SuccessorsIterator it = model.getSuccessors(sOriginal, iOriginal);
+		return new SuccessorsIterator() {
+
+			@Override
+			public boolean successorsAreDistinct()
+			{
+				return it.successorsAreDistinct();
+			}
+
+			@Override
+			public boolean hasNext()
+			{
+				return it.hasNext();
+			}
+
+			@Override
+			public int nextInt()
+			{
+				return inverseTranslateState(it.next());
+			}
+
+		};
 	}
 
 	private BitSet translateSet(BitSet set)
@@ -443,22 +364,18 @@ public class SubNondetModel implements NondetModel
 
 	private void generateStatistics()
 	{
-		for (int i = 0; i < model.getNumStates(); i++) {
-			if (states.get(i)) {
-				numTransitions += getTransitions(i);
-				numChoices += actions.get(i).cardinality();
-				maxNumChoices = Math.max(maxNumChoices, model.getNumChoices(i));
-			}
+		for (int i : new IterableStateSet(states, model.getNumStates())){
+			numTransitions += getTransitions(i);
+			numChoices += actions.get(i).cardinality();
+			maxNumChoices = Math.max(maxNumChoices, model.getNumChoices(i));
 		}
 	}
 
 	private int getTransitions(int state)
 	{
 		int transitions = 0;
-		for (int i = 0; i < model.getNumChoices(state); i++) {
-			if (actions.get(state).get(i)) {
-				transitions += model.getNumTransitions(state, i);
-			}
+		for (int i : new IterableStateSet(actions.get(state), model.getNumChoices(state))){
+			transitions += model.getNumTransitions(state, i);
 		}
 		return transitions;
 	}
@@ -471,18 +388,14 @@ public class SubNondetModel implements NondetModel
 
 	private void generateLookupTable(BitSet states, Map<Integer, BitSet> actions)
 	{
-		for (int i = 0; i < model.getNumStates(); i++) {
-			if (states.get(i)) {
-				inverseStateLookupTable.put(i, stateLookupTable.size());
-				stateLookupTable.put(stateLookupTable.size(), i);
-				Map<Integer, Integer> r = new HashMap<Integer, Integer>();
-				for (int j = 0; j < model.getNumChoices(i); j++) {
-					if (actions.get(i).get(j)) {
-						r.put(r.size(), j);
-					}
-				}
-				actionLookupTable.put(actionLookupTable.size(), r);
+		for (int i : new IterableStateSet(states, model.getNumStates())){
+			inverseStateLookupTable.put(i, stateLookupTable.size());
+			stateLookupTable.put(stateLookupTable.size(), i);
+			Map<Integer, Integer> r = new HashMap<Integer, Integer>();
+			for (int j : new IterableStateSet(actions.get(i), model.getNumChoices(i))){
+				r.put(r.size(), j);
 			}
+			actionLookupTable.put(actionLookupTable.size(), r);
 		}
 	}
 

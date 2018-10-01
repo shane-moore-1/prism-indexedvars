@@ -44,8 +44,8 @@ public interface ASTVisitor
 	public Object visit(DeclarationArray e) throws PrismLangException;
 	public Object visit(DeclarationClock e) throws PrismLangException;
 	public Object visit(DeclarationIntUnbounded e) throws PrismLangException;
-public Object visit(DeclTypeIndexedSet e) throws PrismLangException;		// ADDED by SHANE
-	public Object visit(Module e) throws PrismLangException;
+public Object visit(DeclTypeIndexedSet e) throws PrismLangException;          // ADDED by SHANE
+	public Object visit(parser.ast.Module e) throws PrismLangException;
 	public Object visit(Command e) throws PrismLangException;
 	public Object visit(Updates e) throws PrismLangException;
 	public Object visit(Update e) throws PrismLangException;
@@ -68,11 +68,11 @@ public Object visit(DeclTypeIndexedSet e) throws PrismLangException;		// ADDED b
 	public Object visit(ExpressionUnaryOp e) throws PrismLangException;
 	public Object visit(ExpressionFunc e) throws PrismLangException;
 	public Object visit(ExpressionIdent e) throws PrismLangException;
-	public Object visit(ExpressionIndexedSetAccess expressionIndexedSetAccess) throws PrismLangException;
 	public Object visit(ExpressionLiteral e) throws PrismLangException;
 	public Object visit(ExpressionConstant e) throws PrismLangException;
 	public Object visit(ExpressionFormula e) throws PrismLangException;
 	public Object visit(ExpressionVar e) throws PrismLangException;
+public Object visit(ExpressionIndexedSetAccess expressionIndexedSetAccess) throws PrismLangException;	// ADDED BY SHANE
 	public Object visit(ExpressionProb e) throws PrismLangException;
 	public Object visit(ExpressionReward e) throws PrismLangException;
 	public Object visit(ExpressionSS e) throws PrismLangException;

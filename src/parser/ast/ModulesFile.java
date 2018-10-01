@@ -28,8 +28,11 @@ package parser.ast;
 
 import java.util.*;
 
+import param.BigRational;
 import parser.*;
 import parser.visitor.*;
+import prism.ModelInfo;
+import prism.PrismException;
 import prism.PrismLangException;
 import prism.ModelType;
 import prism.PrismUtils;
@@ -37,10 +40,11 @@ import parser.type.*;
 
 // Class representing parsed model file
 
-public class ModulesFile extends ASTElement
+public class ModulesFile extends ASTElement implements ModelInfo
 {
-    public static boolean DEBUG = false;
-    public static boolean DEBUG_TU = true;	// Whether to report what stage of tidyUp() we are at (for debug assistance)
+public static boolean DEBUG = false;
+public static boolean DEBUG_TU = true;	// Whether to report what stage of tidyUp() we are at (for debug assistance)
+
 	// Model type (enum)
 	private ModelType modelType;
 
@@ -53,18 +57,20 @@ public class ModulesFile extends ASTElement
 	private ArrayList<SystemDefn> systemDefns; // System definitions (system...endsystem constructs)
 	private ArrayList<String> systemDefnNames; // System definition names (system...endsystem constructs)
 	private ArrayList<RewardStruct> rewardStructs; // Rewards structures
+	private List<String> rewardStructNames; // Names of reward structures
 	private Expression initStates; // Initial states specification
 
 	// Lists of all identifiers used
 	private Vector<String> formulaIdents;
 	private Vector<String> constantIdents;
 	private Vector<String> varIdents; // TODO: don't need?
-	private Set<String> indexedSetNames;		// Used during SemanticCheck
+// ADDED BY SHANE - next line:
+	private Set<String> indexedSetNames;            // Used during SemanticCheck
 	// List of all module names
 	private String[] moduleNames;
 	// List of synchronising actions
 	private Vector<String> synchs;
-	// Lists of variable info (declaration, name, type) - it includes BOTH globals AND module-specific local ones.
+	// Lists of variable info (declaration, name, type) - SHANE NOTE: it includes BOTH globals AND module-specific local ones
 	private Vector<Declaration> varDecls;
 	private Vector<String> varNames;
 	private Vector<Type> varTypes;
@@ -87,6 +93,7 @@ public class ModulesFile extends ASTElement
 		systemDefns = new ArrayList<SystemDefn>();
 		systemDefnNames = new ArrayList<String>();
 		rewardStructs = new ArrayList<RewardStruct>();
+		rewardStructNames = new ArrayList<String>();
 		initStates = null;
 		formulaIdents = new Vector<String>();
 		constantIdents = new Vector<String>();
@@ -94,6 +101,7 @@ public class ModulesFile extends ASTElement
 		varDecls = new Vector<Declaration>();
 		varNames = new Vector<String>();
 		varTypes = new Vector<Type>();
+// ADDED BY SHANE - next line:
 		indexedSetNames = new HashSet<String>();
 		undefinedConstantValues = null;
 		constantValues = null;
@@ -133,7 +141,7 @@ public class ModulesFile extends ASTElement
 	/**
 	 * Remove a declaration of an IndexedSet, to be done after the ConvertIndexedSetDeclarations visitor has created individuals.
 	 */
-	// ADDED by SHANE
+// ADDED by SHANE
 	public void removeGlobal(Declaration d)
 	{
 		if (d.getDeclType() instanceof DeclTypeIndexedSet)
@@ -145,10 +153,10 @@ public class ModulesFile extends ASTElement
 		globals.set(i, d);
 	}
 
-	// ADDED BY SHANE - should probably also write a "delete" one?
 	/**
 	 * Notes the name of an indexed-set. The string should not contain any brackets.
 	 */
+// ADDED BY SHANE - should probably also write a "delete" one?
 	public void addIndexedSetName(String nameOfIS)
 	{
 		indexedSetNames.add(nameOfIS);
@@ -225,23 +233,26 @@ public class ModulesFile extends ASTElement
 	public void clearRewardStructs()
 	{
 		rewardStructs.clear();
+		rewardStructNames.clear();
 	}
 
 	public void addRewardStruct(RewardStruct r)
 	{
 		rewardStructs.add(r);
+		rewardStructNames.add(r.getName());
 	}
 
 	public void setRewardStruct(int i, RewardStruct r)
 	{
 		rewardStructs.set(i, r);
+		rewardStructNames.set(i, r.getName());
 	}
 
 	// this method is included for backwards compatibility only
 	public void setRewardStruct(RewardStruct r)
 	{
-		rewardStructs.clear();
-		rewardStructs.add(r);
+		clearRewardStructs();
+		addRewardStruct(r);
 	}
 
 	public void setInitialStates(Expression e)
@@ -256,6 +267,30 @@ public class ModulesFile extends ASTElement
 		return formulaList;
 	}
 
+	@Override
+	public int getNumLabels()
+	{
+		return labelList.size();
+	}
+
+	@Override
+	public List<String> getLabelNames()
+	{
+		return labelList.getLabelNames();
+	}
+
+	@Override
+	public String getLabelName(int i) throws PrismException
+	{
+		return labelList.getLabelName(i);
+	}
+
+	@Override
+	public int getLabelIndex(String label)
+	{
+		return labelList.getLabelIndex(label);
+	}
+	
 	public LabelList getLabelList()
 	{
 		return labelList;
@@ -266,6 +301,7 @@ public class ModulesFile extends ASTElement
 		return constantList;
 	}
 
+	@Override
 	public ModelType getModelType()
 	{
 		return modelType;
@@ -402,6 +438,14 @@ public class ModulesFile extends ASTElement
 		return rewardStructs.size();
 	}
 
+	/**
+	 * Get a list of the names of the reward structures in the model.
+	 */
+	public List<String> getRewardStructNames()
+	{
+		return rewardStructNames;
+	}
+	
 	/**
 	 * Get a reward structure by its index
 	 * (indexed from 0, not from 1 like at the user (property language) level).
@@ -591,6 +635,7 @@ public class ModulesFile extends ASTElement
 	 * @param s The name to check to see whether it is the name of an indexed set If it contains an open square-bracket,
 	 *	    then only characters prior to that bracket are considered.
 	 */
+// ADDED BY SHANE
 	public boolean isGlobalIndexedSetVar(String s)
 	{
 		if (s.contains("["))
@@ -600,6 +645,19 @@ public class ModulesFile extends ASTElement
 		return indexedSetNames.contains(s);
 	}
 
+	@Override
+	public boolean containsUnboundedVariables()
+	{
+		int n = getNumVars();
+		for (int i = 0; i < n; i++) {
+			DeclarationType declType = getVarDeclaration(i).getDeclType();
+			if (declType instanceof DeclarationClock || declType instanceof DeclarationIntUnbounded) {
+				return true;
+			}
+		}
+		return false;
+	}
+	
 	/**
 	 * Method to "tidy up" after parsing (must be called)
 	 * (do some checks and extract some information)
@@ -653,18 +711,17 @@ if (DEBUG_TU) System.out.println("\nAbout to call findAllConstants()\n");
 if (DEBUG_TU) System.out.println("\nAbout to call constantList.findCycles()\n");
 		constantList.findCycles();
 
-		// Call INSERTED BY SHANE
+// ADDED BY SHANE - the next call of a method
 		// Find all declarations of indexed sets, and convert them to individual declarations of the element type.
 		// Must be done before checkVarNames (so that variables don't re-use the name of the indexed set)
 if (DEBUG_TU) System.out.println("\nAbout to call convertIndexedDeclarations***()\n");
-	convertIndexedDeclarations(constantList,this);	
+		convertIndexedDeclarations(constantList,this);
 		
 		// Check variable names, etc.
-if (DEBUG_TU) System.out.println("\nAbout to call checkVarNames()\n");
 		checkVarNames();
-		// Find all instances of use of variables (including indexed ones), 
-		// Also replace any remaining identifiers with variables.	(Shane thinks: identifier DECLs with vars.)
-		// Also check variables valid, store indices into Updates, etc.
+if (DEBUG_TU) System.out.println("\nAbout to call checkVarNames()\n");
+		// Find all instances of variables, replace identifiers with variables.
+		// Also check variables valid, store indices, etc.
 if (DEBUG_TU) System.out.println("\nAbout to call findAllVars()\n");
 //Update.DEBUG_MSG = true;
 		findAllVars(varNames, varTypes);
@@ -691,8 +748,8 @@ if (DEBUG_TU) System.out.println("\nAbout to call findAllActions()\n");
 		findAllActions(synchs);
 
 		// Various semantic checks 
-if (DEBUG_TU) System.out.println("\nAbout to call semanticCheck()\n");
-		semanticCheck(this);
+if (DEBUG_TU) System.out.println("\nAbout to call doSemanticChecks()\n");
+		doSemanticChecks();
 		// Type checking
 if (DEBUG_TU) System.out.println("\nAbout to call typeCheck()\n");
 		typeCheck();
@@ -703,7 +760,9 @@ if (DEBUG_TU) System.out.println("\nBasically completed the tidyUp() method");
 		// NB: Can't call setUndefinedConstants if there are undefined constants
 		// because semanticCheckAfterConstants may fail. 
 		if (getUndefinedConstants().isEmpty()) {
-			setUndefinedConstants(null);
+			// we use non-exact constant evaluation by default,
+			// for exact mode constants will be reevaluated later on
+			setUndefinedConstants(null, false);
 		}
 	}
 
@@ -889,7 +948,7 @@ if (DEBUG_TU) System.out.println("\nBasically completed the tidyUp() method");
 		n = getNumGlobals();
 		for (i = 0; i < n; i++) {
 			s = getGlobal(i).getName();
-if (DEBUG) System.out.println("Considering Global: " + s);
+if (DEBUG) System.out.println("in checkVarNames(): Considering Global: " + s);
 			if (isIdentUsed(s)) {
 				throw new PrismLangException("Duplicated identifier \"" + s + "\"", getGlobal(i));
 			} else {
@@ -907,7 +966,7 @@ if (DEBUG) System.out.println("Considering Global: " + s);
 			m = module.getNumDeclarations();
 			for (j = 0; j < m; j++) {
 				s = module.getDeclaration(j).getName();
-if (DEBUG) System.out.println("Considering Module-Local (j=" + j+ " of m=" + m + "["+module.getNumDeclarations()+"]: " + s);
+if (DEBUG) System.out.println("in checkVarNames(): Considering Module-Local (j=" + j+ " of m=" + m + "["+module.getNumDeclarations()+"]: " + s);
 				if (isIdentUsed(s)) {
 					throw new PrismLangException("Duplicated identifier \"" + s + "\"", module.getDeclaration(j));
 				} else {
@@ -941,7 +1000,6 @@ if (DEBUG) System.out.println("Considering Module-Local (j=" + j+ " of m=" + m +
 		}
 	}
 
-	
 	/**
 	 * Check "system...endsystem" constructs, if present.
 	 */
@@ -995,6 +1053,27 @@ if (DEBUG) System.out.println("Considering Module-Local (j=" + j+ " of m=" + m +
 	}
 	
 	/**
+	  * Perform any required semantic checks.
+	  * These checks are done *before* any undefined constants have been defined.
+	 */
+	private void doSemanticChecks() throws PrismLangException
+	{
+		ModulesFileSemanticCheck visitor = new ModulesFileSemanticCheck(this);
+		accept(visitor);
+		
+	}
+	
+	/**
+	 * Perform further semantic checks that can only be done once values
+	 * for any undefined constants have been defined.
+	 */
+	public void doSemanticChecksAfterConstants() throws PrismLangException
+	{
+		ModulesFileSemanticCheckAfterConstants visitor = new ModulesFileSemanticCheckAfterConstants(this);
+		accept(visitor);
+	}
+
+	/**
 	 * Get  a list of constants in the model that are undefined
 	 * ("const int x;" rather than "const int x = 1;") 
 	 */
@@ -1010,25 +1089,44 @@ if (DEBUG) System.out.println("Considering Module-Local (j=" + j+ " of m=" + m +
 	 * The current constant values (if set) are available via {@link #getConstantValues()}. 
 	 * Calling this method also triggers some additional semantic checks
 	 * that can only be done once constant values have been specified.
+	 * <br>
+	 * Constant values are evaluated using standard (integer, floating-point) arithmetic.
 	 */
 	public void setUndefinedConstants(Values someValues) throws PrismLangException
 	{
-		undefinedConstantValues = someValues == null ? null : new Values(someValues);
-		constantValues = constantList.evaluateConstants(someValues, null);
-		semanticCheckAfterConstants(this, null);
+		setUndefinedConstants(someValues, false);
 	}
 
 	/**
-	 * Set values for *some* undefined constants and then evaluate all constants where possible.
+	 * Set values for *all* undefined constants and then evaluate all constants.
 	 * If there are no undefined constants, {@code someValues} can be null.
 	 * Undefined constants can be subsequently redefined to different values with the same method.
-	 * The current constant values (if set) are available via {@link #getConstantValues()}.
+	 * The current constant values (if set) are available via {@link #getConstantValues()}. 
+	 * Calling this method also triggers some additional semantic checks
+	 * that can only be done once constant values have been specified.
+	 * <br>
+	 * Constant values are evaluated using either standard (integer, floating-point) arithmetic
+	 * or exact arithmetic, depending on the value of the {@code exact} flag.
 	 */
-	public void setSomeUndefinedConstants(Values someValues) throws PrismLangException
+	public void setUndefinedConstants(Values someValues, boolean exact) throws PrismLangException
 	{
 		undefinedConstantValues = someValues == null ? null : new Values(someValues);
-		constantValues = constantList.evaluateSomeConstants(someValues, null);
-		semanticCheckAfterConstants(this, null);
+		constantValues = constantList.evaluateConstants(someValues, null, exact);
+		doSemanticChecksAfterConstants();
+	}
+
+	@Override
+	public void setSomeUndefinedConstants(Values someValues) throws PrismLangException
+	{
+		setSomeUndefinedConstants(someValues, false);
+	}
+
+	@Override
+	public void setSomeUndefinedConstants(Values someValues, boolean exact) throws PrismLangException
+	{
+		undefinedConstantValues = someValues == null ? null : new Values(someValues);
+		constantValues = constantList.evaluateSomeConstants(someValues, null, exact);
+		doSemanticChecksAfterConstants();
 	}
 
 	/**
@@ -1066,8 +1164,25 @@ if (DEBUG) System.out.println("Considering Module-Local (j=" + j+ " of m=" + m +
 	 * Assumes that values for constants have been provided for the model.
 	 * Note: This method replaces the old getInitialValues() method,
 	 * since State objects are now preferred to Values objects for efficiency.
+	 * <br>
+	 * The init expression is evaluated using the default evaluate, i.e.,
+	 * not using exact arithmetic.
 	 */
 	public State getDefaultInitialState() throws PrismLangException
+	{
+		return getDefaultInitialState(false);
+	}
+
+	/**
+	 * Create a State object representing the default initial state of this model.
+	 * If there are potentially multiple initial states (because the model has an
+	 * init...endinit specification), this method returns null;
+	 * Assumes that values for constants have been provided for the model.
+	 * Note: This method replaces the old getInitialValues() method,
+	 * since State objects are now preferred to Values objects for efficiency.
+	 * @param exact use exact arithmetic in evaluation of init expression?
+	 */
+	public State getDefaultInitialState(boolean exact) throws PrismLangException
 	{
 		int i, j, count, n, n2;
 		Module module;
@@ -1086,8 +1201,13 @@ if (DEBUG) System.out.println("Considering Module-Local (j=" + j+ " of m=" + m +
 		n = getNumGlobals();
 		for (i = 0; i < n; i++) {
 			decl = getGlobal(i);
-			initialValue = decl.getStartOrDefault().evaluate(constantValues);
-			initialValue = getGlobal(i).getType().castValueTo(initialValue);
+			if (exact) {
+				BigRational r = decl.getStartOrDefault().evaluateExact(constantValues);
+				initialValue = getGlobal(i).getType().castFromBigRational(r);
+			} else {
+				initialValue = decl.getStartOrDefault().evaluate(constantValues);
+				initialValue = getGlobal(i).getType().castValueTo(initialValue);
+			}
 			initialState.setValue(count++, initialValue);
 		}
 		n = getNumModules();
@@ -1096,8 +1216,13 @@ if (DEBUG) System.out.println("Considering Module-Local (j=" + j+ " of m=" + m +
 			n2 = module.getNumDeclarations();
 			for (j = 0; j < n2; j++) {
 				decl = module.getDeclaration(j);
-				initialValue = decl.getStartOrDefault().evaluate(constantValues);
-				initialValue = module.getDeclaration(j).getType().castValueTo(initialValue);
+				if (exact) {
+					BigRational r = decl.getStartOrDefault().evaluateExact(constantValues);
+					initialValue = module.getDeclaration(j).getType().castFromBigRational(r);
+				} else {
+					initialValue = decl.getStartOrDefault().evaluate(constantValues);
+					initialValue = module.getDeclaration(j).getType().castValueTo(initialValue);
+				}
 				initialState.setValue(count++, initialValue);
 			}
 		}
@@ -1180,6 +1305,13 @@ if (DEBUG) System.out.println("Considering Module-Local (j=" + j+ " of m=" + m +
 		// Find all instances of variables, replace identifiers with variables.
 		// Also check variables valid, store indices, etc.
 		findAllVars(varNames, varTypes);
+	}
+
+	@Override
+	public boolean rewardStructHasTransitionRewards(int i)
+	{
+		RewardStruct rewStr = getRewardStruct(i);
+		return rewStr.getNumTransItems() > 0;
 	}
 
 	/**

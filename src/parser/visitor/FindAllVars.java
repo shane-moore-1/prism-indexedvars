@@ -26,7 +26,7 @@
 
 package parser.visitor;
 
-import java.util.Vector;
+import java.util.List;
 
 import parser.ast.*;
 import parser.type.*;
@@ -39,12 +39,12 @@ import prism.PrismLangException;
  */
 public class FindAllVars extends ASTTraverseModify
 {
-	public static boolean DEBUG = true;
+public static boolean DEBUG = false;
 
-	private Vector<String> varIdents;
-	private Vector<Type> varTypes;
+	private List<String> varIdents;
+	private List<Type> varTypes;
 	
-	public FindAllVars(Vector<String> varIdents, Vector<Type> varTypes)
+	public FindAllVars(List<String> varIdents, List<Type> varTypes)
 	{
 		this.varIdents = varIdents;
 		this.varTypes = varTypes;
@@ -76,26 +76,28 @@ public class FindAllVars extends ASTTraverseModify
 	{
 		int i, j, n;
 		String s;
-System.out.println("FindAllVars.visitPost(Update) for : " + e);
+System.out.println("** Inside FindAllVars.visitPost(Update) for this update: " + e);
 		
-		boolean sawAnIndexedSet = false;		// May not need, now. - shane
+		boolean sawAnIndexedSet = false;		// May no longer need this. - SHANE
 		
 		// For each element of update
 		n = e.getNumElements();
 		for (i = 0; i < n; i++) {
 			ExpressionIdent targetOfUpdate = e.getVarIdent(i);
-if (DEBUG) System.out.println("Considering (i=" + i + "/"+n+"): " + targetOfUpdate);			
+if (DEBUG) System.out.println("\nConsidering update-element " + (i+1) + "/"+n+", whose target is: " + targetOfUpdate + " [" + targetOfUpdate.getClass().getName() + "]" );	
 			if (targetOfUpdate instanceof ExpressionIndexedSetAccess)
 			{
+
 				ExpressionIndexedSetAccess detail = (ExpressionIndexedSetAccess) targetOfUpdate;
-if (DEBUG) System.out.println("\nDealing with indexed-set access for: " + e.getVarIdent(i));
+if (DEBUG) System.out.println(" It is an indexed-set access"); 
 				// Consider the Access part's validity - is it an int value.
 				Expression indexExp = detail.getIndexExpression();
 
-if (DEBUG) System.out.println("Going to call visit() on the access expression: " + indexExp);
+if (DEBUG) System.out.println("  So I am going to call visit(FindAllVars) on the access expression: " + indexExp);
 				// Delve in so that the expression might be resolved.
 				Expression res = (Expression) indexExp.accept(this);
-if (DEBUG) System.out.println("Completed call visit() on the access expression: " + indexExp + " - its type is " + res.getType());
+if (DEBUG) System.out.println("  Completed call visit() on the access expression: " + indexExp);
+if (DEBUG) System.out.println("  The result received from visit() " + ((res == indexExp) ? "is the same" : "has changed") + " [" + res.getClass().getName() + "]" );
 				detail.setIndexExpression(res);
 	
 				//refresh it (in case it just got changed by above line)
@@ -114,7 +116,7 @@ if (DEBUG) ple.printStackTrace(System.out); else
 					// not done yet.
 
 				// Consider the type that the result ought to be:
-if (DEBUG) System.out.println("Looking for "+ e.getVar(i) + "[0] (which is of the target kind)");
+//if (DEBUG) System.out.println("Looking for "+ e.getVar(i) + "[0] (which is of the target kind)");
 				j = varIdents.indexOf(e.getVar(i)+"[0]");		// the first element's type is all we need
 				if (j == -1) {
 					s = "Unknown indexed-set \"" + e.getVar(i) + "\"";
@@ -124,9 +126,9 @@ if (DEBUG) ple.printStackTrace(System.out); else
 				}
 
 
-				Type targetType = varTypes.elementAt(j);
+				Type targetType = varTypes.get(j);
 				e.setType(i, targetType);
-if (DEBUG) System.out.println("Determined its type: " + targetType + ", but leaving its j-position for run-time determination.");
+if (DEBUG) System.out.println("  Also, determined its type: " + targetType + ", but leaving its j-position for run-time determination.");
 
 					
 			
@@ -142,7 +144,7 @@ if (DEBUG) System.out.println("Determined its type: " + targetType + ", but leav
 				// Maybe: replace Update with UpdateEnhanced, which has a reference to the varIdents.
 			}
 			else {		// Not an indexed-set, just an ordinary variable (seemingly)
-if (DEBUG) System.out.println("\nDealing with: " + e.getVarIdent(i) + " (which is non-indexed)");
+if (DEBUG) System.out.println(" It is not accessing an indexed-set. It is: " + e.getVarIdent(i) );
 				// Check variable exists - by finding its index within the vector of the ModulesFile's known variables.
 				j = varIdents.indexOf(e.getVar(i));
 				if (j == -1) {
@@ -152,10 +154,10 @@ if (DEBUG) System.out.println("\nDealing with: " + e.getVarIdent(i) + " (which i
 				// Look up its type (in the ModulesFile), and store it inside the ElementOfUpdate
 				Type tfe = e.getTypeForElement(i);
 
-if (DEBUG) System.out.println("\nBefore setType (for " + e.getVar(i) + "), the type is reported to be: " + tfe + " (" + ((tfe == null) ? "---" : tfe.getClass().getName()) +")");
-				e.setType(i, varTypes.elementAt(j));
+//if (DEBUG) System.out.println("\nBefore setType (for " + e.getVar(i) + "), the type is reported to be: " + tfe + " (" + ((tfe == null) ? "---" : tfe.getClass().getName()) +")");
+				e.setType(i, varTypes.get(j));
 tfe = e.getTypeForElement(i);
-if (DEBUG) System.out.println("After setType,  (for " + e.getVar(i) + "), the type is reported to be: " + tfe + " (" + ((tfe == null) ? "---" : tfe.getClass().getName()) +")\n" );
+//if (DEBUG) System.out.println("After setType,  (for " + e.getVar(i) + "), the type is reported to be: " + tfe + " (" + ((tfe == null) ? "---" : tfe.getClass().getName()) +")\n" );
 				// And store the variable index
 				e.setVarIndex(i, j);
 			}
@@ -175,15 +177,15 @@ if (DEBUG) System.out.println("After setType,  (for " + e.getVar(i) + "), the ty
 	{
 		String s;
 		// COPIED FROM ABOVE
-System.out.println("FindAllVars.visit(ExprIndSetAcc) for " + e + " which needs to be interpreted now...");
+System.out.println("\nReached FindAllVars.visit(ExprIndSetAcc) [overrides ASTTravMod] for " + e + " which needs to be interpreted now...");
 				ExpressionIndexedSetAccess detail = e;
 				// Consider the Access part's validity - is it an int value.
 				Expression indexExp = detail.getIndexExpression();
 
-if (DEBUG) System.out.println("FAV.v(EISA): Going to call visit() on the access expression: " + indexExp);
+if (DEBUG) System.out.println(" FAV.v(EISA): Going to call visit() on the access expression: " + indexExp);
 				// Delve in so that the expression might be resolved.
 				Expression resolve = (Expression) indexExp.accept(this);
-if (DEBUG) System.out.println("FAV.v(EISA): Completed call visit() on the access expression: " + indexExp + " - its type is " + resolve.getType());
+if (DEBUG) System.out.println(" FAV.v(EISA): Completed call visit() on the access expression: " + indexExp + " - its type is " + resolve.getType());
 				detail.setIndexExpression(resolve);
 	
 				//refresh it (in case it just got changed by above line)
@@ -197,26 +199,26 @@ if (DEBUG) System.out.println("FAV.v(EISA): Completed call visit() on the access
 if (DEBUG) ple.printStackTrace(System.out); else
 					throw ple;
 				}
-else if (DEBUG) System.out.println("FAV.v(EISA):Type of the argument used to access indexed-set is acceptable (int)");
+else if (DEBUG) System.out.println(" FAV.v(EISA):Type of the argument used to access indexed-set is acceptable (int)");
 
 				// Consider if it is out-of-bounds:
 					// not done yet.
 
 				// Consider the type that the result ought to be:
-if (DEBUG) System.out.println("FAV.v(EISA): Looking for "+ e.getName() + "[0]");
+if (DEBUG) System.out.println(" FAV.v(EISA): Looking for "+ e.getName() + "[0]");
 				int j = varIdents.indexOf(e.getName()+"[0]");		// the first element's type is all we need
 				if (j == -1) {
 					s = "Unknown indexed-set \"" + e.getName() + "\"";
 					throw new PrismLangException(s, e);	
 				}
-if (DEBUG) System.out.println("FAV.v(EISA) j for first element of indexed set is: " + j);
-
-				Type targetType = varTypes.elementAt(j);
-if (DEBUG) System.out.println("2:Determined its type: " + targetType + ", but leaving its j-position for run-time determination.");
+if (DEBUG) System.out.println(" FAV.v(EISA) j for first element of indexed set is: " + j);
+ 
+				Type targetType = varTypes.get(j);
+if (DEBUG) System.out.println(" Determined its type: " + targetType + ", but LEAVING its j-position FOR RUN-TIME determination.");
 				e.setType(targetType);
 
 				// Tell it of the varIdents vector, to allow the specific element to be found at later time.
-				e.setVarIdentsVector(varIdents);	// enable run-time resolution of whichever index is to be accessed.
+				e.setVarIdentsList(varIdents);	// enable run-time resolution of whichever index is to be accessed.
 
 		return detail;
 	}		// End of method visit(ExprIndAccSet)
@@ -225,22 +227,22 @@ if (DEBUG) System.out.println("2:Determined its type: " + targetType + ", but le
 	 * When we consider an expression that is an identifier, if the identifier corresponds to a name
 	 * of a variable, we convert it to an ExpressionVar node.  
 	 */
-	@Override
+	@Override	
 	public Object visit(ExpressionIdent e) throws PrismLangException
 	{
 		int i;
 		// See if identifier corresponds to a variable
-if (DEBUG) System.out.println("FindAllVars.visit(ExprIdent) for " + e + " [" + e.getClass().getName() + "]");
+if (DEBUG) System.out.println("\nReached FindAllVars.visit(ExprIdent) for " + e + " [" + e.getClass().getName() + "]");
 
 		i = varIdents.indexOf(e.getName());
-	   	if (i != -1) {			// An exact variable is being accessed, or a indexed variable with known index is being accessed.
+		if (i != -1) {			// An exact variable is being accessed, or a indexed variable with known index is being accessed.
 			// If so, replace it with an ExpressionVar object
-			ExpressionVar expr = new ExpressionVar(e.getName(), varTypes.elementAt(i));
+			ExpressionVar expr = new ExpressionVar(e.getName(), varTypes.get(i));
 			expr.setPosition(e);
 			// Store variable index
 			expr.setIndex(i);
 			return expr;
-		} 
+		}
 		// Otherwise, leave it unchanged
 		return e;
 	}
@@ -253,6 +255,7 @@ if (DEBUG) System.out.println("FindAllVars.visit(ExprIdent) for " + e + " [" + e
 	public Object visit(ExpressionVar e) throws PrismLangException
 	{
 		int i;
+if (DEBUG) System.out.println("\nReached FindAllVars.visit(ExpressionVar) for: " + e + " [no further debug messages for it]");
 		// See if identifier corresponds to a variable
 		i = varIdents.indexOf(e.getName());
 		if (i != -1) {

@@ -66,6 +66,8 @@ public abstract class ModelExplicit implements Model
 	protected List<State> statesList;
 	/** (Optionally) a list of values for constants associated with this model. */
 	protected Values constantValues;
+	/** (Optionally) the list of variables */
+	protected VarList varList;
 	/** (Optionally) some labels (atomic propositions) associated with the model,
 	 * represented as a String->BitSet mapping from their names to the states that satisfy them. */
 	protected Map<String, BitSet> labels = new TreeMap<String, BitSet>();
@@ -94,6 +96,7 @@ public abstract class ModelExplicit implements Model
 		statesList = model.statesList;
 		constantValues = model.constantValues;
 		labels = model.labels;
+		varList = model.varList;
 	}
 
 	/**
@@ -117,6 +120,7 @@ public abstract class ModelExplicit implements Model
 		statesList = null;
 		constantValues = model.constantValues;
 		labels.clear();
+		varList = model.varList;
 	}
 
 	/**
@@ -129,6 +133,7 @@ public abstract class ModelExplicit implements Model
 		deadlocks = new TreeSet<Integer>();
 		statesList = null;
 		constantValues = null;
+		varList = null;
 		labels = new TreeMap<String, BitSet>();
 	}
 
@@ -158,6 +163,8 @@ public abstract class ModelExplicit implements Model
 
 	/**
 	 * Build (anew) from a list of transitions exported explicitly by PRISM (i.e. a .tra file).
+	 * Note that initial states are not configured (since this info is not in the file),
+	 * so this needs to be done separately (using {@link #addInitialState(int)}.
 	 */
 	public abstract void buildFromPrismExplicit(String filename) throws PrismException;
 
@@ -178,6 +185,14 @@ public abstract class ModelExplicit implements Model
 	}
 
 	/**
+	 * Sets the VarList for this model (may be {@code null}).
+	 */
+	public void setVarList(VarList varList)
+	{
+		this.varList = varList;
+	}
+
+	/**
 	 * Adds a label and the set the states that satisfy it.
 	 * Any existing label with the same name is overwritten.
 	 * @param name The name of the label
@@ -186,6 +201,49 @@ public abstract class ModelExplicit implements Model
 	public void addLabel(String name, BitSet states)
 	{
 		labels.put(name, states);
+	}
+
+	/**
+	 * Add a label with corresponding state set, ensuring a unique, non-existing label.
+	 * The label will be either "X" or "X_i" where X is the content of the {@code prefix} argument
+	 * and i is a non-negative integer.
+	 * <br>
+	 * Optionally, a set of defined label names can be passed so that those labels
+	 * can be avoided. This can be obtained from the model checker via {@code getDefinedLabelNames()}.
+	 * <br>
+	 * Note that a stored label takes precedence over the on-the-fly calculation
+	 * of an ExpressionLabel, cf. {@link explicit.StateModelChecker#checkExpressionLabel}
+	 *
+	 * @param prefix the prefix for the unique label
+	 * @param labelStates the BitSet with the state set for the label
+	 * @param definedLabelNames set of names (optional, may be {@code null}) to check for existing labels
+	 * @return the generated unique label
+	 */
+	public String addUniqueLabel(String prefix, BitSet labelStates, Set<String> definedLabelNames)
+	{
+		String label;
+		int i = 0;
+		label = prefix;  // first, try without appending _i
+		while (true) {
+			boolean labelOk = !hasLabel(label);  // not directly attached to model
+			if (definedLabelNames != null) {
+				labelOk &= !definedLabelNames.contains(label);  // not defined
+			}
+
+			if (labelOk) {
+				break;
+			}
+
+			// prepare next label to try
+			label = prefix+"_"+i;
+			if (i == Integer.MAX_VALUE)
+				throw new UnsupportedOperationException("Integer overflow trying to add unique label");
+
+			i++;
+		}
+
+		addLabel(label, labelStates);
+		return label;
 	}
 
 	// Accessors (for Model interface)
@@ -269,11 +327,23 @@ public abstract class ModelExplicit implements Model
 	{
 		return constantValues;
 	}
+	
+	@Override
+	public VarList getVarList()
+	{
+		return varList;
+	}
 
 	@Override
 	public BitSet getLabelStates(String name)
 	{
 		return labels.get(name);
+	}
+
+	@Override
+	public boolean hasLabel(String name)
+	{
+		return labels.containsKey(name);
 	}
 
 	@Override
@@ -284,9 +354,6 @@ public abstract class ModelExplicit implements Model
 	
 	@Override
 	public abstract int getNumTransitions();
-
-	@Override
-	public abstract boolean isSuccessor(int s1, int s2);
 
 	@Override
 	public void checkForDeadlocks() throws PrismException
@@ -308,74 +375,19 @@ public abstract class ModelExplicit implements Model
 	@Override
 	public void exportToPrismExplicitTra(String filename) throws PrismException
 	{
-		exportToPrismExplicitTra(PrismFileLog.create(filename));
+		try (PrismFileLog log = PrismFileLog.create(filename)) {
+			exportToPrismExplicitTra(log);
+		}
 	}
 
 	@Override
 	public void exportToPrismExplicitTra(File file) throws PrismException
 	{
-		exportToPrismExplicitTra(PrismFileLog.create(file.getPath()));
+		exportToPrismExplicitTra(file.getPath());
 	}
 
 	@Override
 	public abstract void exportToPrismExplicitTra(PrismLog out);
-
-	@Override
-	public void exportToDotFile(String filename) throws PrismException
-	{
-		exportToDotFile(PrismFileLog.create(filename), null);
-	}
-
-	@Override
-	public void exportToDotFile(String filename, BitSet mark) throws PrismException
-	{
-		exportToDotFile(PrismFileLog.create(filename), mark);
-	}
-
-	@Override
-	public void exportToDotFile(PrismLog out)
-	{
-		exportToDotFile(out, null, false);
-	}
-
-	@Override
-	public void exportToDotFile(PrismLog out, BitSet mark)
-	{
-		exportToDotFile(out, mark, false);
-	}
-
-	@Override
-	public void exportToDotFile(PrismLog out, BitSet mark, boolean showStates)
-	{
-		int i;
-		// Header
-		out.print("digraph " + getModelType() + " {\nsize=\"8,5\"\nnode [shape=box];\n");
-		for (i = 0; i < numStates; i++) {
-			// Style for each state
-			if (mark != null && mark.get(i))
-				out.print(i + " [style=filled  fillcolor=\"#cccccc\"]\n");
-			// Transitions for state i
-			exportTransitionsToDotFile(i, out);
-		}
-		// Append state info (if required)
-		if (showStates) {
-			List<State> states = getStatesList();
-			if (states != null) {
-				for (i = 0; i < numStates; i++) {
-					out.print(i + " [label=\"" + i + "\\n" + states.get(i) + "\"]\n");
-				}
-			}
-		}
-		// Footer
-		out.print("}\n");
-	}
-
-	/**
-	 * Export the transitions from state {@code i} in Dot format to {@code out}.
-	 * @param i State index
-	 * @param out PrismLog for output
-	 */
-	protected abstract void exportTransitionsToDotFile(int i, PrismLog out);
 
 	@Override
 	public abstract void exportToPrismLanguage(String filename) throws PrismException;

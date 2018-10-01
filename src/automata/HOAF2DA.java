@@ -28,6 +28,9 @@
 
 package automata;
 
+import java.io.FileInputStream;
+import java.io.InputStream;
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
@@ -39,17 +42,23 @@ import jhoafparser.ast.AtomLabel;
 import jhoafparser.ast.BooleanExpression;
 import jhoafparser.consumer.HOAConsumer;
 import jhoafparser.consumer.HOAConsumerException;
+import jhoafparser.consumer.HOAIntermediateStoreAndManipulate;
+import jhoafparser.parser.HOAFParser;
+import jhoafparser.transformations.ToStateAcceptance;
 import jhoafparser.util.ImplicitEdgeHelper;
 import jltl2ba.APElement;
 import jltl2ba.APSet;
 import jltl2dstar.APMonom;
 import jltl2dstar.APMonom2APElements;
+import acceptance.AcceptanceBuchi;
 import acceptance.AcceptanceGenRabin;
 import acceptance.AcceptanceGenRabin.GenRabinPair;
 import acceptance.AcceptanceGeneric;
 import acceptance.AcceptanceOmega;
 import acceptance.AcceptanceRabin;
 import acceptance.AcceptanceRabin.RabinPair;
+import acceptance.AcceptanceStreett;
+import acceptance.AcceptanceStreett.StreettPair;
 
 /**
  * A HOAConsumer for jhoafparser that constructs a prism.DA from the parsed automaton.
@@ -273,6 +282,10 @@ public class HOAF2DA implements HOAConsumer {
 				return prepareAcceptanceRabin();
 			} else if (accName.equals("generalized-Rabin")) {
 				return prepareAcceptanceGenRabin();
+			} else if (accName.equals("Streett")) {
+				return prepareAcceptanceStreett();
+			} else if (accName.equals("Buchi")) {
+				return prepareAcceptanceBuchi();
 			}
 		}
 
@@ -332,6 +345,23 @@ public class HOAF2DA implements HOAConsumer {
 	}
 
 	/**
+	 * Prepare a Buchi acceptance condition from the acc-name header.
+	 */
+	private AcceptanceBuchi prepareAcceptanceBuchi() throws HOAConsumerException
+	{
+		if (extraInfo.size() != 0) {
+			throw new HOAConsumerException("Invalid acc-name: Buchi header");
+		}
+
+		acceptanceSets = new ArrayList<BitSet>(1);
+		BitSet acceptingStates = new BitSet();
+		AcceptanceBuchi acceptanceBuchi = new AcceptanceBuchi(acceptingStates);
+		acceptanceSets.add(acceptingStates);  // Inf(0)
+
+		return acceptanceBuchi;
+	}
+
+	/**
 	 * Prepare a Rabin acceptance condition from the acc-name header.
 	 */
 	private AcceptanceRabin prepareAcceptanceRabin() throws HOAConsumerException
@@ -355,6 +385,32 @@ public class HOAF2DA implements HOAConsumer {
 		}
 
 		return acceptanceRabin;
+	}
+
+	/**
+	 * Prepare a Streett acceptance condition from the acc-name header.
+	 */
+	private AcceptanceStreett prepareAcceptanceStreett() throws HOAConsumerException
+	{
+		if (extraInfo.size() != 1 ||
+		    !(extraInfo.get(0) instanceof Integer)) {
+			throw new HOAConsumerException("Invalid acc-name: Streett header");
+		}
+
+		int numberOfPairs = (Integer)extraInfo.get(0);
+		AcceptanceStreett acceptanceStreett = new AcceptanceStreett();
+		acceptanceSets = new ArrayList<BitSet>(numberOfPairs*2);
+		for (int i = 0; i< numberOfPairs; i++) {
+			BitSet R = new BitSet();
+			BitSet G = new BitSet();
+
+			acceptanceSets.add(R);   // 2*i
+			acceptanceSets.add(G);   // 2*i+1
+
+			acceptanceStreett.add(new StreettPair(R,G));
+		}
+
+		return acceptanceStreett;
 	}
 
 	/**
@@ -414,6 +470,7 @@ public class HOAF2DA implements HOAConsumer {
 			for (int index : accSignature) {
 				if (index >= acceptanceSets.size()) {
 					// acceptance set index not used in acceptance condition, ignore
+					continue;
 				}
 				BitSet accSet = acceptanceSets.get(index);
 				if (accSet == null) {
@@ -472,6 +529,7 @@ public class HOAF2DA implements HOAConsumer {
 			return result;
 		case EXP_FALSE:
 			result.add(new APMonom(false));
+			return result;
 		case EXP_OR:
 			result.addAll(labelExpressionToAPMonom(expr.getLeft()));
 			result.addAll(labelExpressionToAPMonom(expr.getRight()));
@@ -546,8 +604,15 @@ public class HOAF2DA implements HOAConsumer {
 			APMonom2APElements it = new APMonom2APElements(aps, monom);
 			while(it.hasNext()) {
 				APElement el = it.next();
-				if (da.hasEdge(stateId, el)) {
-					throw new HOAConsumerException("Not a deterministic automaton, non-determinism detected (state "+stateId+")");
+				// check whether this edge already exist
+				int previousTo = da.getEdgeDestByLabel(stateId, el);
+				if (previousTo == to) {
+					// there is already an edge for this label, but the target
+					// state is the same, so we don't add an additional edge
+					continue;
+				}
+				if (previousTo != -1) {
+					throw new HOAConsumerException("Not a deterministic automaton, non-determinism detected (state "+stateId+", label = "+el+", to="+to+", previously to "+previousTo+")");
 				}
 				da.addEdge(stateId, el, to);
 			}
@@ -595,4 +660,64 @@ public class HOAF2DA implements HOAConsumer {
 		throw new HOAConsumerException(warning);
 	}
 
+	/** Command-line interface for reading, parsing and printing a HOA automaton (for testing) */
+	public static void main(String args[])
+	{
+		int rv = 0;
+		InputStream input = null;
+		try {
+			if (args.length != 2) {
+				System.err.println("Usage: input-file output-file\n\n Filename can be '-' for standard input/output");
+				System.exit(1);
+			}
+			if (args[0].equals("-")) {
+				input = System.in;
+			} else {
+				input = new FileInputStream(args[0]);
+			}
+
+			PrintStream output;
+			String outfile = args[1];
+			if (outfile.equals("-")) {
+				output = System.out;
+			} else {
+				output = new PrintStream(outfile);
+			}
+
+			DA<BitSet, ? extends AcceptanceOmega> result;
+			try {
+				HOAF2DA consumerDA = new HOAF2DA();
+				HOAFParser.parseHOA(input, consumerDA);
+				result = consumerDA.getDA();
+			} catch (HOAF2DA.TransitionBasedAcceptanceException e) {
+				// try again, this time transforming to state acceptance
+				if (input == System.in) {
+					System.out.println("Automaton with transition-based acceptance, can only be (re)parsed from file");
+					System.exit(1);
+				}
+				System.out.println("Automaton with transition-based acceptance, automatically converting to state-based acceptance...");
+				HOAF2DA consumerDA = new HOAF2DA();
+				HOAIntermediateStoreAndManipulate consumerTransform = new HOAIntermediateStoreAndManipulate(consumerDA, new ToStateAcceptance());
+
+				HOAFParser.parseHOA(input, consumerTransform);
+				result = consumerDA.getDA();
+			}
+
+			if (result == null) {
+				throw new PrismException("Could not construct DA");
+			}
+
+			// should we try and simplify?
+			// result = DASimplifyAcceptance.simplifyAcceptance(result, acceptance.AcceptanceType.REACH);
+
+			result.printHOA(output);
+		} catch (Exception e) {
+			System.err.println(e.toString());
+			rv = 1;
+		}
+		
+		if (rv != 0) {
+			System.exit(rv);
+		}
+	}
 }

@@ -26,6 +26,7 @@
 
 package parser.ast;
 
+import param.BigRational;
 import parser.EvaluateContext;
 import parser.visitor.ASTVisitor;
 import prism.PrismLangException;
@@ -41,16 +42,20 @@ public class ExpressionTemporal extends Expression
 	public static final int P_R = 6; // Release (for P operator)
 	public static final int R_C = 11; // Cumulative (for R operator)
 	public static final int R_I = 12; // Instantaneous (for R operator)
-	public static final int R_F = 13; // Reachability (for R operator)
+	public static final int R_F = 13; // Reachability (for R operator) // DEPRECATED: Use P_F
 	public static final int R_S = 14; // Steady-state (for R operator)
 	// Operator symbols
 	public static final String opSymbols[] = { "", "X", "U", "F", "G", "W", "R", "", "", "", "", "C", "I", "F", "S" };
 
-	// Operator
+	/** Operator, one of the operator constants above */
 	protected int op = 0;
+
 	// Up to two operands (either may be null)
-	protected Expression operand1 = null; // LHS of operator
-	protected Expression operand2 = null; // RHS of operator
+	/** LHS of operator, null for unary operators */
+	protected Expression operand1 = null;
+	/** RHS of operator, null for nullary operators (e.g., S) */
+	protected Expression operand2 = null;
+
 	// Optional (time) bounds
 	protected Expression lBound = null; // None if null, i.e. zero
 	protected Expression uBound = null; // None if null, i.e. infinity
@@ -62,10 +67,17 @@ public class ExpressionTemporal extends Expression
 
 	// Constructors
 
+	/** Constructor */
 	public ExpressionTemporal()
 	{
 	}
 
+	/**
+	 * Constructor.
+	 * @param op the temporal operator (see constants at ExpressionTemporal)
+	 * @param operand1 the LHS operand ({@code null} for unary operators)
+	 * @param operand2 the RHS operand
+	 */
 	public ExpressionTemporal(int op, Expression operand1, Expression operand2)
 	{
 		this.op = op;
@@ -75,16 +87,19 @@ public class ExpressionTemporal extends Expression
 
 	// Set methods
 
+	/** Set the operator to i */
 	public void setOperator(int i)
 	{
 		op = i;
 	}
 
+	/** Set the LHS operand to e1 */
 	public void setOperand1(Expression e1)
 	{
 		operand1 = e1;
 	}
 
+	/** Set the RHS operand to e2 */
 	public void setOperand2(Expression e2)
 	{
 		operand2 = e2;
@@ -140,8 +155,20 @@ public class ExpressionTemporal extends Expression
 		equals = true;
 	}
 
+	/**
+	 * Take the bounds information from the other ExpressionTemporal
+	 * and store them in this ExpressionTemporal (no deep copy).
+	 */
+	public void setBoundsFrom(ExpressionTemporal exprTemp)
+	{
+		setLowerBound(exprTemp.getLowerBound(), exprTemp.lowerBoundIsStrict());
+		setUpperBound(exprTemp.getUpperBound(), exprTemp.upperBoundIsStrict());
+		equals = exprTemp.equals;
+	}
+
 	// Get methods
 
+	/** Set the operator */
 	public int getOperator()
 	{
 		return op;
@@ -152,22 +179,25 @@ public class ExpressionTemporal extends Expression
 		return opSymbols[op];
 	}
 
+	/** Get the LHS operand (should be {@code null} for unary operators) */
 	public Expression getOperand1()
 	{
 		return operand1;
 	}
 
+	/** Get the RHS operand */
 	public Expression getOperand2()
 	{
 		return operand2;
 	}
 
+	/* Get the number of stored operands */
 	public int getNumOperands()
 	{
-		if (operand1 == null)
+		if (operand2 == null)
 			return 0;
 		else
-			return (operand2 == null) ? 1 : 2;
+			return (operand1 == null) ? 1 : 2;
 	}
 
 	public boolean hasBounds()
@@ -205,9 +235,7 @@ public class ExpressionTemporal extends Expression
 
 	// Methods required for Expression:
 
-	/**
-	 * Is this expression constant?
-	 */
+	@Override
 	public boolean isConstant()
 	{
 		return false;
@@ -219,11 +247,14 @@ public class ExpressionTemporal extends Expression
 		return false;
 	}
 	
-	/**
-	 * Evaluate this expression, return result.
-	 * Note: assumes that type checking has been done already.
-	 */
+	@Override
 	public Object evaluate(EvaluateContext ec) throws PrismLangException
+	{
+		throw new PrismLangException("Cannot evaluate a temporal operator without a path");
+	}
+
+	@Override
+	public BigRational evaluateExact(EvaluateContext ec) throws PrismLangException
 	{
 		throw new PrismLangException("Cannot evaluate a temporal operator without a path");
 	}
@@ -236,17 +267,32 @@ public class ExpressionTemporal extends Expression
 
 	// Methods required for ASTElement:
 
-	/**
-	 * Visitor method.
-	 */
+	@Override
 	public Object accept(ASTVisitor v) throws PrismLangException
 	{
 		return v.visit(this);
 	}
 
-	/**
-	 * Convert to string.
-	 */
+	@Override
+	public Expression deepCopy()
+	{
+		ExpressionTemporal expr = new ExpressionTemporal();
+		expr.setOperator(op);
+		if (operand1 != null)
+			expr.setOperand1(operand1.deepCopy());
+		if (operand2 != null)
+			expr.setOperand2(operand2.deepCopy());
+		expr.setLowerBound(lBound == null ? null : lBound.deepCopy(), lBoundStrict);
+		expr.setUpperBound(uBound == null ? null : uBound.deepCopy(), uBoundStrict);
+		expr.equals = equals;
+		expr.setType(type);
+		expr.setPosition(this);
+		return expr;
+	}
+
+	// Standard methods
+
+	@Override
 	public String toString()
 	{
 		String s = "";
@@ -275,23 +321,61 @@ public class ExpressionTemporal extends Expression
 		return s;
 	}
 
-	/**
-	 * Perform a deep copy.
-	 */
-	public Expression deepCopy()
+	@Override
+	public int hashCode()
 	{
-		ExpressionTemporal expr = new ExpressionTemporal();
-		expr.setOperator(op);
-		if (operand1 != null)
-			expr.setOperand1(operand1.deepCopy());
-		if (operand2 != null)
-			expr.setOperand2(operand2.deepCopy());
-		expr.setLowerBound(lBound == null ? null : lBound.deepCopy(), lBoundStrict);
-		expr.setUpperBound(uBound == null ? null : uBound.deepCopy(), uBoundStrict);
-		expr.equals = equals;
-		expr.setType(type);
-		expr.setPosition(this);
-		return expr;
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + (equals ? 1231 : 1237);
+		result = prime * result + ((lBound == null) ? 0 : lBound.hashCode());
+		result = prime * result + (lBoundStrict ? 1231 : 1237);
+		result = prime * result + op;
+		result = prime * result + ((operand1 == null) ? 0 : operand1.hashCode());
+		result = prime * result + ((operand2 == null) ? 0 : operand2.hashCode());
+		result = prime * result + ((uBound == null) ? 0 : uBound.hashCode());
+		result = prime * result + (uBoundStrict ? 1231 : 1237);
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj)
+	{
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		ExpressionTemporal other = (ExpressionTemporal) obj;
+		if (equals != other.equals)
+			return false;
+		if (lBound == null) {
+			if (other.lBound != null)
+				return false;
+		} else if (!lBound.equals(other.lBound))
+			return false;
+		if (lBoundStrict != other.lBoundStrict)
+			return false;
+		if (op != other.op)
+			return false;
+		if (operand1 == null) {
+			if (other.operand1 != null)
+				return false;
+		} else if (!operand1.equals(other.operand1))
+			return false;
+		if (operand2 == null) {
+			if (other.operand2 != null)
+				return false;
+		} else if (!operand2.equals(other.operand2))
+			return false;
+		if (uBound == null) {
+			if (other.uBound != null)
+				return false;
+		} else if (!uBound.equals(other.uBound))
+			return false;
+		if (uBoundStrict != other.uBoundStrict)
+			return false;
+		return true;
 	}
 
 	// Other useful methods
@@ -310,40 +394,140 @@ public class ExpressionTemporal extends Expression
 			// F a == true U a
 			op1 = Expression.True();
 			exprTemp = new ExpressionTemporal(P_U, op1, operand2);
-			exprTemp.setLowerBound(lBound, lBoundStrict);
-			exprTemp.setUpperBound(uBound, uBoundStrict);
-			exprTemp.equals = equals;
+			exprTemp.setBoundsFrom(this);
 			return exprTemp;
 		case P_G:
 			// G a == !(true U !a)
 			op1 = Expression.True();
 			op2 = Expression.Not(operand2);
 			exprTemp = new ExpressionTemporal(P_U, op1, op2);
-			exprTemp.setLowerBound(lBound, lBoundStrict);
-			exprTemp.setUpperBound(uBound, uBoundStrict);
-			exprTemp.equals = equals;
+			exprTemp.setBoundsFrom(this);
 			return Expression.Not(exprTemp);
 		case P_W:
 			// a W b == !(a&!b U !a&!b)
 			op1 = Expression.And(operand1, Expression.Not(operand2));
 			op2 = Expression.And(Expression.Not(operand1), Expression.Not(operand2));
 			exprTemp = new ExpressionTemporal(P_U, op1, op2);
-			exprTemp.setLowerBound(lBound, lBoundStrict);
-			exprTemp.setUpperBound(uBound, uBoundStrict);
-			exprTemp.equals = equals;
+			exprTemp.setBoundsFrom(this);
 			return Expression.Not(exprTemp);
 		case P_R:
 			// a R b == !(!a U !b)
 			op1 = Expression.Not(operand1);
 			op2 = Expression.Not(operand2);
 			exprTemp = new ExpressionTemporal(P_U, op1, op2);
-			exprTemp.setLowerBound(lBound, lBoundStrict);
-			exprTemp.setUpperBound(uBound, uBoundStrict);
-			exprTemp.equals = equals;
+			exprTemp.setBoundsFrom(this);
 			return Expression.Not(exprTemp);
 		}
 		throw new PrismLangException("Cannot convert " + getOperatorSymbol() + " to until form");
 	}
+
+	// ---- convenience methods for distinguishing top-level temporal operators -----------------
+
+	/**
+	 * Returns true if the given expression is an ExpressionTemporal with the next step (X) top-level operator.
+	 */
+	public static boolean isNext(Expression e)
+	{
+		return (e instanceof ExpressionTemporal) && ((ExpressionTemporal) e).getOperator() == P_X;
+	}
+
+	/**
+	 * Returns true if the given expression is an ExpressionTemporal with the Until (U) top-level operator.
+	 */
+	public static boolean isUntil(Expression e)
+	{
+		return (e instanceof ExpressionTemporal) && ((ExpressionTemporal) e).getOperator() == P_U;
+	}
+
+	/**
+	 * Returns true if the given expression is an ExpressionTemporal with the Weak Until (W) top-level operator.
+	 */
+	public static boolean isWeakUntil(Expression e)
+	{
+		return (e instanceof ExpressionTemporal) && ((ExpressionTemporal) e).getOperator() == P_W;
+	}
+
+	/**
+	 * Returns true if the given expression is an ExpressionTemporal with the Release (R) top-level operator.
+	 */
+	public static boolean isRelease(Expression e)
+	{
+		return (e instanceof ExpressionTemporal) && ((ExpressionTemporal) e).getOperator() == P_R;
+	}
+
+	/**
+	 * Returns true if the given expression is an ExpressionTemporal with the finally / eventually (F) top-level operator.
+	 */
+	public static boolean isFinally(Expression e)
+	{
+		return (e instanceof ExpressionTemporal) && ((ExpressionTemporal) e).getOperator() == P_F;
+	}
+
+	/**
+	 * Returns true if the given expression is an ExpressionTemporal with the globally / always (G) top-level operator.
+	 */
+	public static boolean isGlobally(Expression e)
+	{
+		return (e instanceof ExpressionTemporal) && ((ExpressionTemporal) e).getOperator() == P_G;
+	}
+
+	/**
+	 * Returns true if the given expression is an ExpressionTemporal
+	 * with a globally finally / always eventually (G followed by F) top-level operator pair.
+	 */
+	public static boolean isGloballyFinally(Expression e)
+	{
+		return isGlobally(e) && isFinally(((ExpressionTemporal) e).getOperand2());
+	}
+
+	/**
+	 * Returns true if the given expression is an ExpressionTemporal
+	 * with a finally globally / eventually always (F followed by G) top-level operator pair.
+	 */
+	public static boolean isFinallyGlobally(Expression e)
+	{
+		return isFinally(e) && isGlobally(((ExpressionTemporal) e).getOperand2());
+	}
+
+
+	// ---- static constructors for building temporal expressions -----------------
+
+	/** Construct a ExpressionTemporal for "X expr" */
+	public static ExpressionTemporal Next(Expression expr)
+	{
+		return new ExpressionTemporal(P_X, null, expr);
+	}
+
+	/** Construct a ExpressionTemporal for "F expr" */
+	public static ExpressionTemporal Finally(Expression expr)
+	{
+		return new ExpressionTemporal(P_F, null, expr);
+	}
+
+	/** Construct a ExpressionTemporal for "G expr" */
+	public static ExpressionTemporal Globally(Expression expr)
+	{
+		return new ExpressionTemporal(P_G, null, expr);
+	}
+
+	/** Construct a ExpressionTemporal for "expr1 U expr2" */
+	public static ExpressionTemporal Globally(Expression expr1, Expression expr2)
+	{
+		return new ExpressionTemporal(P_U, expr1, expr2);
+	}
+
+	/** Construct a ExpressionTemporal for "expr1 W expr2" */
+	public static ExpressionTemporal WeakUntil(Expression expr1, Expression expr2)
+	{
+		return new ExpressionTemporal(P_W, expr1, expr2);
+	}
+
+	/** Construct a ExpressionTemporal for "expr1 R expr2" */
+	public static ExpressionTemporal Release(Expression expr1, Expression expr2)
+	{
+		return new ExpressionTemporal(P_R, expr1, expr2);
+	}
+
 }
 
 //------------------------------------------------------------------------------

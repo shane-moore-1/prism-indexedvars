@@ -26,7 +26,7 @@
 
 // includes
 #include "PrismMTBDD.h"
-#include <math.h>
+#include <cmath>
 #include <util.h>
 #include <cudd.h>
 #include <dd.h>
@@ -34,6 +34,8 @@
 #include "PrismMTBDDGlob.h"
 #include "jnipointer.h"
 #include "prism.h"
+#include "ExportIterations.h"
+#include <memory>
 
 //------------------------------------------------------------------------------
 
@@ -94,7 +96,14 @@ jboolean transpose	// transpose A? (i.e. solve xA=b not Ax=b?)
 	if (transpose) {
 		sol = DD_PermuteVariables(ddman, sol, rvars, cvars, num_rvars);
 	}
-	
+
+	std::unique_ptr<ExportIterations> iterationExport;
+	if (PM_GetFlagExportIterations()) {
+		iterationExport.reset(new ExportIterations("PM_Power"));
+		PM_PrintToMainLog(env, "Exporting iterations to %s\n", iterationExport->getFileName().c_str());
+		iterationExport->exportVector(sol, (transpose?cvars:rvars), num_rvars, odd, 0);
+	}
+
 	// get setup time
 	stop = util_cpu_time();
 	time_for_setup = (double)(stop - start2)/1000;
@@ -118,6 +127,9 @@ jboolean transpose	// transpose A? (i.e. solve xA=b not Ax=b?)
 		Cudd_Ref(b);
 		tmp = DD_Apply(ddman, APPLY_PLUS, tmp, b);
 		
+		if (iterationExport)
+			iterationExport->exportVector(tmp, (transpose?cvars:rvars), num_rvars, odd, 0);
+
 		// check convergence
 		switch (term_crit) {
 		case TERM_CRIT_ABSOLUTE:

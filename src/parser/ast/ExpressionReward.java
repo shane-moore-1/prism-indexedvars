@@ -26,9 +26,11 @@
 
 package parser.ast;
 
+import param.BigRational;
 import parser.EvaluateContext;
 import parser.Values;
 import parser.visitor.ASTVisitor;
+import prism.ModelInfo;
 import prism.OpRelOpBound;
 import prism.PrismException;
 import prism.PrismLangException;
@@ -110,45 +112,66 @@ public class ExpressionReward extends ExpressionQuant
 	 * Throws an exception (with explanatory message) if it cannot be found.
 	 * This means that, the method always returns a valid index if it finishes.
 	 */
-	public int getRewardStructIndexByIndexObject(ModulesFile modulesFile, Values constantValues) throws PrismException
+	public int getRewardStructIndexByIndexObject(ModelInfo modelInfo, Values constantValues) throws PrismException
+	{
+		return getRewardStructIndexByIndexObject(rewardStructIndex, modelInfo, constantValues);
+	}
+
+	/**
+	 * Get the index of a reward structure (within a model) corresponding to the rsi reward structure index object.
+	 * This is 0-indexed (as used e.g. in ModulesFile), not 1-indexed (as seen by user)
+	 * Throws an exception (with explanatory message) if it cannot be found.
+	 * This means that, the method always returns a valid index if it finishes.
+	 */
+	public static int getRewardStructIndexByIndexObject(Object rsi, ModelInfo modelInfo, Values constantValues) throws PrismException
 	{
 		int rewStruct = -1;
-		Object rsi = rewardStructIndex;
 		// Recall: the index is an Object which is either an Integer, denoting the index (starting from 0) directly,
 		// or an expression, which can be evaluated (possibly using the passed in constants) to an index. 
-		if (modulesFile == null)
-			throw new PrismException("No model file to obtain reward structures");
-		if (modulesFile.getNumRewardStructs() == 0)
+		if (modelInfo == null)
+			throw new PrismException("No model info to obtain reward structures");
+		if (modelInfo.getNumRewardStructs() == 0)
 			throw new PrismException("Model has no rewards specified");
 		// No index specified - use the first one
 		if (rsi == null) {
 			rewStruct = 0;
 		}
 		// Expression - evaluate to an index
-		else if (rewardStructIndex instanceof Expression) {
-			int i = ((Expression) rewardStructIndex).evaluateInt(constantValues);
+		else if (rsi instanceof Expression) {
+			int i = ((Expression) rsi).evaluateInt(constantValues);
 			rsi = new Integer(i); // (for better error reporting below)
 			rewStruct = i - 1;
 		}
 		// String - name of reward structure
 		else if (rsi instanceof String) {
-			rewStruct = modulesFile.getRewardStructIndex((String) rsi);
+			rewStruct = modelInfo.getRewardStructIndex((String) rsi);
 		}
 		if (rewStruct == -1) {
 			throw new PrismException("Invalid reward structure index \"" + rsi + "\"");
 		}
 		return rewStruct;
 	}
-	
+
 	/**
 	 * Get the reward structure (from a model) corresponding to the index of this R operator.
 	 * Throws an exception (with explanatory message) if it cannot be found.
 	 */
-	public RewardStruct getRewardStructByIndexObject(ModulesFile modulesFile, Values constantValues) throws PrismException
+	public RewardStruct getRewardStructByIndexObject(ModelInfo modelInfo, Values constantValues) throws PrismException
 	{
-		int rewardStructIndex = getRewardStructIndexByIndexObject(modulesFile, constantValues);
-		return modulesFile.getRewardStruct(rewardStructIndex);
+		int rewardStructIndex = getRewardStructIndexByIndexObject(modelInfo, constantValues);
+		return modelInfo.getRewardStruct(rewardStructIndex);
 	}
+
+	/**
+	 * Get the reward structure (from a model) corresponding to a reward structure index object.
+	 * Throws an exception (with explanatory message) if it cannot be found.
+	 */
+	public static RewardStruct getRewardStructByIndexObject(Object rsi, ModelInfo modelInfo, Values constantValues) throws PrismException
+	{
+		int rewardStructIndex = getRewardStructIndexByIndexObject(rsi, modelInfo, constantValues);
+		return modelInfo.getRewardStruct(rewardStructIndex);
+	}
+
 	
 	/**
 	 * Get info about the operator and bound.
@@ -166,9 +189,7 @@ public class ExpressionReward extends ExpressionQuant
 	
 	// Methods required for Expression:
 	
-	/**
-	 * Is this expression constant?
-	 */
+	@Override
 	public boolean isConstant()
 	{
 		return false;
@@ -180,18 +201,19 @@ public class ExpressionReward extends ExpressionQuant
 		return false;
 	}
 	
-	/**
-	 * Evaluate this expression, return result.
-	 * Note: assumes that type checking has been done already.
-	 */
+	@Override
 	public Object evaluate(EvaluateContext ec) throws PrismLangException
 	{
 		throw new PrismLangException("Cannot evaluate an R operator without a model");
 	}
 
-	/**
-	  * Get "name" of the result of this expression (used for y-axis of any graphs plotted)
-	  */
+	@Override
+	public BigRational evaluateExact(EvaluateContext ec) throws PrismLangException
+	{
+		throw new PrismLangException("Cannot evaluate an R operator without a model");
+	}
+
+	@Override
 	public String getResultName()
 	{
 		// For R=? properties, use name of reward structure where applicable
@@ -226,17 +248,32 @@ public class ExpressionReward extends ExpressionQuant
 
 	// Methods required for ASTElement:
 	
-	/**
-	 * Visitor method.
-	 */
+	@Override
 	public Object accept(ASTVisitor v) throws PrismLangException
 	{
 		return v.visit(this);
 	}
+
+	@Override
+	public Expression deepCopy()
+	{
+		ExpressionReward expr = new ExpressionReward();
+		expr.setExpression(getExpression() == null ? null : getExpression().deepCopy());
+		expr.setRelOp(getRelOp());
+		expr.setBound(getBound() == null ? null : getBound().deepCopy());
+		if (rewardStructIndex != null && rewardStructIndex instanceof Expression) expr.setRewardStructIndex(((Expression)rewardStructIndex).deepCopy());
+		else expr.setRewardStructIndex(rewardStructIndex);
+		if (rewardStructIndexDiv != null && rewardStructIndexDiv instanceof Expression) expr.setRewardStructIndexDiv(((Expression)rewardStructIndexDiv).deepCopy());
+		else expr.setRewardStructIndexDiv(rewardStructIndexDiv);
+		expr.setFilter(getFilter() == null ? null : (Filter)getFilter().deepCopy());
+		expr.setType(type);
+		expr.setPosition(this);
+		return expr;
+	}
+
+	// Standard methods
 	
-	/**
-	 * Convert to string.
-	 */
+	@Override
 	public String toString()
 	{
 		String s = "";
@@ -260,23 +297,37 @@ public class ExpressionReward extends ExpressionQuant
 		return s;
 	}
 
-	/**
-	 * Perform a deep copy.
-	 */
-	public Expression deepCopy()
+	@Override
+	public int hashCode()
 	{
-		ExpressionReward expr = new ExpressionReward();
-		expr.setExpression(getExpression() == null ? null : getExpression().deepCopy());
-		expr.setRelOp(getRelOp());
-		expr.setBound(getBound() == null ? null : getBound().deepCopy());
-		if (rewardStructIndex != null && rewardStructIndex instanceof Expression) expr.setRewardStructIndex(((Expression)rewardStructIndex).deepCopy());
-		else expr.setRewardStructIndex(rewardStructIndex);
-		if (rewardStructIndexDiv != null && rewardStructIndexDiv instanceof Expression) expr.setRewardStructIndexDiv(((Expression)rewardStructIndexDiv).deepCopy());
-		else expr.setRewardStructIndexDiv(rewardStructIndexDiv);
-		expr.setFilter(getFilter() == null ? null : (Filter)getFilter().deepCopy());
-		expr.setType(type);
-		expr.setPosition(this);
-		return expr;
+		final int prime = 31;
+		int result = super.hashCode();
+		result = prime * result + ((rewardStructIndex == null) ? 0 : rewardStructIndex.hashCode());
+		result = prime * result + ((rewardStructIndexDiv == null) ? 0 : rewardStructIndexDiv.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj)
+	{
+		if (this == obj)
+			return true;
+		if (!super.equals(obj))
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		ExpressionReward other = (ExpressionReward) obj;
+		if (rewardStructIndex == null) {
+			if (other.rewardStructIndex != null)
+				return false;
+		} else if (!rewardStructIndex.equals(other.rewardStructIndex))
+			return false;
+		if (rewardStructIndexDiv == null) {
+			if (other.rewardStructIndexDiv != null)
+				return false;
+		} else if (!rewardStructIndexDiv.equals(other.rewardStructIndexDiv))
+			return false;
+		return true;
 	}
 }
 

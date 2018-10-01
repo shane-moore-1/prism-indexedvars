@@ -35,6 +35,7 @@ import prism.PrismLangException;
  */
 public class EvaluatePartially extends ASTTraverseModify
 {
+public static boolean DEBUG = true;
 	private EvaluateContext ec;
 	
 	public EvaluatePartially(EvaluateContext ec)
@@ -44,6 +45,7 @@ public class EvaluatePartially extends ASTTraverseModify
 	
 	public Object visit(ExpressionConstant e) throws PrismLangException
 	{
+if (DEBUG) System.out.println("EvaluatePartially.visit(ExprConst) called for : " + e);
 		Object val = ec.getConstantValue(e.getName());
 		if (val == null) {
 			return e;
@@ -54,6 +56,7 @@ public class EvaluatePartially extends ASTTraverseModify
 	
 	public Object visit(ExpressionVar e) throws PrismLangException
 	{
+if (DEBUG) System.out.println("EvaluatePartially.visit(ExprVar) called for : " + e);
 		Object val = ec.getVarValue(e.getName(), e.getIndex());
 		if (val == null) {
 			return e;
