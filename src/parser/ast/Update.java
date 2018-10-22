@@ -70,9 +70,17 @@ public static boolean DEBUG_MSG = false;
 		Integer index;					// The index in the model to which it belongs - set before any steps executed..
 				// the above Integer is CURRENTLY set during FindAllVars.visitPost(Update e); it is position in the ModulesFile list of variables.
 
-		public String toString()
+
+		public String toDetailsString()
 		{
 			return "EOU: " + varIdent.toString() + " [type = " +varType + ", expr = " + expr + ", index = " + index + "]";
+		}
+
+		/** Returns a string representing this element of an Update (that is, the target variable, and its calculation expression. 
+		    e.g.  (counter' = counter + 1) */
+		public String toString()
+		{
+			return "(" + varIdent.toString() + "'= " + expr + ")";
 		}
 	}
 	

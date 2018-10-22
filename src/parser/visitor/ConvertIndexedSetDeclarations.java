@@ -15,7 +15,7 @@ import prism.PrismLangException;
  */
 public class ConvertIndexedSetDeclarations extends ASTTraverseModify {
 
-  public static boolean DEBUG = false;
+  public static boolean DEBUG = true;
 
 	// Constants that have been defined, and can be used in specifying the size of the IndexedSet
 	private ConstantList constants;
@@ -62,15 +62,21 @@ public class ConvertIndexedSetDeclarations extends ASTTraverseModify {
 	 * @return for Indexed Set declarations, it returns the Declaration of the first element; otherwise it returns the
 	 * unaltered Declaration (of a non-indexed set type).
 	 */
-	// May be wrong on how it does the following:
+	// May be wrong on how it does the following (ACTUALLY, I THINK I HAVE RESOLVED THESE NOW):
 	// - Perhaps should delete the incoming node (because keeping it may cause issues in other things called by tidyUp, like checkVarNames).
 	// - If we do delete the incoming node, should we be replacing it with a whole tree of other nodes
 	//    because currently the newly made objects are NOT LINKED INTO the AST structure.
 	// - In either case (making new subtree, or not), we may not be sensibly able to cope with re-starts of a parsed ModuleFile??
-	// TO-DO: Resolve the above.
 	@Override
 	public Object visit(Declaration e) throws PrismLangException
 	{
+if (DEBUG) {
+   System.out.println("<VISIT_DECL>\nConvertISA_visit(Decl) called for this declaration: " + e);
+   if (e.getDeclType() instanceof DeclTypeIndexedSet)
+     System.out.println(" It  IS  a DeclTypeIndexedSet - so we will process it further...\n");
+   else
+     System.out.println(" It IS NOT a DeclTypeIndexedSet - so returning it unaltered.");
+}
 		// SHANE WAS WONDERING WHETHER I SHOULD SIMPLY ALTER THE Module.addDeclaration() method to do this straight out!
 		// but then on later reflection, he thinks no - otherwise it may need to be done both in a global and in a local context.
 		Declaration returnVal = e;		// We would return the same node, unless it was the Declaration of an indexed set.
@@ -94,7 +100,8 @@ public class ConvertIndexedSetDeclarations extends ASTTraverseModify {
 			
 			if (currentModule != null)		// It was a local declaration within a specific module:
 			{
-if (DEBUG) System.out.println("About to replace IndexedSetDeclaration of " + indexedSetName + " with " + count + " individual declarations");
+if (DEBUG) System.out.println(" It is from within a module.");
+if (DEBUG) System.out.println(" About to replace IndexedSetDeclaration of " + indexedSetName + " with " + count + " individual declarations");
 				int posToInsert = currentModule.getDeclPosInArrayList(e);
 
 				// Using that count, we will now create that many declarations in the module
@@ -105,8 +112,10 @@ if (DEBUG) System.out.println("About to replace IndexedSetDeclaration of " + ind
 					if (i == 0) {
 						returnVal = d;		// to replace original Declaration upon returning
 						currentModule.addIndexedSetDecl(e);	// Needed for SemanticCheck visitor
+if (DEBUG) System.out.println("  Created 0th replacement declaration - this will be the returned thing.");
 					} else {
 						currentModule.insertDeclarationAt(d,posToInsert+i);	// It will be additional to what was there beforehand
+if (DEBUG) System.out.println("  Created replacement declaration for element " + i + ", inserted it, but cannot return it, and not sure if insert has worked.");
 					}
 
 				}
@@ -119,6 +128,7 @@ if (DEBUG) System.out.println("About to replace IndexedSetDeclaration of " + ind
 				Helper.noteIndexedSetDeclaration(e);
 			}
 			else if (currentModuleFile != null) {						
+if (DEBUG) System.out.println(" It is from outside of any module. (No further debug outputs about it though)");
 				// Using that count, we will now create that many declarations at the global level:	
 				for (int i = 0; i < count; i++)
 				{
@@ -138,8 +148,8 @@ if (DEBUG) System.out.println("About to replace IndexedSetDeclaration of " + ind
 			else
 				throw new PrismLangException("Apparently found a declaration for an IndexedSet, but not whilst in an ModulesFile, nor a Module");
 
-if (DEBUG) System.out.println("returnVal is : " + returnVal);
 		}
+if (DEBUG) System.out.println("ConvISA.visit(Decl) will return this value : " + returnVal+ "\n</VISIT_DECL>\n");
 
 		return returnVal;
 	}

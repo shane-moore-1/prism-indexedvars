@@ -34,6 +34,7 @@ import prism.PrismLangException;
 public class Module extends ASTElement
 {
 public static boolean DEBUG = false;
+public static boolean DEBUG_InsDeclAt = parser.visitor.ConvertIndexedSetDeclarations.DEBUG;
 	// Module name
 	private String name;
 	private ExpressionIdent nameASTElement;
@@ -106,7 +107,7 @@ if (DEBUG)  System.out.println("Adding declaration to Module " + this.getName() 
 // ADDED BY SHANE
 	public void insertDeclarationAt(Declaration d, int position)
 	{
-if (DEBUG)  System.out.println("Inserting declaration: " + d + " to Module " + this.getName() + " at position: " + position);
+if (DEBUG_InsDeclAt)  System.out.println("** Called parser.ast.Module.insertDeclarationAt() - Inserting declaration: " + d + " to Module " + this.getName() + " at position: " + position);
 		decls.add(position,d);
 	}
 	
@@ -359,7 +360,7 @@ if (DEBUG) System.out.println("Removing declaration from Module " + this.getName
 	/**
 	 * Perform a deep copy.
 	 */
-// SHANE NOTE: Does not yet include indexedDecls
+// SHANE NOTE: Does not yet include indexedDecls.  HOWEVER, 
 	public ASTElement deepCopy()
 	{
 		int i, n;
@@ -378,8 +379,14 @@ System.out.println("       copied declaration: " + getDeclaration(i).getName() +
 		}
 		if (invariant != null)
 			ret.setInvariant(invariant.deepCopy());
+		Iterator<String> iter = indexedSetDecls.keySet().iterator();
+		while (iter.hasNext()) {
+			name = iter.next();
+			Declaration current = getIndexedSetDeclaration(name);
+			ret.addIndexedSetDecl(current);
+		}
+System.out.println("*** ALERT FOR SHANE ****\n*** In prism.Modules::deepCopy() - Attempted to deepCopy the indexedSetDecls (but Not Yet CONFIRMED by any testing, to ensure if it worked. ***");
 		ret.setPosition(this);
-System.out.println("*** In prism.Modules::deepCopy() - Did not deepCopy the indexedSetDecls (but possibly should have - however, the individual index elements WERE copied. ***");
 		return ret;
 	}
 }

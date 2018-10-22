@@ -353,7 +353,7 @@ PS_PrintToMainLog(env,"\n");
 /*SHANE*/   PS_PrintToMainLog(env,"soln[%d],",i);
 /*SHANE*/ PS_PrintToMainLog(env,"\n");
 
-/*SHANE*/PS_PrintToMainLog(env,"About to start while loop...\n",iters);
+/*SHANE*/PS_PrintToMainLog(env,"About to start while loop...\n");
 	while (!done && iters < max_iters) {
 	
 		iters++;
