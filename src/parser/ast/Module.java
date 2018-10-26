@@ -35,6 +35,11 @@ public class Module extends ASTElement
 {
 public static boolean DEBUG = false;
 public static boolean DEBUG_InsDeclAt = parser.visitor.ConvertIndexedSetDeclarations.DEBUG;
+
+private static int NextInstanceNum = 0;
+private int MyInstanceNum;
+public int getInstanceNum() { return MyInstanceNum; }
+
 	// Module name
 	private String name;
 	private ExpressionIdent nameASTElement;
@@ -58,6 +63,9 @@ public static boolean DEBUG_InsDeclAt = parser.visitor.ConvertIndexedSetDeclarat
 	
 	public Module(String n)
 	{
+MyInstanceNum = ++NextInstanceNum;
+Exception e = new Exception("CREATING A MODULE named " + n);
+e.printStackTrace(System.out);
 		name = n;
 		decls = new ArrayList<Declaration>();
 		commands = new ArrayList<Command>();
@@ -72,6 +80,8 @@ public static boolean DEBUG_InsDeclAt = parser.visitor.ConvertIndexedSetDeclarat
 	
 	public void setName(String n)
 	{
+Exception e = new Exception("CHANGING THE NAME OF MODULE TO BE " + n);
+e.printStackTrace(System.out);
 		name = n;
 	}
 	
@@ -338,7 +348,9 @@ if (DEBUG) System.out.println("Removing declaration from Module " + this.getName
 	{
 		String s = "";
 		int i, n;
-		
+
+s += "[Module, inst#"+MyInstanceNum+"]\n";		
+
 		s = s + "module " + name + "\n\n";
 		n = getNumDeclarations();
 		for (i = 0; i < n; i++) {
@@ -364,14 +376,13 @@ if (DEBUG) System.out.println("Removing declaration from Module " + this.getName
 	public ASTElement deepCopy()
 	{
 		int i, n;
-System.out.println("*** In prism.Modules::deepCopy(), copying the Module " + getName() + " (EXCEPT for any indexed set stuff)");
 		Module ret = new Module(name);
 		if (nameASTElement != null)
 			ret.setNameASTElement((ExpressionIdent)nameASTElement.deepCopy());
+
 		n = getNumDeclarations();
 		for (i = 0; i < n; i++) {
 			ret.addDeclaration((Declaration)getDeclaration(i).deepCopy());
-System.out.println("       copied declaration: " + getDeclaration(i).getName() + (getDeclaration(i).getIsPartOfIndexedVar() ? " [not indexed var]" : " [indexed var]") );
 		}
 		n = getNumCommands();
 		for (i = 0; i < n; i++) {
@@ -381,11 +392,10 @@ System.out.println("       copied declaration: " + getDeclaration(i).getName() +
 			ret.setInvariant(invariant.deepCopy());
 		Iterator<String> iter = indexedSetDecls.keySet().iterator();
 		while (iter.hasNext()) {
-			name = iter.next();
-			Declaration current = getIndexedSetDeclaration(name);
+			String indSetName = iter.next();
+			Declaration current = getIndexedSetDeclaration(indSetName);
 			ret.addIndexedSetDecl(current);
 		}
-System.out.println("*** ALERT FOR SHANE ****\n*** In prism.Modules::deepCopy() - Attempted to deepCopy the indexedSetDecls (but Not Yet CONFIRMED by any testing, to ensure if it worked. ***");
 		ret.setPosition(this);
 		return ret;
 	}
