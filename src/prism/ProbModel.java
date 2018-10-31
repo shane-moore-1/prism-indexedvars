@@ -46,7 +46,7 @@ public class ProbModel implements Model
 {
 	// model info
 public static boolean DEBUG = true;
-
+private static boolean DEBUG_FRS = true;
 	// modules
 	protected int numModules; // number of modules
 	protected String[] moduleNames; // module names
@@ -604,6 +604,10 @@ public static boolean DEBUG = true;
 
 	public void setReach(JDDNode reach) throws PrismException
 	{
+if (DEBUG) {
+Exception stk = new Exception("STACK TRACE for setReach() call");
+stk.printStackTrace(System.out);
+}
 		if (this.reach != null)
 			JDD.Deref(this.reach);
 		this.reach = reach;
@@ -657,9 +661,11 @@ if (DEBUG) System.out.println("Completed constructing odd; exiting ProbModel.set
 
 	public void filterReachableStates()
 	{
+if (DEBUG_FRS) System.out.println(" <PM_FiltReach>");
 		int i;
 		JDDNode tmp;
 
+if (DEBUG_FRS) System.out.println("  PM-FRS Place 1");
 		// remove non-reachable states from transition matrix
 		JDD.Ref(reach);
 		trans = JDD.Apply(JDD.TIMES, reach, trans);
@@ -673,12 +679,16 @@ if (DEBUG) System.out.println("Completed constructing odd; exiting ProbModel.set
 		trans01 = JDD.GreaterThan(trans, 0);
 
 		// remove non-reachable states from state/transition rewards
+if (DEBUG_FRS) System.out.println("  PM-FRS Place 2A, prior to loop which will be done " + (stateRewards.length) + " times");
 		for (i = 0; i < stateRewards.length; i++) {
+if (DEBUG_FRS) System.out.println("  PM-FRS Place 2B, iter="+i);
 			// state rewards vector
 			JDD.Ref(reach);
+if (DEBUG_FRS) System.out.println("  stateRewards["+i+"] before change is: " + stateRewards[i]);
 			stateRewards[i] = JDD.Apply(JDD.TIMES, reach, stateRewards[i]);
 			// transition reward matrix
 			JDD.Ref(reach);
+if (DEBUG_FRS) System.out.println("  transRewards["+i+"] before change is: " + transRewards[i]);
 			transRewards[i] = JDD.Apply(JDD.TIMES, reach, transRewards[i]);
 			JDD.Ref(reach);
 			tmp = JDD.PermuteVariables(reach, allDDRowVars, allDDColVars);
@@ -687,13 +697,16 @@ if (DEBUG) System.out.println("Completed constructing odd; exiting ProbModel.set
 
 		// Action label index info
 		if (transActions != null) {
+if (DEBUG_FRS) System.out.println("  PM-FRS Place 3, transActions before alteration is " + transActions);
 			// transActions just stored per state so only filter rows
 			JDD.Ref(reach);
 			transActions = JDD.Apply(JDD.TIMES, reach, transActions);
 		}
 		if (transPerAction != null) {
+if (DEBUG_FRS) System.out.println("  PM-FRS Place 4A, prior to loop which will be done for " + (numSynchs+1) + " numSynchs");
 			// transPerAction stored as matrix so filter both rows/cols
 			for (i = 0; i < numSynchs + 1; i++) {
+if (DEBUG_FRS) System.out.println("  PM-FRS Place 4B, iter="+i + ", transPerAction["+i+"] before manipulations is "+transPerAction[i]);
 				JDD.Ref(reach);
 				transPerAction[i] = JDD.Apply(JDD.TIMES, reach, transPerAction[i]);
 				JDD.Ref(reach);
@@ -709,6 +722,7 @@ if (DEBUG) System.out.println("Completed constructing odd; exiting ProbModel.set
 
 		// work out number of transitions
 		numTransitions = JDD.GetNumMinterms(trans01, getNumDDVarsInTrans());
+if (DEBUG_FRS) System.out.println("numStartStates = " + numStartStates + ", numTransitions = " + numTransitions + "\n </PM_FiltReach>");
 	}
 
 	@Override

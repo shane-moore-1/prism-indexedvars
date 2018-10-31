@@ -44,6 +44,13 @@ public class ModulesFile extends ASTElement implements ModelInfo
 {
 public static boolean DEBUG = false;
 public static boolean DEBUG_TU = true;	// Whether to report what stage of tidyUp() we are at (for debug assistance)
+public static boolean DEBUG_getModuleIndex = false;	// Don't think I need now that I fixed the module name-clobbering
+public static boolean DEBUG_DeepCopy = false;
+public static boolean DEBUG_AddIndSetName = true;
+
+private static int NextInstanceNum = 0;
+private int MyInstanceNum;
+public int getInstanceNum() { return MyInstanceNum; }
 
 	// Model type (enum)
 	private ModelType modelType;
@@ -84,6 +91,7 @@ public static boolean DEBUG_TU = true;	// Whether to report what stage of tidyUp
 
 	public ModulesFile()
 	{
+this.MyInstanceNum = ++NextInstanceNum;		// TEMPORARY SHANE DEBUG
 		formulaList = new FormulaList();
 		labelList = new LabelList();
 		constantList = new ConstantList();
@@ -159,6 +167,7 @@ public static boolean DEBUG_TU = true;	// Whether to report what stage of tidyUp
 // ADDED BY SHANE - should probably also write a "delete" one?
 	public void addIndexedSetName(String nameOfIS)
 	{
+if (DEBUG_AddIndSetName) System.out.println("Adding the following name of an indexed set to the ModulesFile: " + nameOfIS);
 		indexedSetNames.add(nameOfIS);
 	}
 
@@ -348,13 +357,16 @@ public static boolean DEBUG_TU = true;	// Whether to report what stage of tidyUp
 	{
 		int i;
 		Module m;
-
+if (DEBUG_getModuleIndex) System.out.println("in getModuleIndex, modules.size() is: " + modules.size() );
 		for (i = 0; i < modules.size(); i++) {
 			m = getModule(i);
+if (DEBUG_getModuleIndex) System.out.print("in getModuleIndex, getModule(" + i + ") gives: '");
 			if (m != null)
+{if (DEBUG_getModuleIndex) System.out.println(m.getName() +"', we are looking for '"+s+"'");
 				if (s.equals(m.getName())) {
 					return i;
 				}
+}else if (DEBUG_getModuleIndex) System.out.println("null object");
 		}
 
 		return -1;
@@ -537,7 +549,8 @@ public static boolean DEBUG_TU = true;	// Whether to report what stage of tidyUp
 	// get array of all module names
 	public String[] getModuleNames()
 	{
-		return moduleNames;
+System.out.println("NAUGHTY to getModuleNames(). I am going to give you a clone instead...");
+		return moduleNames.clone();
 	}
 
 	/**
@@ -842,14 +855,18 @@ if (DEBUG) System.out.println(" </ModulesFile_TidyUp>");
 		HashSet<String> renamedSoFar;
 
 		// Go through modules and find ones which are defined by renaming
+System.out.println("<ModulesFile.sortRenamings> Method has been called.");
 		n = modules.size();
 		for (i = 0; i < n; i++) {
+System.out.println("Iteration " + (i+1) + " of " + n + " modules.");
 			o = modules.elementAt(i);
+System.out.println("o is " + o.getClass().getName());
 			if (o instanceof Module)
 				continue;
 			module = (RenamedModule) o;
 			// Check base module exists
 			j = getModuleIndex(module.getBaseModule());
+System.out.println("j is " + j);
 			if (j == -1) {
 				s = "No such module " + module.getBaseModule();
 				s += " in renamed module \"" + module.getName() + "\"";
@@ -877,6 +894,7 @@ if (DEBUG) System.out.println(" </ModulesFile_TidyUp>");
 			newModule.setBaseModule(module.getBaseModule());
 			setModule(i, newModule);
 		}
+System.out.println("</ModulesFile.sortRenamings>");
 	}
 
 	// check label identifiers
@@ -1388,6 +1406,8 @@ if (DEBUG) System.out.println("in checkVarNames(): Considering Module-Local (j="
 		String s = "", tmp;
 		int i, n;
 
+s += "[ModulesFile object - instance #"+MyInstanceNum+"]\n";		// TEMP DEBUG SHANE
+
 		s += modelType.toString().toLowerCase() + "\n\n";
 
 		tmp = "" + formulaList;
@@ -1416,7 +1436,9 @@ if (DEBUG) System.out.println("in checkVarNames(): Considering Module-Local (j="
 		for (i = 0; i < modules.size() - 1; i++) {
 			s += modules.elementAt(i) + "\n\n";
 		}
+if (modules.size() > 0)
 		s += modules.elementAt(modules.size() - 1) + "\n";
+else s += "{{SHANE: Note there is no modules yet}}";
 
 		for (i = 0; i < systemDefns.size(); i++) {
 			s += "\nsystem ";
@@ -1461,6 +1483,7 @@ if (DEBUG) System.out.println("in checkVarNames(): Considering Module-Local (j="
 		n = getNumModules();
 		for (i = 0; i < n; i++) {
 			ret.addModule((Module) getModule(i).deepCopy());
+
 		}
 		n = getNumSystemDefns();
 		for (i = 0; i < n; i++) {
@@ -1477,11 +1500,20 @@ if (DEBUG) System.out.println("in checkVarNames(): Considering Module-Local (j="
 		ret.constantIdents = (constantIdents == null) ? null : (Vector<String>)constantIdents.clone();
 		ret.varIdents = (varIdents == null) ? null : (Vector<String>)varIdents.clone();
 		ret.moduleNames = (moduleNames == null) ? null : moduleNames.clone();
+if (DEBUG_DeepCopy) {
+	for (String nm : ret.moduleNames) 
+		System.out.println("In ModulesFile.deepCopy(), copied Module name [at Place 1]: " + nm);
+}
 		ret.synchs = (synchs == null) ? null : (Vector<String>)synchs.clone();
 		if (varDecls != null) {
 			ret.varDecls = new Vector<Declaration>();
 			for (Declaration d : varDecls)
+{
+   if (DEBUG_DeepCopy) {
+	System.out.println("In ModulesFile.deepCopy(), dealing now with declaration: " + d + "[ " + d.getClass().getName() + " ]");
+   }
 				ret.varDecls.add((Declaration) d.deepCopy());
+}
 		}
 		ret.varNames = (varNames == null) ? null : (Vector<String>)varNames.clone();
 		ret.varTypes = (varTypes == null) ? null : (Vector<Type>)varTypes.clone();
@@ -1490,8 +1522,10 @@ if (DEBUG) System.out.println("in checkVarNames(): Considering Module-Local (j="
 		Iterator<String> iter = indexedSetNames.iterator();
 		while (iter.hasNext()) {
 			String name = iter.next();
+if (DEBUG_DeepCopy) System.out.println("In ModulesFile.deepCopy(), adding " + name + " to the IndexedSetNames of the clone.");
 			ret.addIndexedSetName(name);
 		}
+if (DEBUG_DeepCopy) System.out.println("***   Were any IndexedSets in the line(s) immediately above this current line? [ModulesFile.deepCopy()]    ****\nIF NOT, then there is an error (possibly in other code that was meant to add the names originally)\n\n");
 		return ret;
 	}
 }

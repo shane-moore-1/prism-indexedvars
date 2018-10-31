@@ -381,6 +381,7 @@ public class NondetModelChecker extends NonProbModelChecker
 	 */
 	protected StateValues checkExpressionMultiObjective(List<Expression> exprs, boolean forAll, JDDNode statesOfInterest) throws PrismException
 	{
+if (DEBUG) System.out.println("\n***** NondetModelChecker.checkExpressionMultiObjective(VERSION 1) has been called.\n");
 		if (fairness) {
 			JDD.Deref(statesOfInterest);
 			throw new PrismNotSupportedException("Multi-objective reasoning under fairness currently not supported");
@@ -460,6 +461,7 @@ public class NondetModelChecker extends NonProbModelChecker
 	 */
 	protected StateValues checkExpressionMultiObjective(ExpressionFunc expr, JDDNode statesOfInterest) throws PrismException
 	{
+if (DEBUG) System.out.println("\n***** NondetModelChecker.checkExpressionMultiObjective(VERSION 2) has been called.\n");
 		// Extract objective list from 'multi' function
 		List<Expression> exprs = new ArrayList<Expression>();
 		int n = expr.getNumOperands();
@@ -476,6 +478,7 @@ public class NondetModelChecker extends NonProbModelChecker
 	 */
 	protected StateValues checkExpressionMultiObjective(List<Expression> exprs, JDDNode statesOfInterest) throws PrismException
 	{
+if (DEBUG) System.out.println("\n***** NondetModelChecker.checkExpressionMultiObjective(VERSION 3) has been called.\n");
 		// Objective/target info
 		List<JDDNode> multitargetDDs = null;
 		List<Integer> multitargetIDs = null;

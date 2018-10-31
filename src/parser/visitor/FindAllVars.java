@@ -39,7 +39,9 @@ import prism.PrismLangException;
  */
 public class FindAllVars extends ASTTraverseModify
 {
-public static boolean DEBUG = false;
+public static boolean DEBUG_Basic = true && DEBUG_SHOW_ENABLED;		// The most high-level (i.e. minimal) types of debug messages
+public static boolean DEBUG = true && DEBUG_SHOW_ENABLED;			// The majority of debug messages
+public static boolean DEBUG_OrdinVar = true && DEBUG_SHOW_ENABLED;		// Whether to show details for ordinary variables (as opposed to indexed ones).
 
 	private List<String> varIdents;
 	private List<Type> varTypes;
@@ -74,30 +76,37 @@ public static boolean DEBUG = false;
 	 // (The index will often need to be computed at update-run-time, if an expression is given instead).
 	public void visitPost(Update e) throws PrismLangException
 	{
+if (DEBUG_Basic)
+   System.out.println("<VisitPost_forUpdate vistor='FindAllVars'>");
 		int i, j, n;
 		String s;
-System.out.println("** Inside FindAllVars.visitPost(Update) for this update: " + e);
+if (DEBUG) System.out.println("Commencing FindAllVars.visitPost(Update) for this update: " + e);
 		
 		boolean sawAnIndexedSet = false;		// May no longer need this. - SHANE
 		
 		// For each element of update
 		n = e.getNumElements();
+if (DEBUG) System.out.println("The update has " + n + " update-elements to consider.");
 		for (i = 0; i < n; i++) {
 			ExpressionIdent targetOfUpdate = e.getVarIdent(i);
-if (DEBUG) System.out.println("\nConsidering update-element " + (i+1) + "/"+n+", whose target is: " + targetOfUpdate + " [" + targetOfUpdate.getClass().getName() + "]" );	
+if (DEBUG) System.out.println("\nConsidering update-element " + (i+1) + "/"+n+", whose target is: \'" + targetOfUpdate + "\' [" + targetOfUpdate.getClass().getName() + "]" );	
 			if (targetOfUpdate instanceof ExpressionIndexedSetAccess)
 			{
 
 				ExpressionIndexedSetAccess detail = (ExpressionIndexedSetAccess) targetOfUpdate;
-if (DEBUG) System.out.println(" It is an indexed-set access"); 
+if (DEBUG) System.out.println(" The target variable being updated IS AN ELEMENT within an indexed-set."); 
+
 				// Consider the Access part's validity - is it an int value.
 				Expression indexExp = detail.getIndexExpression();
 
 if (DEBUG) System.out.println("  So I am going to call visit(FindAllVars) on the access expression: " + indexExp);
+if (DEBUG) System.out.println("  <ResolveAccessExpression>");
 				// Delve in so that the expression might be resolved.
 				Expression res = (Expression) indexExp.accept(this);
-if (DEBUG) System.out.println("  Completed call visit() on the access expression: " + indexExp);
+if (DEBUG) System.out.println("  </ResolveAccessExpression>");
+if (DEBUG) System.out.println("  FindAllVars.visitPost(Upd) has completed calling visit() on the access expression: " + indexExp);
 if (DEBUG) System.out.println("  The result received from visit() " + ((res == indexExp) ? "is the same" : "has changed") + " [" + res.getClass().getName() + "]" );
+if (DEBUG) { System.out.println("  That result, after visit(), is: " + res);  System.out.flush(); }
 				detail.setIndexExpression(res);
 	
 				//refresh it (in case it just got changed by above line)
@@ -113,7 +122,7 @@ if (DEBUG) ple.printStackTrace(System.out); else
 				}
 
 				// Consider if it is out-of-bounds:
-					// not done yet.
+					// SHANE needs to do this - not done yet.
 
 				// Consider the type that the result ought to be:
 //if (DEBUG) System.out.println("Looking for "+ e.getVar(i) + "[0] (which is of the target kind)");
@@ -128,7 +137,8 @@ if (DEBUG) ple.printStackTrace(System.out); else
 
 				Type targetType = varTypes.get(j);
 				e.setType(i, targetType);
-if (DEBUG) System.out.println("  Also, determined its type: " + targetType + ", but leaving its j-position for run-time determination.");
+if (DEBUG) System.out.println("  Also, determined its type: " + targetType);
+if (DEBUG) System.out.println("  BUT UNLIKE normal variables, the j-position is being left for run-time determination [if that is even possible!].");
 
 					
 			
@@ -139,12 +149,13 @@ if (DEBUG) System.out.println("  Also, determined its type: " + targetType + ", 
 				// We can know the name of the indexed set, and could derive the type for the element,
 				// but there isn't much else we can really do at this point.
 				sawAnIndexedSet = true;		// It means the setVarIndex will be wrong, staying at -1
-				
+			
 				// **** And to make the run-time replacement will require we can access the varIdents Vector at run-time.
 				// Maybe: replace Update with UpdateEnhanced, which has a reference to the varIdents.
+// SHANE - TO-DO: Complete this!!! (maybe in other code files)	
 			}
 			else {		// Not an indexed-set, just an ordinary variable (seemingly)
-if (DEBUG) System.out.println(" It is not accessing an indexed-set. It is: " + e.getVarIdent(i) );
+if (DEBUG) System.out.println(" It is an ORDINARY variable: " + e.getVarIdent(i) );
 				// Check variable exists - by finding its index within the vector of the ModulesFile's known variables.
 				j = varIdents.indexOf(e.getVar(i));
 				if (j == -1) {
@@ -154,16 +165,24 @@ if (DEBUG) System.out.println(" It is not accessing an indexed-set. It is: " + e
 				// Look up its type (in the ModulesFile), and store it inside the ElementOfUpdate
 				Type tfe = e.getTypeForElement(i);
 
-//if (DEBUG) System.out.println("\nBefore setType (for " + e.getVar(i) + "), the type is reported to be: " + tfe + " (" + ((tfe == null) ? "---" : tfe.getClass().getName()) +")");
+if (DEBUG_OrdinVar) System.out.println("\n  In FAV.visitPost(Upd) (normal var), before setType (for " + e.getVar(i) + "), the type is reported to be: " + tfe + " (" + ((tfe == null) ? "---" : tfe.getClass().getName()) +")");
+if (DEBUG_OrdinVar) System.out.println("  and the VarIndex is " + e.getVarIndex(i) );
 				e.setType(i, varTypes.get(j));
 tfe = e.getTypeForElement(i);
-//if (DEBUG) System.out.println("After setType,  (for " + e.getVar(i) + "), the type is reported to be: " + tfe + " (" + ((tfe == null) ? "---" : tfe.getClass().getName()) +")\n" );
+if (DEBUG_OrdinVar) System.out.println("  After setType,  (for " + e.getVar(i) + "), the type is reported to be: " + tfe + " (" + ((tfe == null) ? "---" : tfe.getClass().getName()) +")\n" );
+
 				// And store the variable index
 				e.setVarIndex(i, j);
+if (DEBUG_OrdinVar) System.out.println("  and its VarIndex is now " + e.getVarIndex(i) );
 			}
 			
+if (DEBUG)
+  System.out.println("Concluding call of FindAllVars.visitPost(Update) for this update: " + e);
+if (DEBUG_Basic)
+  System.out.println("</VisitPost_forUpdate visitor='FindAllVars'>");
 		}
 	}
+
 
 
 	/** This would signify a node in the AST whereat is an expression attempting to access 
@@ -172,12 +191,14 @@ tfe = e.getTypeForElement(i);
 	 *  We cannot resolve exactly which variable is involved, unless the index expression is a constant or literal - 
 	 *  normally the index needs to be determined at run-time.
 	 */
+// NOTE: SHANE has only observed this visit occur, if the Access of the indexed-set is within a GUARD; but not observed for when inside an Update Element.
 	@Override
 	public Object visit(ExpressionIndexedSetAccess e) throws PrismLangException
 	{
 		String s;
-		// COPIED FROM ABOVE
-System.out.println("\nReached FindAllVars.visit(ExprIndSetAcc) [overrides ASTTravMod] for " + e + " which needs to be interpreted now...");
+if (DEBUG) System.out.println("<Visit_EISA visitor='FAV'>");
+		// COPIED FROM ABOVE METHOD (at an earlier point in time)
+System.out.println("\nReached FindAllVars.visit(ExprIndSetAcc) [overrides ASTTravMod] for this access expression: " + e );
 				ExpressionIndexedSetAccess detail = e;
 				// Consider the Access part's validity - is it an int value.
 				Expression indexExp = detail.getIndexExpression();
@@ -220,6 +241,7 @@ if (DEBUG) System.out.println(" Determined its type: " + targetType + ", but LEA
 				// Tell it of the varIdents vector, to allow the specific element to be found at later time.
 				e.setVarIdentsList(varIdents);	// enable run-time resolution of whichever index is to be accessed.
 
+if (DEBUG) System.out.println("</Visit_EISA visitor='FAV'>");
 		return detail;
 	}		// End of method visit(ExprIndAccSet)
 

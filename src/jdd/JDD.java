@@ -34,6 +34,7 @@ import prism.PrismLog;
 
 public class JDD
 {
+private static boolean SHANE_DEBUG = true;
 	// dd library functions
 	public static native long GetCUDDManager();
 	// dd
@@ -1260,6 +1261,7 @@ public class JDD
 	 */
 	public static JDDNode SetVectorElement(JDDNode dd, JDDVars vars, long index, double value)
 	{
+if (SHANE_DEBUG) System.out.println("JDD.SetVectorElement called with index=" + index + " and value=" + value);
 		if (SanityJDD.enabled) {
 			SanityJDD.checkIsDDOverVars(dd, vars);
 		}

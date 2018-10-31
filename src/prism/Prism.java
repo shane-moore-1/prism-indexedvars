@@ -81,6 +81,8 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 {
 // ADDED BY SHANE to enable debugging to be switched on or off
 private static boolean DEBUG = true;
+private static boolean DEBUG_loadPrismModel = false; //true;
+private static boolean DEBUG_SetModelConstants = true;
 	/** PRISM version (e.g. "4.0.3"). Read from prism.Version. */
 	private static String version = prism.Version.versionString;
 
@@ -1417,6 +1419,7 @@ public int getShaneFreqOfOutput()
 	 */
 	public ModulesFile parseModelFile(File file, ModelType typeOverride) throws FileNotFoundException, PrismLangException
 	{
+if (DEBUG) System.out.println("<ParseModelFile file='"+file+"' thisIsCalledFrom='Prism.java'>");
 		FileInputStream strModel;
 		PrismParser prismParser;
 		ModulesFile modulesFile = null;
@@ -1441,6 +1444,7 @@ public int getShaneFreqOfOutput()
 
 		modulesFile.tidyUp();
 
+if (DEBUG) System.out.println("</ParseModelFile calledFrom='Prism.java'>\n\n");
 		return modulesFile;
 	}
 
@@ -1724,15 +1728,26 @@ public int getShaneFreqOfOutput()
 	 */
 	public void loadPRISMModel(ModulesFile modulesFile) throws PrismException
 	{
+if (DEBUG_loadPrismModel) System.out.println("<Method name='loadPRISMModel' inClass='Prism'>");
+else System.out.println("<Method name='loadPRISMModel' inClass='Prism' OMIT_DETAIL='true'>");
 		currentModelSource = ModelSource.PRISM_MODEL;
 		// Store PRISM model
 		currentModulesFile = modulesFile;
+if (DEBUG_loadPrismModel) System.out.println("The modulesFile is: " + currentModulesFile);
 		// Create a model generator for the PRISM model if appropriate - we will use that where possible
 		if (currentModulesFile.getModelType() != ModelType.PTA && currentModulesFile.getSystemDefn() == null) {
+if (DEBUG_loadPrismModel) System.out.println("The Prism.loadPRISMModel() method is about to instantiate a ModulesFileModelGenerator...");
+if (DEBUG_loadPrismModel) System.out.println("<Instantiate_ModulesFileModelGenerator>");
+if (DEBUG_loadPrismModel) System.out.println("The modulesFile before ModFilModGen is: " + currentModulesFile);
 			currentModelGenerator = new ModulesFileModelGenerator(currentModulesFile, this);
+if (DEBUG_loadPrismModel) System.out.println("The modulesFile after ModFilModGen is: " + currentModulesFile);
+if (DEBUG_loadPrismModel) System.out.println("</Instantiate_ModulesFileModelGenerator>");
 		}
 		// Clear any existing built model(s)
+if (DEBUG_loadPrismModel) System.out.println("<ClearBuiltModel calledFrom='Prism.loadPRISMModel'>");
 		clearBuiltModel();
+if (DEBUG_loadPrismModel) System.out.println("The modulesFile is: " + currentModulesFile);
+if (DEBUG_loadPrismModel) System.out.println("</ClearBuiltModel calledFrom='Prism.loadPRISMModel'>");
 		// Reset dependent info
 		currentModelType = currentModulesFile == null ? null : currentModulesFile.getModelType();
 		currentModelInfo = currentModulesFile;
@@ -1751,10 +1766,13 @@ public int getShaneFreqOfOutput()
 		}
 		mainLog.println();
 
+if (DEBUG_loadPrismModel) System.out.println("The modulesFile is: " + currentModulesFile);
 		// If required, export parsed PRISM model
 		if (exportPrism) {
 			try {
+if (DEBUG_loadPrismModel) System.out.println("<ExportPRISMModel calledFrom='Prism.loadPRISMModel'>");
 				exportPRISMModel(exportPrismFile);
+if (DEBUG_loadPrismModel) System.out.println("</ExportPRISMModel calledFrom='Prism.loadPRISMModel'>");
 			}
 			// In case of error, just print a warning
 			catch (FileNotFoundException e) {
@@ -1763,6 +1781,8 @@ public int getShaneFreqOfOutput()
 				mainLog.printWarning("PRISM code export failed: " + e.getMessage());
 			}
 		}
+//if (DEBUG_loadPrismModel) 
+System.out.println("</Method name='loadPRISMModel' inClass='Prism' note='Concluding'>");
 	}
 
 	/**
@@ -1810,6 +1830,8 @@ public int getShaneFreqOfOutput()
 	 */
 	public void setPRISMModelConstants(Values definedMFConstants, boolean exact) throws PrismException
 	{
+if (DEBUG_SetModelConstants) System.out.println("in setPRISMModelConstants, PLACE 1 - calling clearBuiltModel...");
+if (currentModulesFile != null) PrismCL.showModulesNames(currentModulesFile);
 		if (currentDefinedMFConstants == null && definedMFConstants == null && currentDefinedMFConstantsAreExact == exact)
 			return;
 		if (currentDefinedMFConstants != null &&
@@ -1818,23 +1840,32 @@ public int getShaneFreqOfOutput()
 			// no change in constants and evaluation mode, nothing to do
 			return;
 		}
-
+if (DEBUG_SetModelConstants) System.out.println("in setPRISMModelConstants, PLACE 1B - calling clearBuiltModel...");
+if (currentModulesFile != null) PrismCL.showModulesNames(currentModulesFile);
 		// Clear any existing built model(s)
 		clearBuiltModel();
 		// Store constants here and in ModulesFile
 		currentDefinedMFConstants = definedMFConstants;
 		currentDefinedMFConstantsAreExact = exact;
 		if (currentModulesFile != null) {
+if (DEBUG_SetModelConstants) System.out.println("in setPRISMModelConstants, PLACE 2 - calling modulesFile.setSomeUndefinedConstants...\n<MF_SetSomeUndefConst>");
 			currentModulesFile.setSomeUndefinedConstants(definedMFConstants, exact);
+if (DEBUG_SetModelConstants) System.out.println("</MF_SetSomeUndefConst>");
+if (currentModulesFile != null) PrismCL.showModulesNames(currentModulesFile);
 		}
 		if (currentModelGenerator != null) {
+if (DEBUG_SetModelConstants) System.out.println("\nin setPRISMModelConstants, PLACE 3 - calling modelGenerator.setSomeUndefinedConstants...\n<MG_SetSomeUndefConst>");
 			currentModelGenerator.setSomeUndefinedConstants(definedMFConstants, exact);
+if (currentModulesFile != null) PrismCL.showModulesNames(currentModulesFile);
+if (DEBUG_SetModelConstants) System.out.println("</MG_SetSomeUndefConst>");
 		}
+if (DEBUG_SetModelConstants) System.out.println("in setPRISMModelConstants, PLACE 4");
 
 		// If required, export parsed PRISM model, with constants expanded
 		if (exportPrismConst) {
 			try {
 				exportPRISMModelWithExpandedConstants(exportPrismConstFile);
+if (currentModulesFile != null) PrismCL.showModulesNames(currentModulesFile);
 			}
 			// In case of error, just print a warning
 			catch (FileNotFoundException e) {
@@ -2002,15 +2033,18 @@ public int getShaneFreqOfOutput()
 	{
 		long l; // timer
 
+if (DEBUG) System.out.print("<doBuildModel locatedIn='prism.Prism.java'>");
+
+if (DEBUG) System.out.println(" <ClearBuiltModel>");
 		// Clear any existing built model(s)
 		clearBuiltModel();
+if (DEBUG) System.out.println(" </ClearBuiltModel>");
 
 		try {
 			if (currentModelType == ModelType.PTA) {
 				throw new PrismException("You cannot build a PTA model explicitly, only perform model checking");
 			}
 
-if (DEBUG) System.out.print("<doBuildModel where='prism.Prism.java'>");
 			mainLog.print("\nBuilding model...\n");
 			if (currentDefinedMFConstants != null && currentDefinedMFConstants.getNumValues() > 0)
 				mainLog.println("Model constants: " + currentDefinedMFConstants);
@@ -2019,24 +2053,36 @@ if (DEBUG) System.out.print("<doBuildModel where='prism.Prism.java'>");
 			l = System.currentTimeMillis();
 			switch (currentModelSource) {
 			case PRISM_MODEL:
+if (DEBUG) System.out.println("in Prism.doBuildModel, Case is PRISM_MODEL.\n<CASE_PrismModel>");
 				if (currentModulesFile == null)
 					throw new PrismException("There is no currently loaded PRISM model to build");
+PrismCL.showModulesNames(currentModulesFile);
 				if (!getExplicit()) {
+if (DEBUG) System.out.println("in Prism.doBuildModel, getExplicit() returned false, so instantiate a new Modules2MTBDD...\n<MakeMod2MTBDD whereFrom='Prism.doBuildModel()'");
 					Modules2MTBDD mod2mtbdd = new Modules2MTBDD(this, currentModulesFile);
+if (DEBUG) System.out.println(" </MakeMod2MTBDD>\nCalling translate on the Mod2mtbdd object...\n<M2_translate whereFrom='Prism.doBuildModel()'>");
 					currentModel = mod2mtbdd.translate();
+if (DEBUG) System.out.println(" </M2_translate whereFrom='Prism.doBuildModel()'>");
 					currentModelExpl = null;
 				} else {
+if (DEBUG) System.out.println("in Prism.doBuildModel, getExplicit() returned true");
 					if (currentModulesFile.getSystemDefn() != null) {
 						throw new PrismNotSupportedException("Explicit engine does not currently support the system...endsystem construct");
 					}
+if (DEBUG) System.out.println("in Prism.doBuildModel, instatiating a ConstructModel object...\n<Make_ConstructModel>");
 					ConstructModel constructModel = new ConstructModel(this);
+if (DEBUG) System.out.println("</Make_ConstructModel>\n<SetFixDeadlocks>");
 					constructModel.setFixDeadlocks(getFixDeadlocks());
+if (DEBUG) System.out.println("</SetFixDeadlocks>\n<ConstructModel>");
 					currentModelExpl = constructModel.constructModel(currentModelGenerator);
+if (DEBUG) System.out.println("</ConstructModel>");
 					currentModel = null;
 				}
+if (DEBUG) System.out.println("</CASE_PrismModel>\n");
 				// if (...) ... currentModel = buildModelExplicit(currentModulesFile);
 				break;
 			case MODEL_GENERATOR:
+if (DEBUG) System.out.println("in doBuildModel, Case is MODEL_GENERATOR");
 				if (currentModelGenerator == null)
 					throw new PrismException("There is no currently loaded model generator to build");
 				if (!getExplicit()) {
@@ -2051,6 +2097,7 @@ if (DEBUG) System.out.print("<doBuildModel where='prism.Prism.java'>");
 				}
 				break;
 			case EXPLICIT_FILES:
+if (DEBUG) System.out.println("in doBuildModel, Case is EXPLICIT_FILES");
 				if (!getExplicit()) {
 					expf2mtbdd = new ExplicitFiles2MTBDD(this);
 					currentModel = expf2mtbdd.build(explicitFilesStatesFile, explicitFilesTransFile, explicitFilesLabelsFile, explicitFilesStateRewardsFile,
@@ -2977,7 +3024,7 @@ if (DEBUG) System.out.println(" @ prism.Prism.modelCheck() - Place 4");
 			// Build model, if necessary
 if (DEBUG) System.out.println(" @ prism.Prism.modelCheck() - Place 5-Pre - about to call 'buildModelIfRequired() [Note that modelIsBuilt() returns " + modelIsBuilt() + "]");
 			buildModelIfRequired();
-if (DEBUG) System.out.println(" @ prism.Prism.modelCheck() - Place 5-Post - after call to buildModelIfRequired()");
+if (DEBUG) System.out.println(" @ prism.Prism.modelCheck() - Place 5-Post - after call to buildModelIfRequired()\n");
 
 			// Compatibility check
 			if (genStrat && currentModelType.nondeterministic() && !getExplicit()) {
@@ -2991,10 +3038,13 @@ if (DEBUG) System.out.println(" @ prism.Prism.modelCheck() - Place 6");
 
 			// Create new model checker object and do model checking
 			if (!getExplicit()) {
-if (DEBUG) System.out.println(" @ prism.Prism.modelCheck() - Place 7A-1 - about to call 'createModelChecker()'");
+if (DEBUG) System.out.println(" @ prism.Prism.modelCheck() - Place 7A-1 - about to call 'createModelChecker()'\n\n<CreateModelChecker calledFrom='Prism.modelCheck()'");
 				ModelChecker mc = createModelChecker(propertiesFile);
+if (DEBUG) System.out.println("</CreateModelChecker>\n");
 if (DEBUG) System.out.println(" @ prism.Prism.modelCheck() - Place 7A-2 - about to call 'mc.check()' on result of 'prop.getExpression()')");
+if (DEBUG) System.out.println("<CheckAProperty which='" + prop.getExpression() + "' whereFrom='Prism.modelCheck() place 7A-2'>");
 				res = mc.check(prop.getExpression());
+if (DEBUG) System.out.println("</CheckAProperty which='" + prop.getExpression() + "'>\n");
 			} else {
 if (DEBUG) System.out.println(" @ prism.Prism.modelCheck() - Place 7B-1 - about to call 'createModelCheckerExplicit()'");
 				explicit.StateModelChecker mc = createModelCheckerExplicit(propertiesFile);

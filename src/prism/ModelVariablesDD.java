@@ -41,6 +41,10 @@ import jdd.JDDVars;
  */
 public class ModelVariablesDD
 {
+private static int ShaneNextID = 0;
+private int ShaneID;
+private Exception stackWhenInstantiated;
+
 	/** Vector of DD variable names for the allocated variables */
 	private Vector<String> ddVarNames = new Vector<String>();
 	/** The allocated variables */
@@ -56,6 +60,13 @@ public class ModelVariablesDD
 	/** Constructor */
 	public ModelVariablesDD()
 	{
+/* The following inserted by SHANE for debugging/understanding the code.  This body was originally empty. */
+ShaneID = ++ShaneNextID;
+stackWhenInstantiated = new Exception("STACK WHEN INSTANTIATED");
+
+ddVariables.setPurpose("ddVariables in ModelVariablesDD-#" + ShaneID);
+extraStateVariables.setPurpose("extraStateVariables in ModelVariablesDD-#" + ShaneID);
+extraActionVariables.setPurpose("extraActionVariables in ModelVariablesDD-#" + ShaneID);
 	}
 
 	/**
@@ -89,6 +100,12 @@ public class ModelVariablesDD
 		return ddVarNames;
 	}
 
+public void showVarNamesAndIDs()
+{
+	for (int i = 0; i < ddVarNames.size(); i++)
+		System.out.println(i + ": " + ddVarNames.get(i));
+}
+
 	/**
 	 * Allocate a new variable for the model.
 	 * <br>[ REFS: <i>result</i> ]
@@ -97,6 +114,8 @@ public class ModelVariablesDD
 	public JDDNode allocateVariable(String name)
 	{
 		JDDNode v = JDD.Var(nextDDVarIndex);
+System.out.println("<AllocVar>\nIn ModelVariablesDD #" + ShaneID + ", allocated variable " + name + " as Var #" + nextDDVarIndex + "\n</AllocVar>"); 
+v.setPurpose("Variable for " + name + " {created in ModelVariablesDD.allocateVariable()}");
 		nextDDVarIndex++;
 
 		ddVariables.addVar(v.copy());
@@ -110,6 +129,7 @@ public class ModelVariablesDD
 	{
 		for (int i=0; i<count; i++) {
 			JDDNode v = allocateVariable("");
+v.setPurpose("Extra State Variable " + i + " (preallocate)");
 			extraStateVariables.addVar(v);
 		}
 	}
@@ -204,6 +224,7 @@ public class ModelVariablesDD
 	{
 		for (int i=0;i<count;i++) {
 			JDDNode v = allocateVariable("");
+v.setPurpose("Extra Action Variable " + i + " (preallocate)");
 			extraActionVariables.addVar(v);
 		}
 	}

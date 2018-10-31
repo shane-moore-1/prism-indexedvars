@@ -30,6 +30,18 @@ package jdd;
 
 public class JDDNode
 {
+private boolean SHANE_DEBUG = true;
+private static String ShanePURPOSE_Unknown = "[Unknown Purpose]";
+private String ShanePURPOSE = ShanePURPOSE_Unknown;
+private int ShaneID;
+private static int ShaneNextID = 0;
+private Exception ShaneCreationTimeStack;
+
+public void setPurpose(String purpose)
+{
+	ShanePURPOSE = purpose;
+}
+
 	private long ptr;
 	
 	// native methods (jni)
@@ -58,6 +70,20 @@ public class JDDNode
 	protected JDDNode(long p)
 	{
 		ptr = p;
+if (SHANE_DEBUG)
+{
+ShaneID = ++ShaneNextID;
+// Guess the purpose, by saying what the most recent few method calls were (It can always be replaced with better description):
+ShaneCreationTimeStack = new Exception();
+StackTraceElement[] stackElts = ShaneCreationTimeStack.getStackTrace();
+ShanePURPOSE = //ShanePURPOSE_Unknown;
+
+"{Created in " + stackElts[1] + 
+"\n\twhich was called by " + stackElts[2] + 
+(stackElts.length >= 3 ? "\n\twhich was called by " + stackElts[3] : "") +
+(stackElts.length >= 4 ? "\n\twhich was called by " + stackElts[4] : "") +
+"\n}\n";
+}
 	}
 	
 	public long ptr()
@@ -156,6 +182,18 @@ public class JDDNode
 			if (this.isConstant()) result += " value=" + this.getValue();
 			result += " references=" + DebugJDD.getRefCount(this);
 		}
+if (SHANE_DEBUG) {
+  result += " [shane ID= " + ShaneID + ", purp = " + ShanePURPOSE;
+
+  if (ShanePURPOSE == ShanePURPOSE_Unknown) {	// Show stack of creation time, partially:
+StackTraceElement[] stackElts = ShaneCreationTimeStack.getStackTrace();
+    result += "{Created in " + stackElts[1] + 
+    ", which was called by " + stackElts[2] + 
+    (stackElts.length >= 3 ? ", which was called by " + stackElts[3] : "") +
+    (stackElts.length >= 4 ? ", which was called by " + stackElts[4] : "") ;
+  }
+  result += "] ";
+}
 		return result;
 	}
 
@@ -172,6 +210,7 @@ public class JDDNode
 		} else {
 			JDDNode result = new JDDNode(ptr());
 			JDD.Ref(result);
+result.ShanePURPOSE = " Copy of JDDNode with ShaneID #"+ShaneID+", whose purpose was: {" + ShanePURPOSE + "}";
 			return result;
 		}
 	}

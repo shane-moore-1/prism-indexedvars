@@ -41,11 +41,13 @@ See also ASTTraverseModify.
 public class ASTTraverse implements ASTVisitor
 {
 // SHANE's DEBUG OUTPUT CONTROL SWITCHES:
-public static boolean DEBUG_DeclTypeIndSet = false;
-public static boolean DEBUG_Commands = false;
-public static boolean DEBUG_Update = true;
-public static boolean DEBUG_Ident = false;
-public static boolean DEBUG_ExpIndSetAcc = false;
+public static boolean DEBUG_SHOW_ENABLED = false;
+
+public static boolean DEBUG_DeclTypeIndSet = false && DEBUG_SHOW_ENABLED;
+public static boolean DEBUG_Commands = false && DEBUG_SHOW_ENABLED;
+public static boolean DEBUG_Update = true && DEBUG_SHOW_ENABLED;
+public static boolean DEBUG_Ident = false && DEBUG_SHOW_ENABLED;
+public static boolean DEBUG_ExpIndSetAcc = false && DEBUG_SHOW_ENABLED;
 
 	public void defaultVisitPre(ASTElement e) throws PrismLangException {}
 	public void defaultVisitPost(ASTElement e) throws PrismLangException {}
@@ -193,6 +195,7 @@ public static boolean DEBUG_ExpIndSetAcc = false;
 	public Object visit(DeclTypeIndexedSet e) throws PrismLangException
 	{
 if (DEBUG_DeclTypeIndSet) System.out.println("The " + this.getClass().getName() + " visitor has reached ASTTraverse.visit(DeclTypeIndSet) for " + e);
+System.out.flush();
 		visitPre(e);
 		if (e.getSize() != null) e.getSize().accept(this);
 		if (e.getElementsType() != null) e.getElementsType().accept(this);
@@ -247,14 +250,26 @@ if (DEBUG_DeclTypeIndSet) System.out.println("The " + this.getClass().getName() 
 	{
 		// Note: a few classes override this method (e.g. SemanticCheck)
 		// so take care to update those versions if changing this method
-if (DEBUG_Commands) {
-	if (e.getSynch().length() > 0) System.out.println("\nThe " + this.getClass().getName() + " visitor has reached ASTTraverse.visit(Command) for Command with synch: " + e.getSynch());
-	else System.out.println("\nThe " + this.getClass().getName() + " visitor has reached ASTTraverse.visit(Command) for Command (with no synch): " + e);
+if (DEBUG_Update) {
+    System.out.println("\nASTTraverse.visit(Command) has been invoked by the " + this.getClass().getName() + " visitor\n for command: " + e);
+	if (e.getSynch().length() > 0) System.out.println(" which has synch: e.getSynch()");
+	else System.out.println(" (which has no synch)");
 }
+if (DEBUG_Update) System.out.println("ASTTraverse.visit(Command) is about to call visitPre(Cmd)");
+System.out.flush();
 		visitPre(e);
+if (DEBUG_Update) System.out.println("ASTTraverse.visit(Command) for command: " + e + "\n has returned from visitPre, and is about to call accept() on the guard which is: " + e.getGuard() );
+System.out.flush();
 		e.getGuard().accept(this);
+if (DEBUG_Update) System.out.println("ASTTraverse.visit(Command) for command: " + e + "\n has returned from calling accept() on the guard: " + e.getGuard() );
+if (DEBUG_Update) System.out.println("ASTTraverse.visit(Command) is about to call accept on its Updates object" );
+System.out.flush();
 		e.getUpdates().accept(this);
+if (DEBUG_Update) System.out.println("ASTTraverse.visit(Command) for command: " + e + "\n has returned from calling accept on its Updates object, and is about to call visitPost(Cmd)" );
+System.out.flush();
 		visitPost(e);
+if (DEBUG_Update) System.out.println("ASTTraverse.visit(Command) for command: " + e + "\n has returned from calling visitPost(Cmd), and is Ending." );
+System.out.flush();
 		return null;
 	}
 	public void visitPost(Command e) throws PrismLangException { defaultVisitPost(e); }
@@ -278,24 +293,28 @@ if (DEBUG_Commands) {
 	public Object visit(Update e) throws PrismLangException
 	{ 
 if (DEBUG_Update) System.out.println("\nThe " + this.getClass().getName() + " visitor has reached ASTTraverse.visit(Update) for update: " + e);
-		visitPre(e);
+if (DEBUG_Update) System.out.println(" (so it has not been overridden by the Visitor class, and the default will be done...)");
+System.out.flush();
+ 		visitPre(e);
 		int i, n;
 		n = e.getNumElements();
-if (DEBUG_Update) System.out.println(" (It has "+n+ " elements)");
+if (DEBUG_Update) System.out.println(" (The update has "+n+ " elements)");
+System.out.flush();
 		for (i = 0; i < n; i++) {
-if (DEBUG_Update) System.out.print("  Considering expression " + (i-1) + "/"+n+", which is: " + e.getExpression(i));
+if (DEBUG_Update) System.out.println("  in ASTTraverse.visit(Update): Considering Update-Expression #" + (i+1) + "/"+n+", which is: " + e.getExpression(i));
+System.out.flush();
 			ExpressionIdent targetOfUpdate = e.getVarIdent(i);
 			if (targetOfUpdate instanceof ExpressionIndexedSetAccess)
 			{
 				ExpressionIndexedSetAccess detail = (ExpressionIndexedSetAccess) targetOfUpdate;
-if (DEBUG_Update) System.out.println(": It is an indexed-set access"); 
+if (DEBUG_Update) System.out.println(" It is an indexed-set access"); 
 				// Consider the Access part's validity - is it an int value.
 				Expression indexExp = detail.getIndexExpression();
 
 if (DEBUG_Update) System.out.println("  So I am going to call visit() on the access expression: " + indexExp);
 				// Delve in so that the expression might be resolved.
 				Expression res = (Expression) indexExp.accept(this);
-if (DEBUG_Update) System.out.println("  Completed call visit() on the access expression: " + indexExp);
+if (DEBUG_Update) System.out.println("  in ASTTraverse.visit(Update): Completed call visit() on the access expression: " + indexExp);
 // DON'T DO THIS LINE, it will break things:	detail.setIndexExpression(res);
 // NOTE: This whole class (ASTTraverse) always returns null; so the results should not be "used" in any way. Otherwise you should
 // be dealing with the ASTTraverseModify class instead.
@@ -303,16 +322,18 @@ if (DEBUG_Update) System.out.println("  Completed call visit() on the access exp
 				//refresh it (in case it just got changed by above line)
 				indexExp = detail.getIndexExpression();
 			}
-else if (DEBUG_Update) System.out.println(": It was not accessing an indexed set, so no special processing of it.");
+else if (DEBUG_Update) System.out.println(" It was not accessing an indexed set, so no special processing of it.");
 
-if (DEBUG_Update) System.out.println("\nPART 2 of Considering update-element " + (i+1) + "/"+n +" - About to call the accept() method on the expression (if it is not null): " + e);
+if (DEBUG_Update) System.out.println("\n  in ASTTraverse.visit(Update): PART 2 of Considering update-element " + (i+1) + "/"+n +" - About to call the accept() method on the expression: " + e.getExpression(i) );
 			
 			if (e.getExpression(i) != null) e.getExpression(i).accept(this);
-if (DEBUG_Update) System.out.println("  Finished call of the accept() method on the expression (if it is not null): " + e);
+if (DEBUG_Update) System.out.println("  in ASTTraverse.visit(Update): Finished call of the accept() method on the expression: " + e.getExpression(i) );
+System.out.flush();
 		}
-if (DEBUG_Update) System.out.println("The " + this.getClass().getName() + " visitor is about to call visitPost(Update)");
+if (DEBUG_Update) System.out.println("  in ASTTraverse.visit(Update): The " + this.getClass().getName() + " visitor is about to call visitPost(Update)");
 		visitPost(e);
-if (DEBUG_Update) System.out.println("The " + this.getClass().getName() + " visitor has now concluded visit(Update)");
+if (DEBUG_Update) System.out.println("  in ASTTraverse.visit(Update): The " + this.getClass().getName() + " visitor has now returned from visitPost(), and has concluded visit(Update)");
+System.out.flush();
 		return null;
 	}
 	public void visitPost(Update e) throws PrismLangException { defaultVisitPost(e); }

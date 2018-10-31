@@ -34,6 +34,7 @@ import prism.PrismLangException;
  */
 public class FindAllFormulas extends ASTTraverseModify
 {
+public static boolean DEBUG = false && DEBUG_SHOW_ENABLED;
 	private FormulaList formulaList;
 	
 	public FindAllFormulas(FormulaList formulaList)
@@ -43,7 +44,7 @@ public class FindAllFormulas extends ASTTraverseModify
 	
 	public Object visit(ExpressionIdent e) throws PrismLangException
 	{
-System.out.println("FindAllFormulas.visit(ExprIdent) (Overrides default visit() of ASTTM) called for ExprIdent: \'"+ e + "\' [" + e.getClass().getName() + "]");
+if (DEBUG) System.out.println("FindAllFormulas.visit(ExprIdent) (Overrides default visit() of ASTTM) called for ExprIdent: \'"+ e + "\' [" + e.getClass().getName() + "]");
 
 		int i;
 		// See if identifier corresponds to a formula

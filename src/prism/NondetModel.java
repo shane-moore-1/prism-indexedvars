@@ -45,6 +45,7 @@ import sparse.*;
 public class NondetModel extends ProbModel
 {
 public static boolean DEBUG = true;
+public static boolean DEBUG_FRS = true;
 	// Extra info
 	protected double numChoices; // number of choices
 
@@ -266,21 +267,29 @@ if (DEBUG) System.out.println("in NondetModel.doReachability(): About to call Pr
 
 	public void filterReachableStates()
 	{
+if (DEBUG_FRS) System.out.println("<NondetModel_FilterReachable>");
 		super.filterReachableStates();
 
+if (DEBUG_FRS) System.out.println(" NM-FRS Place 1");
 		// also filter transInd/tranSynch DDs (if necessary)
 		if (transInd != null) {
+if (DEBUG_FRS) System.out.println(" NM-FRS Place 2 - will TIMES reach and transInd.\nreach is " + reach + "\ntransInd before is: " + transInd);
 			JDD.Ref(reach);
 			transInd = JDD.Apply(JDD.TIMES, reach, transInd);
+transInd.setPurpose("transInd, modified in NondetModel.filterReachableStates");
 			for (int i = 0; i < numSynchs; i++) {
 				JDD.Ref(reach);
+if (DEBUG_FRS) System.out.println(" NM-FRS Place 3 - will TIMES reach and transSynch["+i+"]. transSynch["+i+"] before is : " + transSynch[i]);
 				transSynch[i] = JDD.Apply(JDD.TIMES, reach, transSynch[i]);
+transSynch[i].setPurpose("transSynch["+i+"], modified in NondetModel.filterReachableStates");
 			}
 		}
 		// also filter transReln DD (if necessary)
 		if (transReln != null) {
+if (DEBUG_FRS) System.out.println(" NM-FRS Place 4 - will TIMES reach and transReln. transReln before is : " + transReln);
 			JDD.Ref(reach);
 			transReln = JDD.Apply(JDD.TIMES, reach, transReln);
+transInd.setPurpose("transReln, modified in NondetModel.filterReachableStates");
 		}
 		
 		// build mask for nondeterminstic choices
@@ -292,8 +301,11 @@ if (DEBUG) System.out.println("in NondetModel.doReachability(): About to call Pr
 		// nb: this assumes that there are no deadlock states
 		nondetMask = JDD.And(JDD.ThereExists(trans01, allDDColVars), reach);
 		numChoices = JDD.GetNumMinterms(nondetMask, getNumDDRowVars() + getNumDDNondetVars());
+if (DEBUG_FRS) System.out.println(" NM-FRS Place 5 - numChoices is " + numChoices + ", nondetMask is: " + nondetMask);
 		JDD.Ref(reach);
 		nondetMask = JDD.And(JDD.Not(nondetMask), reach);
+if (DEBUG_FRS) System.out.println(" NM-FRS Place 6 - nondetMask is now: " + nondetMask);
+if (DEBUG_FRS) System.out.println("</NondetModel_FilterReachable>");
 	}
 
 	@Override

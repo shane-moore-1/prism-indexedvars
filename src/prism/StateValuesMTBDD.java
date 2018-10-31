@@ -42,6 +42,23 @@ import parser.type.*;
  */
 public class StateValuesMTBDD implements StateValues
 {
+public static boolean DEBUG = true;
+public static boolean DEBUG_2 = true;
+public static boolean DEBUG_SETMODEL = false;
+public static boolean DEBUG_Prin = false;
+
+public void shaneShow()
+{
+  System.out.flush();
+String valStr = "" + values;
+  System.out.println("The StateValuesMTBDD has this information:");
+  System.out.println(" values (JDD Node): " + valStr + "\n vars: " + vars + "\n values.getIndex() = " + values.getIndex() + 
+", values.isConstant: " + values.isConstant() + ", values.getValue() = " + (values.isConstant() ? values.getValue() : " [ no value (not constant) ]" ) );
+  System.out.print(" numDDRowVars: " + numDDRowVars + ", numVars: " + numVars );
+  System.out.println(", getSize()/model.getNumStates() = " + getSize() );
+  System.out.flush();
+
+}
 	/** MTBDD storing vector of values */
 	JDDNode values;
 
@@ -81,7 +98,13 @@ public class StateValuesMTBDD implements StateValues
 	{
 		// store values vector mtbdd
 		this.values = values;
-
+if (DEBUG) {
+  System.out.println("Created a new StateValuesMTBDD instance with 'values' being:");
+  System.out.println(" JDDNode " + values + ", getIndex = " + values.getIndex() + 
+", isConstant: " + values.isConstant() + (values.isConstant() ? ", value = " + values.getValue() : " [ no value ]" ) );
+  Exception e = new Exception("STACK TRACE ONLY - not an actual exception");
+//  e.printStackTrace(System.out);
+}
 		// get info from model
 		setModel(model);
 	}
@@ -89,6 +112,8 @@ public class StateValuesMTBDD implements StateValues
 	/** Helper method: Store information about the underlying model */
 	private void setModel(Model model)
 	{
+if (DEBUG_SETMODEL) System.out.println("<SM_MTBDD_setModel()>");
+
 		this.model = model;
 		vars = model.getAllDDRowVars();
 		reach = model.getReach();
@@ -96,18 +121,23 @@ public class StateValuesMTBDD implements StateValues
 		numVars = vars.n();
 		odd = model.getODD();
 		varList = model.getVarList();
-		
+if (DEBUG_SETMODEL) System.out.println("numVars is " + numVars + ", varList.getNumVars() is " + varList.getNumVars() + ", numDDRowVars is " + numDDRowVars + ", odd is " + ", reach is " + reach);		
 		// initialise arrays
 		varSizes = new int[varList.getNumVars()];
 		for (int i = 0; i < varList.getNumVars(); i++) {
 			varSizes[i] = varList.getRangeLogTwo(i);
+if (DEBUG_SETMODEL) System.out.println("varSizes[" + i + "] is " + varSizes[i]);
+
 		}
 		varValues = new int[varList.getNumVars()];
+if (DEBUG_SETMODEL) System.out.println("</SM_MTBDD_setModel()>");
+
 	}
 
 	@Override
 	public void switchModel(Model newModel)
 	{
+if (DEBUG) System.out.println("Called SV-MTBDD.switchModel() to change the model of the SV-MTBDD");
 		setModel(newModel);
 	}
 
@@ -116,6 +146,7 @@ public class StateValuesMTBDD implements StateValues
 	@Override
 	public StateValuesDV convertToStateValuesDV() throws PrismException
 	{
+if (DEBUG) System.out.println("CALLED StValMTBDD.convertToStateValuesDV()");
 		// convert to StateValuesDV, destroy (clear) old vector
 		StateValuesDV res = new StateValuesDV(values, model);
 		clear();
@@ -125,6 +156,7 @@ public class StateValuesMTBDD implements StateValues
 	@Override
 	public StateValuesMTBDD convertToStateValuesMTBDD()
 	{
+if (DEBUG) System.out.println("CALLED StValMTBDD.convertToStateValuesMTBDD()");
 		// convert to StateValuesMTBDD (nothing to do)
 		return this;
 	}
@@ -136,6 +168,7 @@ public class StateValuesMTBDD implements StateValues
 	 */
 	public void setElement(int i, double d)
 	{
+if (DEBUG) System.out.println("SV-MTBDD.setElement("+i+","+d+") called.\n<SET_ELEMENT>");
 		ODDNode ptr;
 		JDDNode dd;
 		int j, k;
@@ -144,20 +177,27 @@ public class StateValuesMTBDD implements StateValues
 		dd = JDD.Constant(1);
 		ptr = odd;
 		j = i;
+if (DEBUG) System.out.println(" numVars = " + numVars);
 		for (k = 0; k < numVars; k++) {
+if (DEBUG) System.out.println(" k = " + k);
 			JDD.Ref(vars.getVar(k));
+if (DEBUG) System.out.println("   ptr.getEOff() is " + ptr.getEOff());
 			if (j >= ptr.getEOff()) {
+if (DEBUG) System.out.println("   j >= ptr.getEOff");
 				j -= ptr.getEOff();
 				dd = JDD.And(dd, vars.getVar(k));
 				ptr = ptr.getThen();
 			} else {
+if (DEBUG) System.out.println("   j < ptr.getEOff");
 				dd = JDD.And(dd, JDD.Not(vars.getVar(k)));
 				ptr = ptr.getElse();
 			}
 		}
 		
 		// Add element to vector MTBDD
+if (DEBUG) System.out.println("JDD 'values' before this call was: " + values);
 		values = JDD.ITE(dd, JDD.Constant(d), values);
+if (DEBUG) System.out.println("Resultant JDD ('values') is: " + values + "\n</SET_ELEMENT>\n");
 	}
 
 	@Override
@@ -226,20 +266,27 @@ public class StateValuesMTBDD implements StateValues
 	@Override
 	public void add(StateValues sp) 
 	{
+if (DEBUG_2) System.out.println("SV-MTBDD.add() called");
 		StateValuesMTBDD spm = (StateValuesMTBDD) sp;
 		JDD.Ref(spm.values);
+if (DEBUG_2) System.out.println("  values before call was: " + values);
 		values = JDD.Apply(JDD.PLUS, values, spm.values);
+if (DEBUG_2) System.out.println("  values after JDD.Apply is now: " + values);
 	}
 
 	@Override
 	public void timesConstant(double d) 
 	{
+if (DEBUG_2) System.out.println("SV-MTBDD.timesConstant(" + d + ") called");
+if (DEBUG_2) System.out.println("  values before call was: " + values);
 		values = JDD.Apply(JDD.TIMES, values, JDD.Constant(d));
+if (DEBUG_2) System.out.println("  values after JDD.Apply is now: " + values);
 	}
 
 	@Override
 	public double dotProduct(StateValues sp) 
 	{
+if (DEBUG_2) System.out.println("SV-MTBDD.dotProduct() called");
 		StateValuesMTBDD spm = (StateValuesMTBDD) sp;
 		JDD.Ref(values);
 		JDD.Ref(spm.values);
@@ -253,6 +300,7 @@ public class StateValuesMTBDD implements StateValues
 	@Override
 	public void filter(JDDNode filter)
 	{
+if (DEBUG_2) System.out.println("SV-MTBDD.filter(1 arg) called");
 		JDD.Ref(filter);
 		values = JDD.Apply(JDD.TIMES, values, filter);
 	}
@@ -260,6 +308,7 @@ public class StateValuesMTBDD implements StateValues
 	@Override
 	public void filter(JDDNode filter, double d)
 	{
+if (DEBUG_2) System.out.println("SV-MTBDD.filter(2 arg) called");
 		// If filter, then keep value, else constant d,
 		// but only for the reachable states
 		values = JDD.Times(reach.copy(), JDD.ITE(filter.copy(), values, JDD.Constant(d)));
@@ -268,6 +317,7 @@ public class StateValuesMTBDD implements StateValues
 	@Override
 	public void maxMTBDD(JDDNode vec2)
 	{
+if (DEBUG_2) System.out.println("SV-MTBDD.maxMTBDD called");
 		JDD.Ref(vec2);
 		values = JDD.Apply(JDD.MAX, values, vec2);
 	}
@@ -289,6 +339,7 @@ public class StateValuesMTBDD implements StateValues
 	@Override
 	public Object getValue(int i)
 	{
+if (DEBUG) System.out.println("SV-MTBDD.getValue() called, with parameter i=" + i);
 		JDDNode dd = values;
 		ODDNode ptr = odd;
 		int o = 0;
@@ -302,6 +353,7 @@ public class StateValuesMTBDD implements StateValues
 				ptr = ptr.getThen();
 			}
 		}
+if (DEBUG) System.out.println("The value being returned is " + dd.getValue());
 		// TODO: cast to Integer or Double as required?
 		return dd.getValue();
 	}
@@ -336,6 +388,7 @@ public class StateValuesMTBDD implements StateValues
 	@Override
 	public double firstFromBDD(JDDNode filter)
 	{
+if (DEBUG_2) System.out.println("SV-MTBDD.firstFromBDD() called");
 		JDDNode tmp;
 		double d;
 		
@@ -368,6 +421,7 @@ public class StateValuesMTBDD implements StateValues
 	@Override
 	public double minOverBDD(JDDNode filter)
 	{
+if (DEBUG_2) System.out.println("SV-MTBDD.minOverBDD() called");
 		JDDNode tmp;
 		double d;
 		
@@ -392,6 +446,7 @@ public class StateValuesMTBDD implements StateValues
 	@Override
 	public double maxOverBDD(JDDNode filter)
 	{
+if (DEBUG_2) System.out.println("SV-MTBDD.maxOverBDD() called");
 		JDDNode tmp;
 		double d;
 		
@@ -416,6 +471,7 @@ public class StateValuesMTBDD implements StateValues
 	@Override
 	public double maxFiniteOverBDD(JDDNode filter)
 	{
+if (DEBUG_2) System.out.println("SV-MTBDD.maxFiniteOverBDD() called");
 		JDDNode tmp;
 		double d;
 
@@ -443,6 +499,7 @@ public class StateValuesMTBDD implements StateValues
 	@Override
 	public double sumOverBDD(JDDNode filter)
 	{
+if (DEBUG_2) System.out.println("SV-MTBDD.sumOverBDD() called");
 		JDDNode tmp;
 		double d;
 		
@@ -459,6 +516,7 @@ public class StateValuesMTBDD implements StateValues
 	@Override
 	public double sumOverMTBDD(JDDNode mult)
 	{
+if (DEBUG_2) System.out.println("SV-MTBDD.sumOverMTBDD() called");
 		JDDNode tmp;
 		double d;
 		
@@ -475,6 +533,7 @@ public class StateValuesMTBDD implements StateValues
 	@Override
 	public StateValues sumOverDDVars(JDDVars sumVars, Model newModel)
 	{
+if (DEBUG_2) System.out.println("SV-MTBDD.sumOverDDVars() called");
 		JDDNode tmp;
 		
 		JDD.Ref(values);
@@ -653,12 +712,22 @@ public class StateValuesMTBDD implements StateValues
 		int i, j;
 		JDDNode e, t;
 
-		// zero constant - bottom out of recursion
-		if (dd.equals(JDD.ZERO)) return;
+// SHANE has detected that this method fails if the ODDNode parameter is null - there will be an exception caused; so no point printing ANY debugging.
+if (o == null) return;
+if (DEBUG_Prin)   System.out.println("> o is null");
 
+if (DEBUG_Prin) System.out.println("<StateValuesMTBDD_printRec level='"+level+"'>");
+
+		// zero constant - bottom out of recursion
+		if (dd.equals(JDD.ZERO)) {
+if (DEBUG_Prin) System.out.println("dd was ZERO\n</StateValuesMTBDD_printRec>");
+			return;
+		}
+
+if (DEBUG_Prin) System.out.println("level is " + level + " and numVars is " + numVars);
 		// base case - at bottom (nonzero terminal)
 		if (level == numVars) {
-		
+if (DEBUG_Prin) System.out.println("level == numVars");
 			outputLog.print(n + ":(");
 			j = varList.getNumVars();
 			for (i = 0; i < j; i++) {
@@ -674,31 +743,40 @@ public class StateValuesMTBDD implements StateValues
 			}
 			outputLog.print(")=" + dd.getValue());
 			outputLog.println();
+if (DEBUG_Prin) System.out.println("</StateValuesMTBDD_printRec>");
 			return;
 		}
 		
 		// select 'else' and 'then' branches
 		else if (dd.getIndex() > vars.getVarIndex(level)) {
+if (DEBUG_Prin) System.out.println("[printRec: Case 2] numVars is " + numVars);
+if (DEBUG_Prin) System.out.println("level != numVars, but dd.getIndex() > vars.getVarIndex(level)");
 			e = t = dd;
 		}
 		else {
+if (DEBUG_Prin) System.out.println("printRec: Case 3] numVars is " + numVars);
+if (DEBUG_Prin) System.out.println("level != numVars, and also not: dd.getIndex() > vars.getVarIndex(level)");
 			e = dd.getElse();
 			t = dd.getThen();
+if (DEBUG_Prin) System.out.println("e is " + e + "\nand t is " + t);
 		}
 
 		// then recurse...
 		currentVarLevel++; if (currentVarLevel == varSizes[currentVar]) { currentVar++; currentVarLevel=0; }
-if (o == null) {		/* SHANE DETECTED ISSUE.*/
-	outputLog.print("*** WHOOPS: o is null (curVarLevel is "+ currentVarLevel + ", aborting recursion.");
-} else
+if (o != null) 		/* SHANE DETECTED ISSUE.*/
 		printRec(e, level+1, o.getElse(), n);
+else
+ printRec(e, level+1, null, n);
 		currentVarLevel--; if (currentVarLevel == -1) { currentVar--; currentVarLevel=varSizes[currentVar]-1; }
 		varValues[currentVar] += (1 << (varSizes[currentVar]-1-currentVarLevel));
 		currentVarLevel++; if (currentVarLevel == varSizes[currentVar]) { currentVar++; currentVarLevel=0; }
 if (o != null)			/* SHANE DETECTED ISSUE.*/
 		printRec(t, level+1, o.getThen(), n+o.getEOff());
+else
+ printRec(t, level+1, null, n+o.getEOff());
 		currentVarLevel--; if (currentVarLevel == -1) { currentVar--; currentVarLevel=varSizes[currentVar]-1; }
 		varValues[currentVar] -= (1 << (varSizes[currentVar]-1-currentVarLevel));
+if (DEBUG_Prin) System.out.println("</StateValuesMTBDD_printRec>");
 	}
 
 	@Override

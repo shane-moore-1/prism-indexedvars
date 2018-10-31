@@ -35,7 +35,7 @@ import prism.PrismLangException;
  */
 public class EvaluatePartially extends ASTTraverseModify
 {
-public static boolean DEBUG = true;
+public static boolean DEBUG = true && DEBUG_SHOW_ENABLED;
 	private EvaluateContext ec;
 	
 	public EvaluatePartially(EvaluateContext ec)

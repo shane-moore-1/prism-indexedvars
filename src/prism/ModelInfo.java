@@ -40,6 +40,7 @@ import parser.type.Type;
  */
 public interface ModelInfo
 {
+public static boolean SHANE_DEBUG = true;
 	/**
 	 * Get the type of probabilistic model.
 	 */
@@ -118,6 +119,10 @@ public interface ModelInfo
 	 */
 	public default int getVarIndex(String name)
 	{
+if (SHANE_DEBUG) {
+Exception e = new Exception("STACK TRACE - the prism.ModelInfo's default-implementation of getVarIndex was called");
+e.printStackTrace(System.out);
+}
 		// Default implementation just extracts from getVarNames() 
 		return getVarNames().indexOf(name);
 	}

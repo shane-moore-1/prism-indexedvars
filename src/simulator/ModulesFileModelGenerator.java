@@ -19,6 +19,8 @@ import prism.PrismLangException;
 
 public class ModulesFileModelGenerator implements ModelGenerator
 {
+public static boolean DEBUG_initialise = true;
+public static boolean DEBUG_SSUC = true;
 	// Parent PrismComponent (logs, settings etc.)
 	protected PrismComponent parent;
 	
@@ -79,7 +81,9 @@ public class ModulesFileModelGenerator implements ModelGenerator
 		// Otherwise, setSomeUndefinedConstants needs to be called when the values are available  
 		mfConstants = modulesFile.getConstantValues();
 		if (mfConstants != null) {
+System.out.println("The modules file at line 84 of MFMG is: "+ modulesFile);
 			initialise();
+System.out.println("The modules file at line 86 of MFMG is: "+ modulesFile);
 		}
 	}
 	
@@ -89,18 +93,45 @@ public class ModulesFileModelGenerator implements ModelGenerator
 	 */
 	private void initialise() throws PrismLangException
 	{
+if (DEBUG_initialise) System.out.println("<ModulesFileModelGen_Init>");
 		// Evaluate constants on (a copy) of the modules file, insert constant values and optimize arithmetic expressions
-		modulesFile = (ModulesFile) modulesFile.deepCopy().replaceConstants(mfConstants).simplify();
+		// ORIGINALLY:
+	//	modulesFile = (ModulesFile) modulesFile.deepCopy().replaceConstants(mfConstants).simplify();
+		// BUT Broken Down for debug purposes...
+
+		ModulesFile stage1, stage2;
+
+if (DEBUG_initialise) System.out.println("In ModulesFileModelGenerator.initialise(): PHASE 1 - About to make a deep copy of the ModulesFile.\n<MakeDeepCopyOfMF>");
+		stage1 = (ModulesFile) modulesFile.deepCopy();
+if (DEBUG_initialise) System.out.println("</MakeDeepCopyOfMF>\nIn ModulesFileModelGenerator.initialise(): PHASE 2 - About to invoke replaceConstants...\n<ReplaceConstants>");
+
+for (String nm : stage1.getModuleNames() )
+  System.out.println("\t" + nm);
+
+		stage2 = (ModulesFile) stage1.replaceConstants(mfConstants);
+if (DEBUG_initialise) System.out.println("</ReplaceConstants>\nIn ModulesFileModelGenerator.initialise(): PHASE 3 - About to invoke simplify...\n<Simplify>");
+
+		modulesFile = (ModulesFile) stage2.simplify();
+if (DEBUG_initialise) System.out.println("</Simplify>");
 
 		// Get info
+if (DEBUG_initialise) System.out.println("In ModulesFileModelGenerator.initialise(): PHASE 4 - Ask the modulesFile to createVarList...\n<CreateVarList>");
 		varList = modulesFile.createVarList();
+
+if (DEBUG_initialise) System.out.println("</CreateVarList>\nIn ModulesFileModelGenerator.initialise(): PHASE 5 - Ask the modulesFile for LabelList and LabelNames...");
 		labelList = modulesFile.getLabelList();
+
 		labelNames = labelList.getLabelNames();
 		
 		// Create data structures for exploring model
+if (DEBUG_initialise) System.out.println("In ModulesFileModelGenerator.initialise(): PHASE 6 - Create an Updater...\n<MakeUpdate>");
 		updater = new Updater(modulesFile, varList, parent);
+if (DEBUG_initialise) System.out.println("</MakeUpdater>\nIn ModulesFileModelGenerator.initialise(): PHASE 7 - Create TransitionList...\n<MakeTransList>");
+
 		transitionList = new TransitionList();
 		transitionListBuilt = false;
+if (DEBUG_initialise) System.out.println("</MakeTransList>\n</ModulesFileModelGen_Init>");
+
 	}
 	
 	// Methods for ModelInfo interface
@@ -126,10 +157,18 @@ public class ModulesFileModelGenerator implements ModelGenerator
 		// with the concrete values in modulesFile, this ensures that we
 		// start again at a place where references to constants have not
 		// yet been replaced.
+if (DEBUG_SSUC) System.out.println("in ModulesFileModelGenerator.setSomeUndefConst - STEP 1: about to do a deepCopy...\n<SSUC_DeepCopy>");
+prism.PrismCL.showModulesNames(originalModulesFile);
+if (DEBUG_SSUC) System.out.println("The originalModulesFile is: " + originalModulesFile);
+
 		modulesFile = (ModulesFile) originalModulesFile.deepCopy();
+if (DEBUG_SSUC) System.out.println("</SSUC_DeepCopy>\n\nin ModulesFileModelGenerator.setSomeUndefConst - STEP 2: about to do SSUC on the copied ModulesFile...\n<MF_SSUC>");
 		modulesFile.setSomeUndefinedConstants(someValues, exact);
+if (DEBUG_SSUC) System.out.println("</MF_SSUC>\n\nin ModulesFileModelGenerator.setSomeUndefConst - STEP 3: about to retrieve constant values.");
 		mfConstants = modulesFile.getConstantValues();
+if (DEBUG_SSUC) System.out.println("in ModulesFileModelGenerator.setSomeUndefConst - STEP 4: about to call initialise.");
 		initialise();
+if (DEBUG_SSUC) System.out.println("in ModulesFileModelGenerator.setSomeUndefConst - AFTER STEP 4: just returned from call to initialise. End of MFMG.setSomeUndefConst()");
 	}
 	
 	@Override

@@ -45,6 +45,7 @@ import prism.PrismLangException;
 public class Update extends ASTElement
 {
 public static boolean DEBUG_MSG = false;
+public static boolean DEBUG_GetVarIndex = true;
 
 // SHANE Has Replaced These individual ArrayLists, with a new internal class type (below, see ElementOfUpdate)
 	// Lists of variable/expression pairs (and types)
@@ -266,6 +267,11 @@ if (DEBUG_MSG) System.out.println("Added update element for varIdent: " + v + " 
 	 */
 	public int getVarIndex(int i)
 	{
+if (DEBUG_GetVarIndex) {
+  Exception e = new Exception("STACK TRACE ONLY - CALL OF Update.getVarIndex()");
+  e.printStackTrace(System.out);
+System.out.println();
+}
 		return elements.get(i).index;
 	}
 

@@ -34,6 +34,7 @@ import parser.type.*;
 
 public class ExpressionVar extends Expression
 {
+public static boolean DEBUG_EVALUATE = true;
 	// Variable name
 	private String name;
 	// The index of the variable in the model to which it belongs
@@ -89,7 +90,15 @@ public class ExpressionVar extends Expression
 	@Override
 	public Object evaluate(EvaluateContext ec) throws PrismLangException
 	{
+if (DEBUG_EVALUATE) {
+   System.out.println("ExprVar.evaluate(EC) called for name="+name+", and index="+index);
+   Exception stack = new Exception("Stack Trace Only  [NOT an exception]");
+   stack.printStackTrace(System.out);
+}
 		Object res = ec.getVarValue(name, index);
+if (DEBUG_EVALUATE)
+ if (res == null) System.out.println("Was UNABLE to evaluate it. Note that EvaluateContext is: " + ec);
+ else System.out.println("WAS ABLE to evaluate. 	:)");
 		if (res == null)
 			throw new PrismLangException("Could not evaluate variable", this);
 		return res;

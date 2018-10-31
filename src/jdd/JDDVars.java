@@ -42,6 +42,19 @@ import java.util.Vector;
  */
 public class JDDVars implements Iterable<JDDNode>
 {
+private static int NextShaneID = 1;
+private int ShaneID;
+private static String ShanePurposeUNKNOWN = "[Unknown Purpose]";
+private String ShanePurposeOfThisInstance = ShanePurposeUNKNOWN;
+
+public void setPurpose(String purpose)
+{
+	this.ShanePurposeOfThisInstance = purpose;
+if (DEBUG)	System.out.println("The purpose of instance #" + ShaneID + " is: " + purpose);
+}
+
+private static boolean DEBUG = true;
+private static boolean DEBUG_ShowStack = true;
 	private Vector<JDDNode> vars;
 	private long array;
 	private boolean arrayBuilt;
@@ -66,6 +79,15 @@ public class JDDVars implements Iterable<JDDNode>
 	 */
 	public JDDVars()
 	{
+if (DEBUG) {
+  this.ShaneID = NextShaneID; NextShaneID++;
+  System.out.println("Created JDDVars instance #" + ShaneID);
+  if (DEBUG_ShowStack) {
+    Exception e = new Exception("STACK TRACE");
+    e.printStackTrace(System.out);
+  }
+}
+
 		vars = new Vector<JDDNode>();
 		array = 0;
 		arrayBuilt = false;
@@ -78,6 +100,7 @@ public class JDDVars implements Iterable<JDDNode>
 	 */
 	public void addVar(JDDNode var)
 	{
+if (DEBUG) System.out.println("called JDDVars.addVar for JDD-V #" + ShaneID + " [" + ShanePurposeOfThisInstance + "], passing this JDDNode: " + var);
 		vars.addElement(var);
 		if (arrayBuilt) DDV_FreeArray(array);
 		arrayBuilt = false;
@@ -93,6 +116,7 @@ public class JDDVars implements Iterable<JDDNode>
 	@Deprecated
 	public void addVars(JDDVars ddv)
 	{
+if (DEBUG) System.out.println("Deprecated call of addVars(JDDVars)");
 		vars.addAll(ddv.vars);
 		if (arrayBuilt) DDV_FreeArray(array);
 		arrayBuilt = false;
@@ -104,7 +128,9 @@ public class JDDVars implements Iterable<JDDNode>
 	 */
 	public JDDVars copy()
 	{
+if (DEBUG) System.out.println("JDDVars.copy() was called for JDD-V # " + ShaneID);
 		JDDVars result = new JDDVars();
+result.setPurpose("copy JDDVars made from JDD-V #" + ShaneID);
 		for (JDDNode var : this) {
 			result.addVar(var.copy());
 		}
@@ -117,6 +143,7 @@ public class JDDVars implements Iterable<JDDNode>
 	 * Does a (referencing) copy of each of the variable JDDNodes.
 	 */
 	public void copyVarsFrom(JDDVars ddv) {
+if (DEBUG) System.out.println("copyVarsFrom called.");
 		for (JDDNode var : ddv) {
 			addVar(var.copy());
 		}
@@ -128,6 +155,7 @@ public class JDDVars implements Iterable<JDDNode>
 	 */
 	public static JDDVars[] copyArray(JDDVars[] vararray)
 	{
+if (DEBUG) System.out.println("JDDVars.copyArray() called");
 		JDDVars[] result = new JDDVars[vararray.length];
 		for (int i = 0;  i< vararray.length; i++) {
 			result[i] = vararray[i].copy();
@@ -144,6 +172,7 @@ public class JDDVars implements Iterable<JDDNode>
 	 * @param ddv the new variables
 	 */
 	public void mergeVarsFrom(JDDVars ddv) {
+if (DEBUG) System.out.println("JDDVars.mergeVarsFrom() called");
 		copyVarsFrom(ddv);
 		sortByIndex();
 	}
@@ -153,6 +182,7 @@ public class JDDVars implements Iterable<JDDNode>
 	 */
 	public void removeVar(JDDNode v)
 	{
+if (DEBUG) System.out.println("JDDVars.removeVar called on JDD-V #" + ShaneID + ", for node: " + v);
 		vars.remove(v);
 		if (arrayBuilt) DDV_FreeArray(array);
 		arrayBuilt = false;
@@ -164,6 +194,7 @@ public class JDDVars implements Iterable<JDDNode>
 	 */
 	public void removeVars(JDDVars ddv)
 	{
+if (DEBUG) System.out.println("JDDVars.removeVars() called on JDD-V #" + ShaneID );
 		vars.removeAll(ddv.vars);
 		if (arrayBuilt) DDV_FreeArray(array);
 		arrayBuilt = false;
@@ -181,6 +212,10 @@ public class JDDVars implements Iterable<JDDNode>
 	 */
 	public JDDNode getVar(int i)
 	{
+if (DEBUG) System.out.println("JDDVars.getVar("+i+") invoked on JDD-V #" + ShaneID + " [ " + ShanePurposeOfThisInstance + "]");
+Exception e = new Exception("WHERE");
+//if (DEBUG) e.printStackTrace(System.out);
+System.out.flush();
 		return (JDDNode)vars.elementAt(i);
 	}
 
@@ -189,6 +224,7 @@ public class JDDVars implements Iterable<JDDNode>
 	 */
 	public long getVarPtr(int i)
 	{
+if (DEBUG) System.out.println("JDDVars.getVarPtr("+i+") invoked on JDD-V #" + ShaneID + " [ " + ShanePurposeOfThisInstance + "]");
 		return ((JDDNode)vars.elementAt(i)).ptr();
 	}
 
@@ -197,6 +233,10 @@ public class JDDVars implements Iterable<JDDNode>
 	 */
 	public int getVarIndex(int i)
 	{
+if (DEBUG) System.out.println("JDDVars.getVarIndex("+i+") invoked on JDD-V #" + ShaneID + " [ " + ShanePurposeOfThisInstance + "]");
+Exception e = new Exception("WHERE");
+//if (DEBUG) e.printStackTrace(System.out);
+System.out.flush();
 		return DDV_GetIndex(((JDDNode)vars.elementAt(i)).ptr());
 	}
 
@@ -307,7 +347,9 @@ public class JDDVars implements Iterable<JDDNode>
 	public String toString()
 	{
 		int i;
-		String s = "{";
+		String s = "";
+if (DEBUG) s += "JDD-V #" + ShaneID + ", vars: ";
+		s += "{";
 		
 		for (i = 0; i < vars.size() - 1; i++) {
 			s = s + getVarIndex(i) + ", ";
@@ -316,6 +358,7 @@ public class JDDVars implements Iterable<JDDNode>
 			s = s + getVarIndex(vars.size() - 1);
 		}
 		s += "}";
+if (DEBUG) s += ", [purpose: " + ShanePurposeOfThisInstance +"]";
 		
 		return s;
 	}

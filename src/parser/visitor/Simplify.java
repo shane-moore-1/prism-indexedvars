@@ -33,11 +33,16 @@ import prism.PrismLangException;
 /**
  * Simplify expressions (constant propagation, ...)
  */
+
+
+// SHANE has determined that this is not relevant to Indexed Sets in any way.
+
 public class Simplify extends ASTTraverseModify
 {
+public static boolean DEBUG_Invocations = false && DEBUG_SHOW_ENABLED;
 	public Object visit(ExpressionBinaryOp e) throws PrismLangException
 	{
-System.out.println("The Simplify visitor has reached a ExprBinaryOp: " + e);
+if (DEBUG_Invocations) System.out.println("The Simplify visitor has reached a ExprBinaryOp: " + e);
 
 		// Apply recursively
 		e.setOperand1((Expression) (e.getOperand1().accept(this)));
@@ -163,7 +168,7 @@ System.out.println("The Simplify visitor has reached a ExprBinaryOp: " + e);
 
 	public Object visit(ExpressionUnaryOp e) throws PrismLangException
 	{
-System.out.println("The Simplify visitor has reached a ExprUnaryOp: " + e);
+if (DEBUG_Invocations) System.out.println("The Simplify visitor has reached a ExprUnaryOp: " + e);
 		// Apply recursively
 		e.setOperand((Expression) (e.getOperand().accept(this)));
 		// If operand is a literal, replace with literal
@@ -179,7 +184,7 @@ System.out.println("The Simplify visitor has reached a ExprUnaryOp: " + e);
 
 	public Object visit(ExpressionITE e) throws PrismLangException
 	{
-System.out.println("The Simplify visitor has reached an ExprITE: " + e);
+if (DEBUG_Invocations) System.out.println("The Simplify visitor has reached an ExprITE: " + e);
 		// Apply recursively
 		e.setOperand1((Expression) (e.getOperand1().accept(this)));
 		e.setOperand2((Expression) (e.getOperand2().accept(this)));
@@ -200,7 +205,7 @@ System.out.println("The Simplify visitor has reached an ExprITE: " + e);
 
 	public Object visit(ExpressionFunc e) throws PrismLangException
 	{
-System.out.println("The Simplify visitor has reached an ExprFunc: " + e);
+if (DEBUG_Invocations) System.out.println("The Simplify visitor has reached an ExprFunc: " + e);
 		int i, n;
 		boolean literal;
 		// Apply recursively
@@ -225,7 +230,7 @@ System.out.println("The Simplify visitor has reached an ExprFunc: " + e);
 	
 	public Object visit(ExpressionFormula e) throws PrismLangException
 	{
-System.out.println("The Simplify visitor has reached an ExprFormula: " + e);
+if (DEBUG_Invocations) System.out.println("The Simplify visitor has reached an ExprFormula: " + e);
 		// If formula has an attached definition, just replace it with that
 		return e.getDefinition() != null ? e.getDefinition() : e;
 	}

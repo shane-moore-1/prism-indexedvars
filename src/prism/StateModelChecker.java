@@ -48,12 +48,14 @@ import parser.visitor.ReplaceLabels;
 
 public class StateModelChecker extends PrismComponent implements ModelChecker
 {
-
+public static boolean DEBUG_constr = true;		// Whether to show information during the constructor
 public static boolean DEBUG = true;			// Whether to show default/higher importance general debugging trace statements
-public static boolean DEBUG2 = false;			// Whether to show lesser importance general debugging traces
+public static boolean DEBUG2 = true;			// Whether to show lesser importance general debugging traces
 public static boolean DEBUG3_chkExprDD = true;		// Whether to debug (trace) the checkExpressionDD() method
 public static boolean DEBUG_CEF = true;			// Whether to debug (trace) the behaviours of checkExpressionFilter()
 public static boolean DEBUG_CheckIndSetAcc = true;	// Whether to debug the checkIndexSetAccess() method.
+public static boolean DEBUG_chkBinOp = true;	// Whether to debug the checkIndexSetAccess() method.
+public static boolean DEBUG_WHICH = true;		// Whether to show WHICH method we are doing.
 public static int DebugIndent = 0;
 public static void PrintDebugIndent() { if (DEBUG) { for (int i = 0; i < DebugIndent; i++) System.out.print(" "); } }
 
@@ -106,6 +108,7 @@ public static void PrintDebugIndent() { if (DEBUG) { for (int i = 0; i < DebugIn
 	{
 		// Initialise PrismComponent
 		super(prism);
+if (DEBUG_constr) System.out.println("In the FIRST constructor of StateModelChecker");
 
 		// Initialise
 		this.prism = prism;
@@ -148,6 +151,8 @@ public static void PrintDebugIndent() { if (DEBUG) { for (int i = 0; i < DebugIn
 	{
 		// Initialise PrismComponent
 		super(prism);
+if (DEBUG_constr) System.out.println("In the SECOND constructor of StateModelChecker");
+
 
 		// Initialise
 		this.prism = prism;
@@ -181,15 +186,19 @@ public static void PrintDebugIndent() { if (DEBUG) { for (int i = 0; i < DebugIn
 	 */
 	public static StateModelChecker createModelChecker(ModelType modelType, Prism prism, Model model, PropertiesFile propertiesFile) throws PrismException
 	{
+if (DEBUG_constr) System.out.println("in SMC.createModelChecker with 4 parameters");
 		StateModelChecker mc = null;
 		switch (modelType) {
 		case DTMC:
+if (DEBUG_constr) System.out.println(" modelType is DTMC, making a ProbModelChecker");
 			mc = new ProbModelChecker(prism, model, propertiesFile);
 			break;
 		case MDP:
+if (DEBUG_constr) System.out.println(" modelType is MDP, making a NondetModelChecker");
 			mc = new NondetModelChecker(prism, model, propertiesFile);
 			break;
 		case CTMC:
+if (DEBUG_constr) System.out.println(" modelType is CTMC, making a StochModelChecker");
 			mc = new StochModelChecker(prism, model, propertiesFile);
 			break;
 		default:
@@ -228,7 +237,7 @@ public static void PrintDebugIndent() { if (DEBUG) { for (int i = 0; i < DebugIn
 
 		// Remove any existing filter info
 		currentFilter = null;
-mainLog.println("in prism.SMC::check() @~230. for expression: " + expr);
+mainLog.println("<check what='" + expr + "' sourcecode='in prism.SMC::check() @~230'");
 
 		// Wrap a filter round the property, if needed
 		// (in order to extract the final result of model checking) 
@@ -269,6 +278,7 @@ if (DEBUG) PrintDebugIndent();
 if (DEBUG) {
   System.out.println("<CheckExpr comment=\'StateModelChecker.checkExpr() called for expression: " + expr + "\'>");
   DebugIndent++;
+  System.out.println("statesOfInterest is this JDDNode: " + statesOfInterest);
 }
 		StateValues res;
 
@@ -295,8 +305,8 @@ if (DEBUG2) {PrintDebugIndent(); System.out.println("treating as ExpressionFunc"
 		// Identifier for accessing an indexed set
 		else if (expr instanceof ExpressionIndexedSetAccess)		// ADDED BY SHANE
 		{
-if (DEBUG) {PrintDebugIndent(); System.out.println("treating as *****   ExpressionIndexedSetAccess ***** Probably should pass 'statesOfInterest' now.\nALERT - that probably needs to be reconsidered now. Temporarily doing NOTHING");}
-res = null;//			res = checkExpressionIndSetAcc((ExpressionIndexedSetAccess) expr);
+if (DEBUG) {PrintDebugIndent(); System.out.println("treating as *****   ExpressionIndexedSetAccess *****");}
+			res = checkExpressionIndSetAcc((ExpressionIndexedSetAccess) expr,statesOfInterest);
 		}
 		// Identifiers (non-indexed)
 		else if (expr instanceof ExpressionIdent) {
@@ -349,29 +359,30 @@ if (DEBUG) {PrintDebugIndent(); System.out.println("expr was not recognised - tr
 			throw new PrismException("Couldn't check " + expr.getClass());
 		}
 
+if (DEBUG) {PrintDebugIndent(); System.out.println("Back in 'SMC.checkExpr() for expression: " + expr + " we now have a value for 'res'.");}
 		// Filter out non-reachable states from solution
 		// (only necessary for symbolically stored vectors)
 		// (skip if reach is null, e.g. if just being used to convert arbitrary expressions)
 		if (res instanceof StateValuesMTBDD && reach != null)
 {
   if (DEBUG) { 
-	PrintDebugIndent(); System.out.println("** This is a case to which 'res' IS an instance of StateValuesMTBDD, AND the reach is not null [StateModChkr @315]**");
-    PrintDebugIndent(); System.out.println("which means, we WILL FILTER OUT apparently non-reachable states.");
+	PrintDebugIndent(); System.out.println("RES-CASE 1: 'res' IS an instance of StateValuesMTBDD (i.e. symbolic), AND the reach is not null,");
+    PrintDebugIndent(); System.out.println(    "            which means, we WILL FILTER OUT apparently non-reachable states.");
 // The next line is ORIGINAL from the github version (i.e. not part of debugging):
     
 			res.filter(reach);
   }
 }else if (res instanceof StateValuesMTBDD) {
-  if (DEBUG) { PrintDebugIndent(); System.out.println("** 'res' IS an instance of StateValuesMTBDD,  BUT reach is null - not filtering");
+  if (DEBUG) { PrintDebugIndent(); System.out.println("RES-CASE 2: 'res' IS an instance of StateValuesMTBDD (i.e. symbolic),  BUT reach is null - not filtering.");
   }
 } else {
-  if (DEBUG) { PrintDebugIndent(); System.out.println("** This is a case to which 'res' is NOT an instance of StateValuesMTBDD [StateModChkr @322]**");
+  if (DEBUG) { PrintDebugIndent(); System.out.println("RES-CASE 3: 'res' is NOT an instance of StateValuesMTBDD, hence 'res' is explicit.");
   }
 }
 
 if (DEBUG) DebugIndent--;
 if (DEBUG) PrintDebugIndent();
-if (DEBUG) System.out.println("</CheckExpr comment=\"StateModelChecker.checkExpr() finished for expression: " + expr + "\" >");
+if (DEBUG) System.out.println("</CheckExpr comment=\"StateModelChecker.checkExpr() finished for expression: " + expr + "\" >\n");
 
 		return res;
 	}
@@ -384,24 +395,24 @@ if (DEBUG) System.out.println("</CheckExpr comment=\"StateModelChecker.checkExpr
 		StateValuesMTBDD sv;
 		
 if (DEBUG3_chkExprDD) {
-  PrintDebugIndent(); System.out.println("<ChkDD comment='in prism.StateModelChecker.checkExpressionDD() for " + expr + "'>");
+  PrintDebugIndent(); System.out.println("<ChkDD comment='in prism.StateModelChecker.checkExpressionDD() for '" + expr + "'>");
   DebugIndent++;
 }
-if (DEBUG3_chkExprDD) {PrintDebugIndent(); System.out.println("-Calling checkExpression");}
+if (DEBUG3_chkExprDD) {PrintDebugIndent(); System.out.println("1. [In ChkDD for '"+expr+"'] - Calling checkExpression...");}
 
 		StateValues interimStep = checkExpression(expr, statesOfInterest);
 
 if (DEBUG3_chkExprDD) {
-	mainLog.println("StateValues returned from checkExpression:\n");
+	PrintDebugIndent(); mainLog.println("2. [In ChkDD for '"+expr+"'] - the StateValues returned from checkExpression is:\n");
 	if (interimStep != null) interimStep.print(mainLog);
-	else mainLog.println(" it is NULL");
+	else mainLog.println(" NULL");
 }
 
-if (DEBUG3_chkExprDD) {PrintDebugIndent(); System.out.println("-Calling convertToStateValuesMTBDD() on StateValues returned by SMC.checkExpr() for " + expr);}
+if (DEBUG3_chkExprDD) {PrintDebugIndent(); System.out.println("3. [In ChkDD for '"+expr+"'] - now calling convertToStateValuesMTBDD()");}
 		sv = interimStep.convertToStateValuesMTBDD();
 
 if (DEBUG3_chkExprDD) {
-	mainLog.println("StateValuesMTBDD returned from convertToStateValuesMTBDD:\n");
+if (DEBUG3_chkExprDD) {PrintDebugIndent(); System.out.println("4. [In ChkDD for '"+expr+"'] - returned from calling convertToStateValuesMTBDD()\nResult: ");}
 	if (sv != null) sv.print(mainLog);
 	else mainLog.println(" is null - nothing to print!");
 }
@@ -511,17 +522,22 @@ if (DEBUG3_chkExprDD) {
 		JDDNode dd, dd1, dd2;
 		DoubleVector dv1, dv2;
 		int i, n, op = expr.getOperator();
+if (DEBUG_chkBinOp) System.out.println("in chkExprBinOp for " + expr + " - place 1.");
 
 		// Optimisations are possible for relational operators
 		// (note dubious use of knowledge that op IDs are consecutive)
 		if (op >= ExpressionBinaryOp.EQ && op <= ExpressionBinaryOp.LE) {
+if (DEBUG_chkBinOp) System.out.println("in chkExprBinOp for " + expr + " - place 1-B.");
 			return checkExpressionRelOp(op, expr.getOperand1(), expr.getOperand2(), statesOfInterest);
 		}
 
 		// Check operands recursively
 		try {
+if (DEBUG_chkBinOp) System.out.println("in chkExprBinOp for " + expr + " - place 2-A.");
 			res1 = checkExpression(expr.getOperand1(), statesOfInterest.copy());
+if (DEBUG_chkBinOp) System.out.println("in chkExprBinOp for " + expr + " - place 2-B.");
 			res2 = checkExpression(expr.getOperand2(), statesOfInterest.copy());
+if (DEBUG_chkBinOp) System.out.println("in chkExprBinOp for " + expr + " - place 2-C.");
 		} catch (PrismException e) {
 			if (res1 != null)
 				res1.clear();
@@ -532,6 +548,7 @@ if (DEBUG3_chkExprDD) {
 
 		// If both operands are symbolic, result will be symbolic
 		if (res1 instanceof StateValuesMTBDD && res2 instanceof StateValuesMTBDD) {
+if (DEBUG_chkBinOp) System.out.println("in chkExprBinOp for " + expr + " - place 3-A.");
 			dd1 = ((StateValuesMTBDD) res1).getJDDNode();
 			dd2 = ((StateValuesMTBDD) res2).getJDDNode();
 			// Apply operation
@@ -567,6 +584,7 @@ if (DEBUG3_chkExprDD) {
 		}
 		// Otherwise result will be explicit
 		else {
+if (DEBUG_chkBinOp) System.out.println("in chkExprBinOp for " + expr + " - place 4-A.");
 			dv1 = res1.convertToStateValuesDV().getDoubleVector();
 			dv2 = res2.convertToStateValuesDV().getDoubleVector();
 			n = dv1.getSize();
@@ -617,8 +635,10 @@ if (DEBUG3_chkExprDD) {
 		// Check for some easy (and common) special cases before resorting to
 		// the general case
 
+if (DEBUG_chkBinOp) System.out.println("In chkExpRelOp - place 1: expr1 is " + expr1 + ", expr2 is " + expr2);
 		// var relop int
 		if (expr1 instanceof ExpressionVar && expr2.isConstant() && expr2.getType() instanceof TypeInt) {
+if (DEBUG_chkBinOp) System.out.println("In chkExpRelOp - place 2");
 			JDD.Deref(statesOfInterest);
 
 			ExpressionVar e1;
@@ -671,6 +691,7 @@ if (DEBUG3_chkExprDD) {
 		}
 		// int relop var
 		else if (expr1.isConstant() && expr1.getType() instanceof TypeInt && expr2 instanceof ExpressionVar) {
+if (DEBUG_chkBinOp) System.out.println("In chkExpRelOp - place 3");
 			JDD.Deref(statesOfInterest);
 
 			Expression e1;
@@ -721,14 +742,18 @@ if (DEBUG3_chkExprDD) {
 			}
 			return new StateValuesMTBDD(dd, model);
 		}
+if (DEBUG_chkBinOp) System.out.println("In chkExpRelOp - place 4");
 
 		// General case.
 		// Since the result is a Boolean and thus returned as an MTBDD, we
 		// just convert both operands to MTBDDs first. Optimisations would be possible here.
 		// Check operands recursively
 		try {
+if (DEBUG_chkBinOp) System.out.println("In chkExpRelOp - place 5A");
 			res1 = checkExpression(expr1, statesOfInterest.copy());
+if (DEBUG_chkBinOp) System.out.println("In chkExpRelOp - place 5B, res1 is " + res1);
 			res2 = checkExpression(expr2, statesOfInterest.copy());
+if (DEBUG_chkBinOp) System.out.println("In chkExpRelOp - place 5C, res2 is " + res2);;
 		} catch (PrismException e) {
 			if (res1 != null)
 				res1.clear();
@@ -1084,6 +1109,7 @@ if (DEBUG3_chkExprDD) {
 
 		try {
 			dd = JDD.Constant(expr.evaluateDouble());
+dd.setPurpose("JDDNode to represent a literal: " + expr + ", created in SMC.checkExprLiteral");
 		} catch (PrismLangException e) {
 			throw new PrismException("Unknown literal type");
 		}
@@ -1110,6 +1136,7 @@ if (DEBUG3_chkExprDD) {
 			throw new PrismException("Couldn't evaluate constant \"" + expr.getName() + "\"");
 		try {
 			dd = JDD.Constant(constantValues.getDoubleValue(i));
+dd.setPurpose("JDDNode to represent a constant: " + expr + ", created in SMC.checkExprConstant");
 		} catch (PrismLangException e) {
 			throw new PrismException("Unknown type for constant \"" + expr.getName() + "\"");
 		}
@@ -1146,6 +1173,7 @@ if (DEBUG3_chkExprDD) {
 		for (i = l; i <= h; i++) {
 			dd = JDD.SetVectorElement(dd, varDDRowVars[v], i - l, i);
 		}
+dd.setPurpose("JDD for an ExpressionVar for variable " + expr + ", created in SMC.checkExprVar");
 
 		return new StateValuesMTBDD(dd, model);
 	}
@@ -1156,11 +1184,13 @@ if (DEBUG3_chkExprDD) {
 	 * NEED TO DO: (copied from checkExprVar just prior): The result will have valid results at least for the states of interest (use model.getReach().copy() for all reachable states)
 	 * <br>[ REFS: <i>result</i>, DEREFS: statesOfInterest ]
 	 */
-	protected StateValues checkExpressionIndSetAcc(ExpressionIndexedSetAccess expr, JDDNode statesOfInterest) throws PrismException
+	protected StateValues checkExpressionIndSetAcc(ExpressionIndexedSetAccess eisa, JDDNode statesOfInterest) throws PrismException
 	{
+DebugIndent++;
 		String s;
 		int v, l, h, i;
 		JDDNode dd;
+		StateValues res2 = null;
 
 		// SHANE COMMENT:  Unlike the checkExpressionVar, I am not going to de-ref the statesOfInterest, 
 		// because I don't know whether or not it is correct to do so. The comments in checkExpressionVar 
@@ -1170,47 +1200,222 @@ if (DEBUG3_chkExprDD) {
 		
 		int evaluatedIndexPos = 0;
 		
-		// Evaluate the index expression:
 if (DEBUG_CheckIndSetAcc)
 {
-	System.out.println("In checkExpressionIndSetAcc (line 1176 of StateModelChecker) - place 1.\nNeed to (model)Check the access expression: " + expr);
+	PrintDebugIndent();
+	System.out.println("In SMC.checkExpressionIndSetAcc - place 1, for: " + eisa);
 }
-		StateValues intermediate = checkExpression(expr.getIndexExpression(),statesOfInterest);
 
+		Expression accessExpr = eisa.getIndexExpression();
+// OLD - wasn't sufficient		StateValues intermediate = checkExpression(accessExpr(),statesOfInterest);
+
+		// Is it a constant int value - if so, find out exactly what that constant is...
+
+
+if (DEBUG_CheckIndSetAcc) System.out.println("isConstant gives:  " + accessExpr.isConstant() );
+if (DEBUG_CheckIndSetAcc) System.out.println("type gives:        " + accessExpr.getType() );
+if (DEBUG_CheckIndSetAcc) System.out.println("is that int gives: " + (accessExpr.getType() instanceof TypeInt));
+
+		// A constant is provided, and its type is int  [maybe includes Literals??] 
+		if (accessExpr.isConstant() && accessExpr.getType() instanceof TypeInt) {
+if (DEBUG_CheckIndSetAcc) System.out.println("CASE 1: AccessExpression is constant, and integer");
+			JDD.Deref(statesOfInterest);	// It is constant, so we don't need to worry about any state!!
+
+			evaluatedIndexPos = accessExpr.evaluateInt(constantValues);	// Find the value
+if (DEBUG_CheckIndSetAcc) System.out.println("I believe you want to access index " + evaluatedIndexPos);
+
+			// Check the index is within the valid range?
+
+			// Assemble the name of the variable in the model to retrieve.
+			s = eisa.getName() + "[" + evaluatedIndexPos + "]";
 if (DEBUG_CheckIndSetAcc)
 {
-	System.out.println("In checkExpressionIndSetAcc (line 1180 of StateModelChecker) - place 2.\nNeed to extract from 'intermediate' the value signifying the index ");
+	PrintDebugIndent();
+	System.out.println("In SMC.checkExpressionIndSetAcc - place 3, determined name of variable as " + s);
+	System.out.println("will look for the variable having that name.");
+	PrintDebugIndent();
 }
+			// NOW that we know WHICH variable corresponds to the desired index, we do exactly as is done for a normal non-indexed variable (see checkExprVar)
+			// get the indexed-variable's varList index
 
-		// evaluatedIndexPos = ...
+if (DEBUG_CheckIndSetAcc) System.out.println("<BOINK>");
+			v = varList.getIndex(s);
+if (DEBUG_CheckIndSetAcc) System.out.println("Result of getIndex was: " + v + "\n</BOINK>");
+			if (v == -1) {
+				throw new PrismException("Unknown variable \"" + s + "\"");
+			}
+			// get some info on the variable
+			l = varList.getLow(v);
+			h = varList.getHigh(v);
+			// create dd
+			dd = JDD.Constant(0);
+			for (i = l; i <= h; i++) {
+				dd = JDD.SetVectorElement(dd, varDDRowVars[v], i - l, i);
+			}
 
-		// SHANE TO-DO: Do a range check of calculated index?
-		
-
-
-		// Assemble the name of the variable in the model to retrieve.
-		s = expr.getName() + "[" + evaluatedIndexPos + "]";
-		// get the variable's index
-		v = varList.getIndex(s);
-		if (v == -1) {
-			throw new PrismException("Unknown variable \"" + s + "\"");
+DebugIndent--;
+			return new StateValuesMTBDD(dd, model);
 		}
-		// get some info on the variable
-		l = varList.getLow(v);
-		h = varList.getHigh(v);
+		else if (accessExpr instanceof ExpressionVar) 
+		{
+if (DEBUG_CheckIndSetAcc) System.out.println("CASE 2: AccessExpression is a Var expression");
+		    if (accessExpr.getType() instanceof TypeInt)
+		    {
+if (DEBUG_CheckIndSetAcc) System.out.println("SUBCASE A: the AccessExpression is of type Int");
+//			JDD.Deref(statesOfInterest);	// It is constant, so we don't need to worry about any state!!
+
+//UP TO HERE
+			// I think we need to check the access expression?   OR are we meant to just "evaluate" it to an int?
+			try {
+				res2 = checkExpression(accessExpr, statesOfInterest.copy());
+			} catch (PrismException e) {
+				if (res2 != null)
+					res2.clear();
+				JDD.Deref(statesOfInterest);
+				throw e;
+			}
+if (DEBUG_CheckIndSetAcc) System.out.println("Is res2 NOT instanceof StateValuesMTBDD? " + (!(res2 instanceof StateValuesMTBDD)) );
+			// If the outcome is explicit, extract the value.
+			if (!(res2 instanceof StateValuesMTBDD)) {
+				
+System.out.println("Case A - res2 is of type: " + res2.getClass().getName());
+//res2.print(mainLog);
+//res2.convertToStateValuesDV().print(mainLog);
+/*
+				evaluatedIndexPos = res2
+accessExpr.evaluateInt(constantValues);	// Find the value
+				dv1 = res1.convertToStateValuesDV().getDoubleVector();
+				dv2 = res2.convertToStateValuesDV().getDoubleVector();
+				n2 = dv1.getSize();
+				switch (op) {
+				case ExpressionFunc.MIN:
+					for (i2 = 0; i2 < n2; i2++)
+						dv1.setElement(i2, Math.min(dv1.getElement(i), dv2.getElement(i)));
+					break;
+				case ExpressionFunc.MAX:
+					for (i2 = 0; i2 < n2; i2++)
+						dv1.setElement(i2, Math.max(dv1.getElement(i), dv2.getElement(i)));
+					break;
+				}
+				dv2.clear();
+				res1 = new StateValuesDV(dv1, model);
+*/			}
+			// Symbolic
+			else {
+System.out.println("Case B - res2 is of type: " + res2.getClass().getName());
+
+// START OF IDEA 17: I am just going to call setVectorElement on every possible 
+/*			s = eisa.getName() + "[" + evaluatedIndexPos + "]";
 if (DEBUG_CheckIndSetAcc)
 {
-	System.out.println("In checkExpressionIndSetAcc - place 3, determined name of variable as " + s);
-	System.out.println("Determined v as " + v + ", l as " + l + ", and h as " + h);
-	System.out.println("*** ARE THOSE CORRECT???  If it says [0], is that correctly so? ***");
+	PrintDebugIndent();
+	System.out.println("In SMC.checkExpressionIndSetAcc - place 3, determined name of variable as " + s);
+	System.out.println("will look for the variable having that name.");
+	PrintDebugIndent();
 }
-		// create dd
-		dd = JDD.Constant(0);
-		for (i = l; i <= h; i++) {
-			dd = JDD.SetVectorElement(dd, varDDRowVars[v], i - l, i);
+			// NOW that we know WHICH variable corresponds to the desired index, we do exactly as is done for a normal non-indexed variable (see checkExprVar)
+			// get the indexed-variable's varList index
+			v = varList.getIndex(s);
+			if (v == -1) {
+				throw new PrismException("Unknown variable \"" + s + "\"");
+			}
+			// get some info on the variable
+			l = varList.getLow(v);
+			h = varList.getHigh(v);
+			// create dd
+			dd = JDD.Constant(0);
+			for (i = l; i <= h; i++) {
+				dd = JDD.SetVectorElement(dd, varDDRowVars[v], i - l, i);
+			}
+*/
+// END OF IDEA 17
+
+//System.out.println("TRY THIS: " + (accessExpr.evaluateInt(constantValues,)));
+//System.out.flush();
+				StateValuesMTBDD d = (StateValuesMTBDD) res2;
+	d.shaneShow();
+//			evaluatedIndexPos = (int) d.getJDDNode().getValue();
+//System.out.println(d);
+	d.print(mainLog);
+
+/*				dd1 = ((StateValuesMTBDD) res1).getJDDNode();
+				dd2 = ((StateValuesMTBDD) res2).getJDDNode();
+				switch (op) {
+				case ExpressionFunc.MIN:
+					dd1 = JDD.Apply(JDD.MIN, dd1, dd2);
+					break;
+				case ExpressionFunc.MAX:
+					dd1 = JDD.Apply(JDD.MAX, dd1, dd2);
+					break;
+				}
+				res1 = new StateValuesMTBDD(dd1, model);
+*/			}
+
+
+
+//			evaluatedIndexPos = accessExpr.evaluateInt(constantValues);	// Find the value
+if (DEBUG_CheckIndSetAcc) System.out.println("I believe you want to access index " + evaluatedIndexPos);
+
+			// Check the index is within the valid range?
+
+			// Assemble the name of the variable in the model to retrieve.
+			s = eisa.getName() + "[" + evaluatedIndexPos + "]";
+if (DEBUG_CheckIndSetAcc)
+{
+	PrintDebugIndent();
+	System.out.println("In SMC.checkExpressionIndSetAcc - place 3, determined name of variable as " + s);
+	System.out.println("will look for the variable having that name.");
+	PrintDebugIndent();
+}
+			// NOW that we know WHICH variable corresponds to the desired index, we do exactly as for a normal variable (see checkExprVar)
+
+			// get the variable's index
+if (DEBUG_CheckIndSetAcc) System.out.println("<BOINK>");
+			v = varList.getIndex(s);
+if (DEBUG_CheckIndSetAcc) System.out.println("Result of getIndex was: " + v + "\n</BOINK>");
+			if (v == -1) {
+				throw new PrismException("Unknown variable \"" + s + "\"");
+			}
+			// get some info on the variable
+			l = varList.getLow(v);
+			h = varList.getHigh(v);
+			// create dd
+			dd = JDD.Constant(0);
+			for (i = l; i <= h; i++) {
+				dd = JDD.SetVectorElement(dd, varDDRowVars[v], i - l, i);
+			}
+
+DebugIndent--;
+//			return new StateValuesMTBDD(dd, model);
+			throw new PrismException("IMPLEMENTATION INCOMPLETE to deal with: " + accessExpr);
+
+		    } else {	// The access expression has some type other than Int
+if (DEBUG_CheckIndSetAcc) System.out.println("SUBCASE B: the AccessExpression is NOT of type Int - it is of type: " + accessExpr.getType().getClass().getName());
+			throw new PrismException("Unable to model-check that type of index access expression: " + accessExpr);
+		    }
+		} else if (accessExpr instanceof ExpressionBinaryOp || accessExpr instanceof ExpressionUnaryOp) { // Some kind of arithmetic, presumbly.
+if (DEBUG_CheckIndSetAcc) System.out.println("CASE 3: AccessExpression is something which needs calculation, namely:" + accessExpr.getClass().getName() );
+			throw new PrismException("IMPLEMENTATION INCOMPLETE - Unable to model-check that type of index access expression: " + accessExpr);
+		}else { 	// For example, a
+if (DEBUG_CheckIndSetAcc) System.out.println("CASE 4: AccessExpression is of an unhandled type, namely:" + accessExpr.getClass().getName() );
+			throw new PrismException("IMPLEMENTATION INCOMPLETE - Unable to model-check that type of index access expression: " + accessExpr);
 		}
 
-		return new StateValuesMTBDD(dd, model);
+
+
+/* Not Useful...
+		// The following IF and ELSE blocks are based on the code found in the checkExpressionBinaryOp()  
+		// If the result of the access expression was symbolic, result will be symbolic
+		if (intermediate instanceof StateValuesMTBDD) {
+if (DEBUG_CheckIndSetAcc) System.out.println("Intermediate is symbolic - Shane hasn't worked out what to do here yet.");
+			JDDNode ddIndex = ((StateValuesMTBDD) intermediate).getJDDNode();
+//				throw new PrismException("Unable to model check this index set access");
+			//return new StateValuesMTBDD(dd, model);
+		}
+		// Otherwise result will be explicit
+*/
+
+
 	}
 	
 	/**

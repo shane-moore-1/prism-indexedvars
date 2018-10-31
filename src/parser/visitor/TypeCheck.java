@@ -36,7 +36,7 @@ import prism.PrismLangException;
  */
 public class TypeCheck extends ASTTraverse
 {
-public static boolean DEBUG = false;
+public static boolean DEBUG = false && DEBUG_SHOW_ENABLED;
 public static boolean SHANE_REMINDER = true;
 
 	private PropertiesFile propertiesFile = null;

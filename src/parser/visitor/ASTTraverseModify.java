@@ -42,13 +42,15 @@ import prism.PrismLangException;
 
 public class ASTTraverseModify implements ASTVisitor
 {
-public static boolean DEBUG_Decl = false;
-public static boolean DEBUG_DeclTypeIndS = false;
-public static boolean DEBUG_Module = parser.ast.Module.DEBUG;		// Maybe the preceding should also be set similarly!
-public static boolean DEBUG_Command = false;
-public static boolean DEBUG_Update = true;
-public static boolean DEBUG_ExprIdent = true;
-public static boolean DEBUG_ExpIndSetAcc = true;
+public static boolean DEBUG_TraceCalls = false;		// If this is true, some methods simply show they are beginning/ending (but no detail)
+public static boolean DEBUG_SHOW_ENABLED = false;
+public static boolean DEBUG_Decl = true && DEBUG_SHOW_ENABLED ;
+public static boolean DEBUG_DeclTypeIndS = false && DEBUG_SHOW_ENABLED;
+public static boolean DEBUG_Module = true && DEBUG_SHOW_ENABLED;// parser.ast.Module.DEBUG & DEBUG_SHOW_ENABLED;		// Maybe the preceding should also be set similarly!
+public static boolean DEBUG_Command = true && DEBUG_SHOW_ENABLED;
+public static boolean DEBUG_Update = true && DEBUG_SHOW_ENABLED;
+public static boolean DEBUG_ExprIdent = true && DEBUG_SHOW_ENABLED;
+public static boolean DEBUG_ExpIndSetAcc = true && DEBUG_SHOW_ENABLED;
 
 	public void defaultVisitPre(ASTElement e) throws PrismLangException {}
 	public void defaultVisitPost(ASTElement e) throws PrismLangException {}
@@ -64,6 +66,7 @@ public static boolean DEBUG_ExpIndSetAcc = true;
 		n = e.getNumGlobals();
 		for (i = 0; i < n; i++) {
 			if (e.getGlobal(i) != null) e.setGlobal(i, (Declaration)(e.getGlobal(i).accept(this)));
+			n = e.getNumGlobals();		// ADDED BY SHANE - because in dealing with IndexedSet declarations, it may adjust the number of 'globals', which could mean some later declarations are skipped over (particularly if more than 1 indexed set is decalared).
 		}
 		n = e.getNumModules();
 		for (i = 0; i < n; i++) {
@@ -211,13 +214,15 @@ if (DEBUG_Decl) System.out.println("The " + this.getClass().getName() + " visito
 	public void visitPre(DeclTypeIndexedSet e) throws PrismLangException { defaultVisitPre(e); }
 	public Object visit(DeclTypeIndexedSet e) throws PrismLangException
 	{
-if (DEBUG_DeclTypeIndS) System.out.println("The " + this.getClass().getName() + " visitor has reached ASTTravMod.visit(DeclTypeIndSet), for " + e ); System.out.flush();
+if (DEBUG_DeclTypeIndS) System.out.println("The " + this.getClass().getName() + " visitor has reached ASTTravMod.visit(DeclTypeIndSet), for " + e + "\nAbout to call visitPre."); System.out.flush();
 		visitPre(e);
+if (DEBUG_DeclTypeIndS) System.out.println("The " + this.getClass().getName() + " visitor in ASTTravMod.visit(DeclTypeIndSet), for " + e + "\nis about to call accept on its size..."); System.out.flush();
 		// Process the attributes of this Declaration of Indexed Set, in case they need to be modified as well:
 		if (e.getSize() != null) e.setSize((Expression)e.getSize().accept(this));
+if (DEBUG_DeclTypeIndS) System.out.println("The " + this.getClass().getName() + " visitor in ASTTravMod.visit(DeclTypeIndSet), for " + e + "\nis about to call accept on its elementsType..."); System.out.flush();
 		if (e.getElementsType() != null) e.setElementsType((DeclarationType)e.getElementsType().accept(this));
 		visitPost(e);
-if (DEBUG_DeclTypeIndS) System.out.println("Concluding ASTTravMod.visit(DeclTypeIndSet), for " + e ); System.out.flush();
+if (DEBUG_DeclTypeIndS) System.out.println("The " + this.getClass().getName() + " visitor in ASTTravMod.visit(DeclTypeIndSet), for " + e +"\nis about to return."); System.out.flush();
 		return e;
 	}
 	public void visitPost(DeclTypeIndexedSet e) throws PrismLangException { defaultVisitPost(e); }
@@ -245,28 +250,38 @@ if (DEBUG_DeclTypeIndS) System.out.println("Concluding ASTTravMod.visit(DeclType
 	public Object visit(parser.ast.Module e) throws PrismLangException
 	{
 		visitPre(e);
+if (DEBUG_Module)
+ System.out.println("<ASTTM_VisitModule visitorType='" + this.getClass().getName() + "'>");
 		int i, n;
 		n = e.getNumDeclarations();
+if (DEBUG_Module)
+ System.out.println("\nIn ASTTravMod.visit(Module) [" /*+ this.getClass().getName()*/ + "] for module " + e.getName() + 
+ "\n There are " + n + " declarations to be considered in this module."); 
 		for (i = 0; i < n; i++) {
 if (DEBUG_Module)
- System.out.println("\nIn ASTTravMod.visit(Module) [" + this.getClass().getName() + "] for module " + e.getName() + 
- "\n Considering declNum: " + i + " of " + n + " (" + e.getDeclaration(i) +")"); 
+ System.out.println("\nIn ASTTravMod.visit(Module) [" /*+ this.getClass().getName()*/ + "] for module " + e.getName() + 
+ "\n Considering declaration #" + (i+1) + " of " + n + " (" + e.getDeclaration(i) +")"); 
 			if (e.getDeclaration(i) != null) e.setDeclaration(i, (Declaration)(e.getDeclaration(i).accept(this)));
+			n = e.getNumDeclarations();		// This could have changed, due to IndexedSet declarations being expanded.
 		}
-		if (e.getInvariant() != null)
+		if (e.getInvariant() != null) {
 if (DEBUG_Module)
- System.out.println("\nASTTM.visit(MOD) [" + this.getClass().getName() + "] for module " + e.getName() +
- ". Considering invariant: " + i + " (" + e.getInvariant() +")"); System.out.flush();
+ System.out.println("\nASTTM.visit(MOD) [" /*+ this.getClass().getName()*/ + "] for module " + e.getName() +
+ ".\n Considering Module invariant: i" + e.getInvariant());
 			e.setInvariant((Expression)(e.getInvariant().accept(this)));
+		}
 		n = e.getNumCommands();
 		for (i = 0; i < n; i++) {
 if (DEBUG_Module)
- System.out.println("\nASTTM.visit(MOD) [" + this.getClass().getName() + "] for module " + e.getName() + 
- ". Considering cmdNum: " + i + " (" + e.getCommand(i) +")"); System.out.flush();
+ System.out.println("\nin ASTTM.visit(MOD) [" /*+ this.getClass().getName()*/ + "] for module " + e.getName() + 
+ "\n now considering command #" + (i+1) + "/" + n +":  " + e.getCommand(i) );
 			if (e.getCommand(i) != null) e.setCommand(i, (Command)(e.getCommand(i).accept(this)));
+if (DEBUG_Module)
+ System.out.println("\nin ASTTM.visit(MOD) [" /*+ this.getClass().getName()*/ + "] for module " + e.getName() + 
+ "\n finished considering command #" + (i+1) + "/" + n +":  " + e.getCommand(i) );
 		}
 if (DEBUG_Module)
- System.out.println("\nConcluding ASTTravMod.visit(Module) [" + this.getClass().getName() + "] for module " + e.getName() ); 
+ System.out.println("\nConcluding ASTTravMod.visit(Module) [" /*+ this.getClass().getName()*/ + "] for module " + e.getName() + "\n</ASTTM_VisitModule>\n");
 		visitPost(e);
 		return e;
 	}
@@ -275,16 +290,28 @@ if (DEBUG_Module)
 	public void visitPre(Command e) throws PrismLangException { defaultVisitPre(e); }
 	public Object visit(Command e) throws PrismLangException
 	{
-if (DEBUG_Command){
-	System.out.println("\nIn ASTTravMod.visit(Command) [" + this.getClass().getName() + "] for Command " + e);
-	if (e.getSynch().length() > 0) System.out.println(" with synch of: " + e.getSynch() );
-	else System.out.println(" Has no sync");
-}
+if (DEBUG_TraceCalls | DEBUG_Command)
+	System.out.println("<ASTTM_Visit_Cmd visitor='" + this.getClass().getName()+ "'>\nAbout to call visitPre(Cmd) for command " + e);
 		visitPre(e);
+
+if (DEBUG_Command){
+	System.out.println("In ASTTravMod.visit(Command), visitPre() has finished for Command " + e);
+	if (e.getSynch().length() > 0) System.out.println(" with synch of: " + e.getSynch() );
+	else System.out.println(" (with no sync)");
+}
+
+if (DEBUG_Command) System.out.println("ASTTM.visit(Command) about to call accept on the Guard: "+ e.getGuard());
 		e.setGuard((Expression)(e.getGuard().accept(this)));
+if (DEBUG_Command) System.out.println("ASTTM.visit(Command) finished calling accept on the Guard: "+ e.getGuard());
+if (DEBUG_Command) System.out.println("ASTTM.visit(Command) about to call accept on the Updates of command: " + e);
 		e.setUpdates((Updates)(e.getUpdates().accept(this)));
+if (DEBUG_Command) System.out.println("ASTTM.visit(Command) finished calling accept on the Updates of command: " + e);
+if (DEBUG_Command) System.out.println("ASTTM.visit(Command) about to call visitPost(Cmd) for the Command: " + e);
 		visitPost(e);
-if (DEBUG_Command) System.out.println("\nConcluding ASTTravMod.visit(Command) [" + this.getClass().getName() + "] for Command " + e  );
+if (DEBUG_Command) System.out.println("ASTTM.visit(Command) finished calling visitPost(Cmd) for the Command: " + e);
+if (DEBUG_Command) System.out.println("Concluding ASTTravMod.visit(Command) [" + this.getClass().getName() + "] for Command " + e  );
+if (DEBUG_TraceCalls | DEBUG_Command)
+	System.out.println("</ASTTM_Visit_Cmd>");
 		return e;
 	}
 	public void visitPost(Command e) throws PrismLangException { defaultVisitPost(e); }
@@ -292,6 +319,8 @@ if (DEBUG_Command) System.out.println("\nConcluding ASTTravMod.visit(Command) ["
 	public void visitPre(Updates e) throws PrismLangException { defaultVisitPre(e); }
 	public Object visit(Updates e) throws PrismLangException
 	{
+if (DEBUG_TraceCalls)
+	System.out.println("<ASTTM_Visit_Upds visitor='" + this.getClass().getName()+ "'>");
 		visitPre(e);
 		int i, n;
 		n = e.getNumUpdates();
@@ -300,6 +329,8 @@ if (DEBUG_Command) System.out.println("\nConcluding ASTTravMod.visit(Command) ["
 			if (e.getUpdate(i) != null) e.setUpdate(i, (Update)(e.getUpdate(i).accept(this)));
 		}
 		visitPost(e);
+if (DEBUG_TraceCalls)
+	System.out.println("</ASTTM_Visit_Upds>");
 		return e;
 	}
 	public void visitPost(Updates e) throws PrismLangException { defaultVisitPost(e); }
@@ -308,28 +339,30 @@ if (DEBUG_Command) System.out.println("\nConcluding ASTTravMod.visit(Command) ["
 	public Object visit(Update e) throws PrismLangException
 	{
 		visitPre(e);
-if (DEBUG_Update) System.out.println("\n*** The " + this.getClass().getName() + " visitor has reached ASTTravMod.visit(Update) for update: " + e);
-if (DEBUG_Update) System.out.println("That means that visit() hasn't been overridden (unless visitPost() is called after this method...), so the target may not be visited.");
+if (DEBUG_Update) System.out.println("\n<ASTTM_Visit_Update forVisitor='" + this.getClass().getName() + "'>");
+if (DEBUG_Update) System.out.println("ASTTM.visit(Upd) Commencing considerations needed for this update command: " + e);
 		int i, n;
 		n = e.getNumElements();
+if (DEBUG_Update) System.out.println("There are " + n + " updates to be processed/considered.");
 		for (i = 0; i < n; i++) {
 			// Consider the target of the update element - it may be an element of an indexed-set:
 // THIS NEXT 'block' HAD BEEN COMMENTED OUT, BECAUSE IT SEEMED I CAN'T PUT HERE IN THE BASE VISITOR CLASS (because if it is now an ExpressionVar, it fails):
 			ExpressionIdent targetOfUpdate = e.getVarIdent(i);
-if (DEBUG_Update) System.out.println("\nConsidering update-element " + (i+1) + "/"+n+", which is: " + e.getExpression(i));
+if (DEBUG_Update) System.out.println("\nASTTM.visit(Upd) [" + this.getClass().getName() +"] STAGE 1 of Considering update-element " + (i+1) + "/"+n+", which is: " + e.getElement(i) /*.getExpression(i) */);
+
+if (DEBUG_Update) System.out.println(" This update is targeting this variable: " + targetOfUpdate);
+if (DEBUG_Update) System.out.println(" The variable's underlying Java class type is [" + targetOfUpdate.getClass().getName() + "]" );	
 			if (targetOfUpdate instanceof ExpressionIndexedSetAccess)
 			{
 				ExpressionIndexedSetAccess detail = (ExpressionIndexedSetAccess) targetOfUpdate;
-if (DEBUG_Update) System.out.println(" It is an indexed-set access, whose target is: " + targetOfUpdate + " [" + targetOfUpdate.getClass().getName() + "]" );	
 				// Consider the Access part's validity - is it an int value.
 				Expression indexExp = detail.getIndexExpression();
-
-if (DEBUG_Update) System.out.println("  So I am going to call visit() on the access expression: " + indexExp);
+if (DEBUG_Update) System.out.println("  Because it is targeting an element of an indexed-set, ASTTravMod.visit(Update) is going to call accept() on the\nfollowing access expression: " + indexExp);
 				// Delve in so that the expression might be resolved.
 				Expression res = (Expression) indexExp.accept(this);
 if (DEBUG_Update) {
-	System.out.println("  Completed call of visit() on the access expression: " + indexExp);
-	System.out.println("  The result received back from visit() " + ((res == indexExp) ? "is unchanged" : "has changed") + " [and is a " + res.getClass().getName() + "]" );
+	System.out.println("  ASTTravMod.visit(Update) has completed call of accept() on the access expression: " + indexExp);
+	System.out.println("  The result received back from accept() " + ((res == indexExp) ? "is unchanged" : "HAS CHANGED") + " [and is a " + res.getClass().getName() + "]" );
 }
 				// Store the result of possible transformation of the index expression:
 				detail.setIndexExpression(res);
@@ -337,20 +370,21 @@ if (DEBUG_Update) {
 				//refresh it (in case it just got changed by above line)
 				indexExp = detail.getIndexExpression();
 			}
-else if (DEBUG_Update) System.out.println(" It was not accessing an indexed set, so no further special processing of is needed");
+else if (DEBUG_Update) System.out.println("  It was not accessing an indexed set, so no further special processing is needed");
 
-if (DEBUG_Update) System.out.println("\nPART 2 of Considering update-element " + (i+1) + "/"+n );	
+if (DEBUG_Update) System.out.println("\nASTTM.visit(Upd) STAGE 2 of Considering update-element " + (i+1) + "/"+n + " for: " + e.getElement(i) );
 
 // ORIG			if (e.getExpression(i) != null) e.setExpression(i, (Expression)(e.getExpression(i).accept(this)));
 			Expression exp = e.getExpression(i);
 //if (DEBUG) System.out.println("its calculation expression will be: " + exp);
-if (DEBUG_Update) System.out.println("Calling accept() on exprNum " + (i+1) + " which is " + exp);
+if (DEBUG_Update) System.out.println(" which is considering the calculation expression.\n ASTTravMod.visit(Upd) about to call accept() on calculation expression: " + exp);
 			if (exp != null) e.setExpression(i, (Expression)  exp.accept(this));
-if (DEBUG_Update) System.out.println("After completing accept() on exprNum " + (i+1) + " its calc expr is now: (" + e.getExpression(i) +")"); System.out.flush();
-
+if (DEBUG_Update) System.out.println(" ASTTravMod.visit(Upd) has completed call of accept() on calculation expression.\n Its calc expr is now: (" + e.getExpression(i) +")"); System.out.flush();
+if (DEBUG_Update) System.out.println("ASTTM.visit(Upd) completed both stages for update-element #" + (i+1) + "/"+n);
 		}
-if (DEBUG_Update) System.out.println("End of ASTTravMod.visit(Update) [" + this.getClass().getName() + "] for " + e);
-		visitPost(e);
+if (DEBUG_Update) System.out.println("ASTTM.visit(Upd) CONCLUDED processing all " + n + " update-elements for update: " + e + "\n");
+if (DEBUG_Update) System.out.println("</ASTTM_Visit_Update>");
+ 	visitPost(e);
 		return e;
 	}
 	public void visitPost(Update e) throws PrismLangException { defaultVisitPost(e); }
@@ -502,10 +536,14 @@ if (DEBUG_Update) System.out.println("End of ASTTravMod.visit(Update) [" + this.
 	public void visitPre(ExpressionBinaryOp e) throws PrismLangException { defaultVisitPre(e); }
 	public Object visit(ExpressionBinaryOp e) throws PrismLangException
 	{
+if (DEBUG_TraceCalls)
+	System.out.println("<ASTTM_Visit_ExpBinOp visitor='" + this.getClass().getName()+ "'>");
 		visitPre(e);
 		e.setOperand1((Expression)(e.getOperand1().accept(this)));
 		e.setOperand2((Expression)(e.getOperand2().accept(this)));
 		visitPost(e);
+if (DEBUG_TraceCalls)
+	System.out.println("</ASTTM_Visit_ExpBinOp>");
 		return e;
 	}
 	public void visitPost(ExpressionBinaryOp e) throws PrismLangException { defaultVisitPost(e); }
@@ -513,9 +551,13 @@ if (DEBUG_Update) System.out.println("End of ASTTravMod.visit(Update) [" + this.
 	public void visitPre(ExpressionUnaryOp e) throws PrismLangException { defaultVisitPre(e); }
 	public Object visit(ExpressionUnaryOp e) throws PrismLangException
 	{
+if (DEBUG_TraceCalls)
+	System.out.println("<ASTTM_Visit_ExpUnaryOp visitor='" + this.getClass().getName()+ "'>");
 		visitPre(e);
 		e.setOperand((Expression)(e.getOperand().accept(this)));
 		visitPost(e);
+if (DEBUG_TraceCalls)
+	System.out.println("</ASTTM_Visit_ExpUnaryOp>");
 		return e;
 	}
 	public void visitPost(ExpressionUnaryOp e) throws PrismLangException { defaultVisitPost(e); }
@@ -536,11 +578,11 @@ if (DEBUG_Update) System.out.println("End of ASTTravMod.visit(Update) [" + this.
 	public void visitPre(ExpressionIdent e) throws PrismLangException { defaultVisitPre(e); }
 	public Object visit(ExpressionIdent e) throws PrismLangException
 	{
-if (DEBUG_ExprIdent) System.out.println("The " + this.getClass().getName() + " visitor has reached ASTTravMod.visit(ExprIdent), for expression: \'" + e + "\' - before visitPre()"); System.out.flush();
+if (DEBUG_ExprIdent) System.out.println("\nASTTravMod.visit(ExprIdent) [for " + this.getClass().getName() + "] commencing\nfor expression: \'" + e + "\' - before visitPre()");
 		visitPre(e);
-if (DEBUG_ExprIdent) System.out.println("The " + this.getClass().getName() + " visitor for " + e + " - after visitPre() but before visitPost()"); System.out.flush();
+if (DEBUG_ExprIdent) System.out.println("ASTTravMod.visit(ExprIdent) for expression \'" + e + "\' - about to call visitPost()");
 		visitPost(e);
-if (DEBUG_ExprIdent) System.out.println("The " + this.getClass().getName() + " visitor for " + e + " - after visitPost() - returning..."); System.out.flush();
+if (DEBUG_ExprIdent) System.out.println("ASTTravMod.visit(ExprIdent) for expression \'" + e + "\' - after visitPost() - returning...");
 		return e;
 	}
 	public void visitPost(ExpressionIdent e) throws PrismLangException { defaultVisitPost(e); }
@@ -576,8 +618,12 @@ if (DEBUG_ExprIdent) System.out.println("The " + this.getClass().getName() + " v
 	public void visitPre(ExpressionVar e) throws PrismLangException { defaultVisitPre(e); }
 	public Object visit(ExpressionVar e) throws PrismLangException
 	{
+if (DEBUG_TraceCalls)
+	System.out.println("<ASTTM_Visit_ExprVar visitor='" + this.getClass().getName()+ "'>");
 		visitPre(e);
 		visitPost(e);
+if (DEBUG_TraceCalls)
+	System.out.println("<ASTTM_Visit_ExprVar>");
 		return e;
 	}
 	public void visitPost(ExpressionVar e) throws PrismLangException { defaultVisitPost(e); }
@@ -588,14 +634,14 @@ if (DEBUG_ExprIdent) System.out.println("The " + this.getClass().getName() + " v
 	{
 if (DEBUG_ExpIndSetAcc) System.out.println("The " + this.getClass().getName() + " visitor has reached ASTTravMod.visit(ExprIndSetAcc), for " + e + " - just before calling visitPre()"); System.out.flush();
 		visitPre(e);
-if (DEBUG_ExpIndSetAcc) System.out.println("The " + this.getClass().getName() + " visitor is now after visitPre(), about to invoke accept() on indexExpr: " + e.getIndexExpression()); System.out.flush();
+if (DEBUG_ExpIndSetAcc) System.out.println("The " + this.getClass().getName() + " visitor is now after visitPre(), is about to invoke accept() on indexExpr: " + e.getIndexExpression()); System.out.flush();
 		if (e.getIndexExpression() != null) {
 Expression prior = e.getIndexExpression();
 			Expression newIndExpr = (Expression) e.getIndexExpression().accept(this);
 			e.setIndexExpression(newIndExpr);
-if (DEBUG_ExpIndSetAcc) System.out.println("in ASTTravMod.visit() for the " + this.getClass().getName() + " visitor, IndexExpression is : " + newIndExpr + " which is " + (prior==newIndExpr ? "the same object" : "a different (new) object") );
+if (DEBUG_ExpIndSetAcc) System.out.println("The " + this.getClass().getName() + " visitor in ASTTravMod.visit(EISA) has finished calling accept() on indexExpr,\n and the returned IndexExpression is : " + newIndExpr + " which is " + (prior==newIndExpr ? "the same object" : "a different (new) object") );
 		}
-if (DEBUG_ExpIndSetAcc) System.out.println("The " + this.getClass().getName() + " visitor is now after accept(), before visitPost()"); System.out.flush();
+if (DEBUG_ExpIndSetAcc) System.out.println("The " + this.getClass().getName() + " visitor is now about to call visitPost()"); System.out.flush();
 		visitPost(e);
 if (DEBUG_ExpIndSetAcc) System.out.println("The " + this.getClass().getName() + " visitor is now concluding ASTTravMod.visit(ExprIndSetAcc), returning: " + e); System.out.flush();
 		return e;
