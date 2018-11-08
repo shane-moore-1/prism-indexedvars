@@ -32,6 +32,8 @@ import parser.type.TypeInt;
 import parser.visitor.ASTVisitor;
 import prism.PrismLangException;
 
+import java.util.*;
+
 public class ExpressionBinaryOp extends Expression
 {
 	// Operator constants
@@ -258,6 +260,26 @@ public class ExpressionBinaryOp extends Expression
 	public boolean returnsSingleValue()
 	{
 		return operand1.returnsSingleValue() && operand2.returnsSingleValue();
+	}
+
+
+	@Override
+	public List<ExpressionIndexedSetAccess> getVariablePosEISAs()
+	{
+		// Recurse into both operands, then return the results
+		List<ExpressionIndexedSetAccess> result, tmp;
+		result = new ArrayList<ExpressionIndexedSetAccess>();
+if (DEBUG_VPEISA) System.out.println("   Considering op1: " + operand1);
+		tmp = operand1.getVariablePosEISAs();
+		if ((tmp != null) && tmp.size() > 0)
+			result.addAll(tmp);
+
+if (DEBUG_VPEISA) System.out.println("   Considering op2: " + operand2);
+		tmp = operand2.getVariablePosEISAs();
+		if ((tmp != null) && tmp.size() > 0)
+			result.addAll(tmp);
+
+		return result;		
 	}
 
 	// Methods required for ASTElement:

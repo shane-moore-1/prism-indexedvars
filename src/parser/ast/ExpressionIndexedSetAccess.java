@@ -4,7 +4,7 @@ import parser.EvaluateContext;
 import parser.visitor.ASTVisitor;
 import prism.PrismLangException;
 import prism.PrismOutOfBoundsException;
-import java.util.List;
+import java.util.*;
 
 /**
  * Represents an indexed identifier (i.e. an array, being accessed by an index) used as an expression, e.g. an element position of an Indexed Set is being given as the thing containing a value to be assigned during an Update (to another variable) 
@@ -68,6 +68,27 @@ public static boolean DEBUG_VISITOR = false;
 	public Expression getIndexExpression()
 	{
 		return indexExpression;
+	}
+
+	// Overrides the default one in Expression, to return THIS object, but only if the IndexExpression is not a constant value
+	@Override
+	public List<ExpressionIndexedSetAccess> getVariablePosEISAs()
+	{
+	        List<ExpressionIndexedSetAccess> varPosEISAs = new ArrayList<ExpressionIndexedSetAccess>();
+		if (!indexExpression.isConstant())
+		{
+			varPosEISAs.add(this);
+		}
+		// Also, if the accessExpression is itself an EISA, we should recursively check it...
+		if (indexExpression instanceof ExpressionIndexedSetAccess)
+		{
+if (DEBUG_VPEISA) System.out.println("Recursing into the access expression which itself is an EISA.");
+			List<ExpressionIndexedSetAccess> subExprs = ((ExpressionIndexedSetAccess)indexExpression).getVariablePosEISAs();
+			if (subExprs != null & subExprs.size() > 1)
+				varPosEISAs.addAll(subExprs);
+		}
+
+		return varPosEISAs;
 	}
 
 	// Messy (high coupling to other code), but necessary for run-time resolution during evaluate()

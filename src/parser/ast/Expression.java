@@ -34,12 +34,14 @@ import prism.ModelType;
 import prism.PrismException;
 import prism.PrismLangException;
 import parser.type.*;
+import java.util.List;
 
 // Abstract class for PRISM language expressions
 
 public abstract class Expression extends ASTElement
 {
-private static boolean DEBUG = false;
+public static boolean DEBUG_VPEISA;		// Debug the getVarPosEISAs and their overrides in the subclasses?
+private static boolean DEBUG = false;		// Any other debugging Shane has added here.
 	/**
 	 * Is this expression constant?
 	 */
@@ -1097,6 +1099,16 @@ if (DEBUG) System.out.println("[The class itself is an instance of: " + getClass
 		default:
 			throw new PrismException("Cannot convert jltl2ba formula " + ltl);
 		}
+	}
+
+	/* Return the ExpressionIndexedSetAccess expressions that are embedded within this Expression (i.e. sub-expressions), 
+	   but only if they are accessing indeterinate indexes.
+	   The default implementation returns null, signifying that no EISA is embedded within - but subclasses should override this if 
+	   they are recursively able to contain sub-expressions that may possibly refer to an indexed set.
+	*/
+	public List<ExpressionIndexedSetAccess> getVariablePosEISAs()
+	{
+		return null;
 	}
 }
 

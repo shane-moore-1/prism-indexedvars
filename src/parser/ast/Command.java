@@ -28,6 +28,7 @@ package parser.ast;
 
 import parser.visitor.*;
 import prism.PrismLangException;
+import java.util.*;
 
 public class Command extends ASTElement
 {
@@ -116,6 +117,24 @@ public class Command extends ASTElement
 	public Module getParent()
 	{
 		return parent;
+	}
+
+	/** Request an array of all distinct expressions for indexed set accesses that involve variable position specifications,
+	    so that we can ensure that each possible valuation can be catered-for in the translation into MTBDD.
+	*/
+	public List<ExpressionIndexedSetAccess> getVariablePosEISAs()
+	{
+		List<ExpressionIndexedSetAccess> varPosEISAs = new ArrayList<ExpressionIndexedSetAccess>();
+		List<ExpressionIndexedSetAccess> guardEISAs = guard.getVariablePosEISAs();
+		if (guardEISAs != null && guardEISAs.size() > 0)
+			varPosEISAs.addAll(guardEISAs);
+
+		// Note that some updates in a command may not even make reference to indexed sets; but we need to know any that are present...
+		List<ExpressionIndexedSetAccess> updateEISAs = updates.getVariablePosEISAs();
+		if (updateEISAs != null && updateEISAs.size() > 0)
+			varPosEISAs.addAll(updateEISAs);
+
+		return varPosEISAs;
 	}
 	
 	// Methods required for ASTElement:

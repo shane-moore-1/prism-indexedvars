@@ -143,6 +143,22 @@ public class Updates extends ASTElement
 		return parent;
 	}
 
+	/** Returns a list of any ExpressionIndexedSetAccess occurrences that have indeterminate index positions, 
+	    occurring in any of the update expressions that make-up this Updates, even though they may not arise in all update expressions.
+	*/
+	public List<ExpressionIndexedSetAccess> getVariablePosEISAs()
+	{
+		List<ExpressionIndexedSetAccess> varPosEISAs = new ArrayList<ExpressionIndexedSetAccess>();
+		for (Update u : updates)
+		{
+			List<ExpressionIndexedSetAccess> tmp = u.getVariablePosEISAs();	
+			if (tmp != null && tmp.size() > 0)
+				varPosEISAs.addAll(tmp);
+		}
+
+		return varPosEISAs;
+	}
+
 	// Methods required for ASTElement:
 
 	/**

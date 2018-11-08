@@ -26,8 +26,7 @@
 
 package parser.ast;
 
-import java.util.ArrayList;
-import java.util.BitSet;
+import java.util.*;
 
 import param.BigRational;
 import parser.*;
@@ -514,6 +513,44 @@ if (DEBUG_MSG) System.out.println("Will use index " + indexOfVarToUpdate + " as 
 		}
 		ret.setPosition(this);
 		return ret;
+	}
+
+	/** Scans through the Update for any ExpressionIndexedSetAccess objects that have a variable/indeterminate index specification. 
+	    Recursive.
+	*/
+	public List<ExpressionIndexedSetAccess> getVariablePosEISAs()
+	{
+		List<ExpressionIndexedSetAccess> varPosEISAs = new ArrayList<ExpressionIndexedSetAccess>();
+		List<ExpressionIndexedSetAccess> tmp;
+		int i, n;
+
+		n = getNumElements();
+if (Expression.DEBUG_VPEISA) System.out.println("in Update: " + toString() + " There are " + n + " update-elements to consider");
+		for (i = 0; i < n; i++) {
+if (Expression.DEBUG_VPEISA) System.out.println(" Considering varIdent: " + getVarIdent(i).toString());
+			// See whether each of the targets is an Indexed Set whose access expression is indeterminate
+			tmp = getVarIdent(i).getVariablePosEISAs();
+if (Expression.DEBUG_VPEISA) {
+    System.out.println(" Finished considering varIdent: " + getVarIdent(i).toString());
+    if (tmp != null) System.out.println("  It has this many indeterminate access-expressions: " + tmp.size());
+    else System.out.println("  It has 0 indeterminate access-expressions.");
+}
+			if (tmp != null && tmp.size() > 0)
+				varPosEISAs.addAll(tmp);
+
+			// See whether each of the calculation expressions involves an Indexed Set whose access expression is indeterminate
+if (Expression.DEBUG_VPEISA) System.out.println(" Considering calcExpr: " + getExpression(i).toString());
+			tmp = getExpression(i).getVariablePosEISAs();
+if (Expression.DEBUG_VPEISA) {
+    System.out.println(" Finished Considering calcExpr: " + getExpression(i).toString());
+    if (tmp != null) System.out.println("  It has this many indeterminate access-expressions: " + tmp.size());
+    else System.out.println("  It has 0 indeterminate access-expressions.");
+}
+			if (tmp != null && tmp.size() > 0)
+				varPosEISAs.addAll(tmp);
+		}
+if (Expression.DEBUG_VPEISA) System.out.println("Finished considering this Update: " + toString());
+		return varPosEISAs;
 	}
 }
 
