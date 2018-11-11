@@ -325,6 +325,17 @@ public abstract class ASTElement
 		return (ASTElement) accept(visitor);
 	}
 
+	/** The purpose of this method is to cause a visitor to go through looking for ExpressionIndexedSetAccess objects,
+         *  and to convert ones which have variables in the index-specification part, to replaced the variables with values
+	 *  as they are given in the parameter of this method.
+	 */
+// ADDED BY SHANE
+	public ASTElement replaceIndexSpecifiers(Values substitutions) throws PrismLangException
+	{
+		ReplaceIndexSpecifiers visitor = new ReplaceIndexSpecifiers(substitutions);
+		return (ASTElement) accept(visitor);
+	}
+
 	/**
 	 * Find all references to variables, replace any identifier objects with variable objects,
 	 * check variables exist and store their index (as defined by the containing ModuleFile).

@@ -34,13 +34,13 @@ import prism.ModelType;
 import prism.PrismException;
 import prism.PrismLangException;
 import parser.type.*;
-import java.util.List;
+import java.util.*;
 
 // Abstract class for PRISM language expressions
 
-public abstract class Expression extends ASTElement
+public abstract class Expression extends ASTElement implements Comparable<Expression>
 {
-public static boolean DEBUG_VPEISA;		// Debug the getVarPosEISAs and their overrides in the subclasses?
+public static boolean DEBUG_VPEISA = true;		// Debug the getVarPosEISAs and their overrides in the subclasses?
 private static boolean DEBUG = false;		// Any other debugging Shane has added here.
 	/**
 	 * Is this expression constant?
@@ -1101,7 +1101,8 @@ if (DEBUG) System.out.println("[The class itself is an instance of: " + getClass
 		}
 	}
 
-	/* Return the ExpressionIndexedSetAccess expressions that are embedded within this Expression (i.e. sub-expressions), 
+// ADDED BY SHANE
+	/** Return the ExpressionIndexedSetAccess expressions that are embedded within this Expression (i.e. sub-expressions), 
 	   but only if they are accessing indeterinate indexes.
 	   The default implementation returns null, signifying that no EISA is embedded within - but subclasses should override this if 
 	   they are recursively able to contain sub-expressions that may possibly refer to an indexed set.
@@ -1109,6 +1110,26 @@ if (DEBUG) System.out.println("[The class itself is an instance of: " + getClass
 	public List<ExpressionIndexedSetAccess> getVariablePosEISAs()
 	{
 		return null;
+	}
+
+	/** Returns a Set containing the ExpressionVar objects that occur in this Expression by looking into any sub-expressions recursively.
+	    The default implementation returnss null, signifying that no identifier is referenced by the expression, but subclasses should
+            override it if they can possibly have identifiers.
+	*/
+	public Set<ExpressionVar> extractVarExprs()
+	{
+		return null;
+	}
+
+// ADDED BY SHANE
+	/** A basic text-only comparison. It considers the textual representation of this and the other Expression, and performs usual String lexicographic comparison. It cannot determine if the two are mathematically equivalent calculations. */
+	@Override
+	public int compareTo(Expression other)
+	{
+		if (other != null)
+		  return this.toString().compareTo(other.toString());
+		else
+		  return -1;
 	}
 }
 

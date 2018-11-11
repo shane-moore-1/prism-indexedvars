@@ -11,7 +11,8 @@ import java.util.*;
  * It extends ExpressionIdent because it is meant to arise only in places where ExpressionIdent things would generally appear. 
  * It can occur both as a target of an update, or as an element in an expression (such as one specifying the way to calculate the value to be assigned to the target) 
  */
-public class ExpressionIndexedSetAccess extends ExpressionIdent {	
+public class ExpressionIndexedSetAccess extends ExpressionIdent implements Comparable<ExpressionIndexedSetAccess>
+{	
 																	
 
 public static boolean DEBUG = false;
@@ -229,6 +230,18 @@ if (DEBUG_VISITOR) System.out.println("The " + v.getClass().getName() + " visito
 		expr.setPosition(this);
 		expr.varIdents = this.varIdents;
 		return expr;
+	}
+
+	// Method required for Comparable:
+	/** Simply uses the textual representation to form an order based on normal string ordering. Therefore, it cannot tell whether
+            any calculations inside the index-specification expression are mathematically equivalent (e.g with brackets or transposed ordering)
+         */
+	public int compareTo(ExpressionIndexedSetAccess other)
+	{
+		if (other != null)
+		  return this.toString().compareTo(other.toString());
+		else
+		  return -1;
 	}
 }
 

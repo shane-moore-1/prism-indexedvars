@@ -80,6 +80,16 @@ import explicit.MinMax;
  */
 public class NondetModelChecker extends NonProbModelChecker
 {
+private static boolean DEBUG_CRR = true;		// show checkReachReward's steps
+private static boolean DEBUG_CompRR = true;		// show computeReachRewards' stages
+private static boolean DEBUG_ChkExpr = true;		// Show the checkExpression method's steps
+private static boolean DEBUG_CERwd = true;		// Show the checkExpressionReward method's steps
+private static boolean DEBUG_CExPr = true;		// Show the checkExpressionProb method's steps
+private static boolean DEBUG_ChkPPFS = true;
+private static boolean DEBUG_ChkPrU = true;
+private static boolean DEBUG_CPUnt2 = true;
+private static boolean DEBUG_ComputeUntPr = true;	// Show the stages of computeUntilProbs
+
 	// Model (MDP)
 	protected NondetModel model;
 
@@ -153,6 +163,7 @@ public class NondetModelChecker extends NonProbModelChecker
 	public StateValues checkExpression(Expression expr, JDDNode statesOfInterest) throws PrismException
 	{
 		StateValues res;
+if (DEBUG_ChkExpr) System.out.println("<NMC_ChkExpr expr='" + expr + "'>");
 
 		// <<>> or [[]] operator
 		if (expr instanceof ExpressionStrategy) {
@@ -179,6 +190,7 @@ public class NondetModelChecker extends NonProbModelChecker
 		}
 		// Otherwise, use the superclass
 		else {
+if (DEBUG_ChkExpr) System.out.println("(Deferring to superclass version of checkExpression)");
 			res = super.checkExpression(expr, statesOfInterest);
 		}
 
@@ -187,6 +199,7 @@ public class NondetModelChecker extends NonProbModelChecker
 		if (res instanceof StateValuesMTBDD)
 			res.filter(reach);
 
+if (DEBUG_ChkExpr) System.out.println("</NMC_ChkExpr expr='" + expr + "'>");
 		return res;
 	}
 
@@ -250,25 +263,33 @@ public class NondetModelChecker extends NonProbModelChecker
 	 */
 	protected StateValues checkExpressionProb(ExpressionProb expr, boolean forAll, JDDNode statesOfInterest) throws PrismException
 	{
+if (DEBUG_CExPr) System.out.println("<NMC_ChkExprProb expr='" + expr + "'>\nNMC-CEP Step 1: call getRelopBoundInfo...");
 		// Get info from P operator
 		OpRelOpBound opInfo = expr.getRelopBoundInfo(constantValues);
+if (DEBUG_CExPr) System.out.println("NMC-CEP Step 2: call getMinMax...");
 		MinMax minMax = opInfo.getMinMax(model.getModelType(), forAll);
+if (DEBUG_CExPr) System.out.println("NMC-CEP Stage 3: Check if trivially true or false...");
 		
 		// Check for trivial (i.e. stupid) cases
 		if (opInfo.isTriviallyTrue()) {
 			mainLog.printWarning("Checking for probability " + opInfo.relOpBoundString() + " - formula trivially satisfies all states");
 			JDD.Ref(reach);
 			JDD.Deref(statesOfInterest);
+if (DEBUG_CExPr) System.out.println("</NMC_ChkExprProb completedForExpr='" + expr + "' returning='StateValuesMTBDDfor trivialTrue case'>");
 			return new StateValuesMTBDD(reach, model);
 		} else if (opInfo.isTriviallyFalse()) {
 			mainLog.printWarning("Checking for probability " + opInfo.relOpBoundString() + " - formula trivially satisfies no states");
 			JDD.Deref(statesOfInterest);
+if (DEBUG_CExPr) System.out.println("</NMC_ChkExprProb completedForExpr='" + expr + "' returning='StateValuesMTBDDfor trivialFalse case'>");
 			return new StateValuesMTBDD(JDD.Constant(0), model);
 		}
 
+if (DEBUG_CExPr) System.out.println("(Neither, so...)\nNMC-CEP Stage 4: Compute probabilities, first ask isQualitative...");
 		// Compute probabilities
 		boolean qual = opInfo.isQualitative() && precomp && prob0 && prob1;
+if (DEBUG_CExPr) System.out.println("isQualitative returned: " + qual + "\nNMC-CEP Stage 5: calling checkProbPathFormula for '" + expr.getExpression() +"'");
 		StateValues probs = checkProbPathFormula(expr.getExpression(), qual, minMax.isMin(), statesOfInterest);
+if (DEBUG_CExPr) System.out.println("NMC-CEP Stage 6: After calling checkProbPathFormula for '" + expr.getExpression() +"'");
 
 		// Print out probabilities
 		if (verbose) {
@@ -278,16 +299,19 @@ public class NondetModelChecker extends NonProbModelChecker
 
 		// For =? properties, just return values
 		if (opInfo.isNumeric()) {
+if (DEBUG_CExPr) System.out.println("</NMC_ChkExprProb completedForExpr='" + expr + "' returning='probs'>");
 			return probs;
 		}
 		// Otherwise, compare against bound to get set of satisfying states
 		else {
+if (DEBUG_CExPr) System.out.println("NMC-CEP Stage 7: Not Numeric, so calling getBDDFromInterval...");
 			JDDNode sol = probs.getBDDFromInterval(opInfo.getRelOp(), opInfo.getBound());
 			// remove unreachable states from solution
 			JDD.Ref(reach);
 			sol = JDD.And(sol, reach);
 			// free vector
 			probs.clear();
+if (DEBUG_CExPr) System.out.println("</NMC_ChkExprProb completedForExpr='" + expr + "' returning='a StateValuesMTBDD'>");
 			return new StateValuesMTBDD(sol, model);
 		}
 	}
@@ -314,34 +338,51 @@ public class NondetModelChecker extends NonProbModelChecker
 	 */
 	protected StateValues checkExpressionReward(ExpressionReward expr, boolean forAll, JDDNode statesOfInterest) throws PrismException
 	{
+if (DEBUG_CERwd) System.out.println("<NMC_ChkExpRwd expr='"+ expr + "'>");
+if (DEBUG_CERwd) System.out.println("forAll is " + forAll + ", and statesOfInterest is: " + statesOfInterest);
+
 		// Get info from R operator
+if (DEBUG_CERwd) System.out.println("!NMC_ChkExpRwd Place 1a - about to call getRelopBoundInfo");
 		OpRelOpBound opInfo = expr.getRelopBoundInfo(constantValues);
+if (DEBUG_CERwd) System.out.println("!NMC_ChkExpRwd Place 1b - about to call getMinMax");
 		MinMax minMax = opInfo.getMinMax(model.getModelType(), forAll);
 
 		// Get rewards
+if (DEBUG_CERwd) System.out.println("!NMC_ChkExpRwd Place 2a - about to call getRewardStructIndex");
 		Object rs = expr.getRewardStructIndex();
+if (DEBUG_CERwd) System.out.println("!NMC_ChkExpRwd Place 2b - about to call getStateRewardsByIndexObject");
 		JDDNode stateRewards = getStateRewardsByIndexObject(rs, model, constantValues);
+if (DEBUG_CERwd) System.out.println("!NMC_ChkExpRwd Place 2c - about to call getTransitionRewardsByIndexObject");
 		JDDNode transRewards = getTransitionRewardsByIndexObject(rs, model, constantValues);
 
 		// Compute rewards
 		StateValues rewards = null;
 		Expression expr2 = expr.getExpression();
+if (DEBUG_CERwd) System.out.println("!NMC_ChkExpRwd Place 3, expr2 is " + expr2);
 		if (expr2.getType() instanceof TypePathDouble) {
 			ExpressionTemporal exprTemp = (ExpressionTemporal) expr2;
 			switch (exprTemp.getOperator()) {
 			case ExpressionTemporal.R_C:
 				if (exprTemp.hasBounds()) {
+if (DEBUG_CERwd) System.out.println("<CallCheckRewardCumul from='NMC_ChkExpRwd'>");
 					rewards = checkRewardCumul(exprTemp, stateRewards, transRewards, minMax.isMin(), statesOfInterest);
+if (DEBUG_CERwd) System.out.println("</CallCheckRewardCumul from='NMC_ChkExpRwd'>");
 				} else {
+if (DEBUG_CERwd) System.out.println("<CallCheckRewardTotal from='NMC_ChkExpRwd'>");
 					rewards = checkRewardTotal(exprTemp, stateRewards, transRewards, minMax.isMin(), statesOfInterest);
+if (DEBUG_CERwd) System.out.println("</CallCheckRewardTotal from='NMC_ChkExpRwd'>");
 				}
 				break;
 			case ExpressionTemporal.R_I:
+if (DEBUG_CERwd) System.out.println("<CallCheckRewardInst from='NMC_ChkExpRwd'>");
 				rewards = checkRewardInst(exprTemp, stateRewards, transRewards, minMax.isMin(), statesOfInterest);
+if (DEBUG_CERwd) System.out.println("</CallCheckRewardInst from='NMC_ChkExpRwd'>");
 				break;
 			}
 		} else if (expr2.getType() instanceof TypePathBool || expr2.getType() instanceof TypeBool) {
+if (DEBUG_CERwd) System.out.println("<CallCheckRewardPathFormula from='NMC_ChkExpRwd'>");
 			rewards = checkRewardPathFormula(expr2, stateRewards, transRewards, minMax.isMin(), statesOfInterest);
+if (DEBUG_CERwd) System.out.println("</CallCheckRewardPathFormula from='NMC_ChkExpRwd'>");
 		}
 
 		if (rewards == null)
@@ -355,16 +396,24 @@ public class NondetModelChecker extends NonProbModelChecker
 
 		// For =? properties, just return values
 		if (opInfo.isNumeric()) {
+if (DEBUG_CERwd) System.out.println("Returning from NondetModelChecker.CheckExpressionReward this rewards: " + rewards + "\n</NMC_ChkExpRwd expr='"+ expr + "'>");
 			return rewards;
 		}
 		// Otherwise, compare against bound to get set of satisfying states
 		else {
 			JDDNode sol = rewards.getBDDFromInterval(opInfo.getRelOp(), opInfo.getBound());
+if (DEBUG_CERwd) System.out.println("!NMC_ChkExpRwd Place 5, sol is " + sol);
 			// remove unreachable states from solution
 			JDD.Ref(reach);
 			sol = JDD.And(sol, reach);
+if (DEBUG_CERwd) System.out.println("!NMC_ChkExpRwd Place 5-b, AND-ing that with reach");
 			// free vector
 			rewards.clear();
+	// ORIG:	return new StateValuesMTBDD(sol, model);
+	// But broken down for tracing:
+if (DEBUG_CERwd) System.out.println("in NMC.chkExprRwd, calculating finalResult...");
+			StateValuesMTBDD finalResult = new StateValuesMTBDD(sol,model);
+if (DEBUG_CERwd) System.out.println("Returning from NondetModelChecker.CheckExpressionReward this final result: " + finalResult + "\n</NMC_ChkExpRwd expr='"+ expr + "'>");
 			return new StateValuesMTBDD(sol, model);
 		}
 	}
@@ -926,12 +975,13 @@ if (DEBUG) System.out.println("\n***** NondetModelChecker.checkExpressionMultiOb
 	{
 		boolean negated = false;
 		StateValues probs = null;
-
+if (DEBUG_ChkPPFS) System.out.println("<ChkProbPathFormulaSimple>");
 		expr = Expression.convertSimplePathFormulaToCanonicalForm(expr);
 
 		// Negation
 		if (expr instanceof ExpressionUnaryOp &&
 		    ((ExpressionUnaryOp)expr).getOperator() == ExpressionUnaryOp.NOT) {
+if (DEBUG_ChkPPFS) System.out.println("in ChkProbPathFormulaSimple: Case 1 - NEGATION");
 			// mark as negated, switch from min to max and vice versa
 			negated = true;
 			min = !min;
@@ -942,14 +992,22 @@ if (DEBUG) System.out.println("\n***** NondetModelChecker.checkExpressionMultiOb
 			ExpressionTemporal exprTemp = (ExpressionTemporal) expr;
 			// Next
 			if (exprTemp.getOperator() == ExpressionTemporal.P_X) {
+if (DEBUG_ChkPPFS) System.out.println("in ChkProbPathFormulaSimple: Case 2 - Expression '"+expr+"' is Temporal.P_X");
+if (DEBUG_ChkPPFS) System.out.println("in ChkProbPathFormulaSimple: Point 2-A, about to call checkProbNext.");
 				probs = checkProbNext(exprTemp, min, statesOfInterest);
+if (DEBUG_ChkPPFS) System.out.println("in ChkProbPathFormulaSimple: Point 2-B, finished call of checkProbNext.");
 			}
 			// Until
 			else if (exprTemp.getOperator() == ExpressionTemporal.P_U) {
+if (DEBUG_ChkPPFS) System.out.println("in ChkProbPathFormulaSimple: Case 3 - Expression '"+expr+"' is UNTIL");
 				if (exprTemp.hasBounds()) {
+if (DEBUG_ChkPPFS) System.out.println("in ChkProbPathFormulaSimple: Point 3-1-A, about to call checkProbBoundedUntil.");
 					probs = checkProbBoundedUntil(exprTemp, min, statesOfInterest);
+if (DEBUG_ChkPPFS) System.out.println("in ChkProbPathFormulaSimple: Point 3-1-B, finished call of checkProbBoundedUntil.");
 				} else {
+if (DEBUG_ChkPPFS) System.out.println("in ChkProbPathFormulaSimple: Point 3-2-A, about to call checkProbUntil (i.e. non-bounded).");
 					probs = checkProbUntil(exprTemp, qual, min, statesOfInterest);
+if (DEBUG_ChkPPFS) System.out.println("in ChkProbPathFormulaSimple: Point 3-2-B, finished call of checkProbUntil.");
 				}
 			}
 		}
@@ -957,11 +1015,13 @@ if (DEBUG) System.out.println("\n***** NondetModelChecker.checkExpressionMultiOb
 		if (probs == null)
 			throw new PrismException("Unrecognised path operator in P operator");
 
+if (DEBUG_ChkPPFS) System.out.println("in ChkProbPathFormulaSimple: Point 4 - negated is " + negated);
 		if (negated) {
 			// Subtract from 1 for negation
 			probs.subtractFromOne();
 		}
 
+if (DEBUG_ChkPPFS) System.out.println("</ChkProbPathFormulaSimple>");
 		return probs;
 	}
 
@@ -1090,13 +1150,18 @@ if (DEBUG) System.out.println("\n***** NondetModelChecker.checkExpressionMultiOb
 		JDDNode b1, b2;
 		StateValues probs = null;
 
+if (DEBUG_ChkPrU) System.out.println("\n<CheckProbUntil from='NondetModelChecker'  expr='" + expr + "'>\nQual is : " + qual + ", min is " + min + "statesOfInterest is "+ statesOfInterest);
 		// currently, ignore statesOfInterest
 		JDD.Deref(statesOfInterest);
 
 		// model check operands first
+if (DEBUG_ChkPrU) System.out.println("\nNMC_CPUntil for " + expr + " - Place 1 - about to call checkExpDD on operand 1 which is " + expr.getOperand1());
 		b1 = checkExpressionDD(expr.getOperand1(), model.getReach().copy());
+b1.setPurpose("Result of chkDD for operand 1 of " + expr);
+if (DEBUG_ChkPrU) System.out.println("\nNMC_CPUntil for " + expr + " - Place 2 - about to call checkExpDD on operand 2 which is " + expr.getOperand2());
 		try {
 			b2 = checkExpressionDD(expr.getOperand2(), model.getReach().copy());
+b1.setPurpose("Result of chkDD for operand 2 of " + expr);
 		} catch (PrismException e) {
 			JDD.Deref(b1);
 			throw e;
@@ -1109,6 +1174,7 @@ if (DEBUG) System.out.println("\n***** NondetModelChecker.checkExpressionMultiOb
 		// allDDRowVars.n()) + " states\n");
 
 		try {
+if (DEBUG_ChkPrU) System.out.println("\nNMC_CPUntil for expr: " + expr + " - Place 3, about to call checkProbUntil_DDBB ");
 			probs = checkProbUntil(b1, b2, qual, min);
 		} catch (PrismException e) {
 			JDD.Deref(b1);
@@ -1116,6 +1182,7 @@ if (DEBUG) System.out.println("\n***** NondetModelChecker.checkExpressionMultiOb
 			throw e;
 		}
 
+if (DEBUG_ChkPrU) System.out.println("NMC_CPUntil - Place 4 - End\n</CheckProbUntil>\n");
 		// derefs
 		JDD.Deref(b1);
 		JDD.Deref(b2);
@@ -1140,10 +1207,12 @@ if (DEBUG) System.out.println("\n***** NondetModelChecker.checkExpressionMultiOb
 		long l;
 
 		// compute probabilities
+if (DEBUG_CPUnt2) System.out.println("Start of DDBB version of checkProbUntil");
 
 		// if doing min with fairness, we solve a different problem
 		// (as in christel's habilitation)
 		if (min && fairness) {
+if (DEBUG_CPUnt2) System.out.println("CPU_DDBB: Case 1 - min && fairness");
 
 			// print out reminder that we have to do conversion for fairness
 			mainLog.print("\nDoing conversion for fairness...\n");
@@ -1168,6 +1237,7 @@ if (DEBUG) System.out.println("\n***** NondetModelChecker.checkExpressionMultiOb
 			// mainLog.print("\nb1 = " + JDD.GetNumMintermsString(newb1, allDDRowVars.n()));
 			// mainLog.print(" states, b2 = " + JDD.GetNumMintermsString(newb2, allDDRowVars.n()) + " states\n");
 		} else {
+if (DEBUG_CPUnt2) System.out.println("CPU_DDBB: Case 2 - NOT: (min && fairness)");
 			JDD.Ref(b1);
 			newb1 = b1;
 			JDD.Ref(b2);
@@ -1177,15 +1247,19 @@ if (DEBUG) System.out.println("\n***** NondetModelChecker.checkExpressionMultiOb
 		// if requested (i.e. when prob bound is 0 or 1 and precomputation algorithms are enabled),
 		// compute probabilities qualitatively
 		if (qual) {
+if (DEBUG_CPUnt2) System.out.println("CPU_DDBB: Case 3 - computeUntilProbsQual will happen...");
 			mainLog.print("\nProbability bound in formula is 0/1 so not computing exact probabilities...\n");
 			// for fairness, we compute max here
 			probs = computeUntilProbsQual(trans01, newb1, newb2, min && !fairness);
+if (DEBUG_CPUnt2) System.out.println("CPU_DDBB: Case 3B - computeUntilProbsQual has finished.");
 		}
 		// otherwise actually compute probabilities
 		else {
 			// for fairness, we compute max here
 			try {
+if (DEBUG_CPUnt2) System.out.println("CPU_DDBB: Case 4 - computeUntilProbs will happen...");
 				probs = computeUntilProbs(trans, transActions, trans01, newb1, newb2, min && !fairness);
+if (DEBUG_CPUnt2) System.out.println("CPU_DDBB: Case 4B - computeUntilProbs has finished.");
 			} catch (PrismException e) {
 				JDD.Deref(newb1);
 				JDD.Deref(newb2);
@@ -1204,6 +1278,7 @@ if (DEBUG) System.out.println("\n***** NondetModelChecker.checkExpressionMultiOb
 		JDD.Deref(newb1);
 		JDD.Deref(newb2);
 
+if (DEBUG_CPUnt2) System.out.println("END of DDBB version of checkProbUntil");
 		return probs;
 	}
 
@@ -1436,6 +1511,7 @@ if (DEBUG) System.out.println("\n***** NondetModelChecker.checkExpressionMultiOb
 	{
 		JDDNode b;
 		StateValues rewards = null;
+if (DEBUG_CRR) System.out.println("<ChkRwdRch>\nNondetMC.checkRewardReach called for this expr: " + expr);
 
 		if (fairness && !min) {
 			// Rmax with fairness not supported; Rmin computation is unaffected
@@ -1451,16 +1527,24 @@ if (DEBUG) System.out.println("\n***** NondetModelChecker.checkExpressionMultiOb
 			throw new PrismNotSupportedException("R operator cannot contain a bounded F operator: " + expr);
 		}
 		
+if (DEBUG_CRR) System.out.println("!ChkRwdRch about to call checkExpressionDD on operand2, with a copy of model.getReach as statesOfInterest");
 		// model check operand first, statesOfInterest = all
 		b = checkExpressionDD(expr.getOperand2(), model.getReach().copy());
+if (DEBUG_CRR) System.out.println("! Returned to ChkRwdRch for " + expr + " (after checkExpressionDD call)\n  the 'b' is now: " + b);
+// SHANE: Assumes the 'b' is the set of states that signify the moments in state sequence that the filter is true, or that lead to it being true (and states afterwards are disabled).
 
 		// print out some info about num states
 		// mainLog.print("\nb = " + JDD.GetNumMintermsString(b,
 		// allDDRowVars.n()) + " states\n");
+// SHANE Re-enabling this other-person's debug info:
+if (DEBUG_CRR)	System.out.println("\nb = " + JDD.GetNumMintermsString(b, allDDRowVars.n()) + " states\n");
 
 		// compute rewards
 		try {
+if (DEBUG_CRR) System.out.println("ChkRwdRch Will now call computeReachRewards with the following:\ntrans = " + trans + "\ntransActions=" + transActions +
+"\ntrans01 = " + trans01 + "\nstateRewards = " + stateRewards + "\ntransRewards = " + transRewards + "\nb as above, and min is: " + min);
 			rewards = computeReachRewards(trans, transActions, trans01, stateRewards, transRewards, b, min);
+if (DEBUG_CRR) System.out.println("\n!ChkRwdRch now completed call of computeReachRewards. Outcome is that rewards is " + rewards);
 		} catch (PrismException e) {
 			JDD.Deref(b);
 			throw e;
@@ -1468,7 +1552,7 @@ if (DEBUG) System.out.println("\n***** NondetModelChecker.checkExpressionMultiOb
 
 		// derefs
 		JDD.Deref(b);
-
+if (DEBUG_CRR) System.out.println("</ChkRwdRch>");
 		return rewards;
 	}
 
@@ -1847,6 +1931,7 @@ if (DEBUG) System.out.println("\n***** NondetModelChecker.checkExpressionMultiOb
 
 	protected StateValues computeUntilProbs(JDDNode tr, JDDNode tra, JDDNode tr01, JDDNode b1, JDDNode b2, boolean min) throws PrismException
 	{
+if (DEBUG_ComputeUntPr) System.out.println("\n<ComputeUntilProbs>\nGoing to compute the Until probabilities using:\ntr = " + tr + "\ntra = " + tra + "\ntr01 = " + tr01 + "\nb1 = " +b1 + "\nb2 = " + b2 + "\nand min set to: " + min);
 		JDDNode yes, no, maybe;
 		JDDNode probsMTBDD;
 		DoubleVector probsDV;
@@ -1888,8 +1973,11 @@ if (DEBUG) System.out.println("\n***** NondetModelChecker.checkExpressionMultiOb
 			}
 		}
 
+if (DEBUG_ComputeUntPr) System.out.println("  In computeUntilProbs, Place F");
+
 		// compute yes/no/maybe states
 		if (b2.equals(JDD.ZERO)) {
+if (DEBUG_ComputeUntPr) System.out.println("  In computeUntilProbs, b2 was ZERO. 'yes' is being set to 0, 'no' to reach and 'maybe' to 0");
 			yes = JDD.Constant(0);
 			JDD.Ref(reach);
 			no = reach;
@@ -1901,7 +1989,9 @@ if (DEBUG) System.out.println("\n***** NondetModelChecker.checkExpressionMultiOb
 			JDD.Ref(b2);
 			no = JDD.And(reach, JDD.Not(b2));
 			maybe = JDD.Constant(0);
+if (DEBUG_ComputeUntPr) System.out.println("  In computeUntilProbs, b1 was ZERO. 'yes' is being set to b2, 'no' to the AND of reach and the not of b2, and 'maybe' to 0");
 		} else {
+if (DEBUG_ComputeUntPr) System.out.println("  In computeUntilProbs, neither b1 nor b2 was ZERO. So we have much work to do...");
 			// no
 			// if precomputation enabled
 			// (nb: prob1 needs prob0)
@@ -1909,16 +1999,21 @@ if (DEBUG) System.out.println("\n***** NondetModelChecker.checkExpressionMultiOb
 				// min
 				if (min) {
 					// no: "min prob = 0" equates to "there exists an adversary prob equals 0"
+if (DEBUG_ComputeUntPr) System.out.println("  In computeUntilProbs, about to call Prob0E...");
 					no = PrismMTBDD.Prob0E(tr01, reach, nondetMask, allDDRowVars, allDDColVars, allDDNondetVars, b1, b2);
+if (DEBUG_ComputeUntPr) System.out.println("  In computeUntilProbs, finished calling Prob0E...");
 				}
 				// max
 				else {
 					// no: "max prob = 0" equates to "for all adversaries prob equals 0"
+if (DEBUG_ComputeUntPr) System.out.println("  In computeUntilProbs, about to call Prob0A...");
 					no = PrismMTBDD.Prob0A(tr01, reach, allDDRowVars, allDDColVars, allDDNondetVars, b1, b2);
+if (DEBUG_ComputeUntPr) System.out.println("  In computeUntilProbs, finished calling Prob0A...");
 				}
 			}
 			// if precomputation not enabled
 			else {
+if (DEBUG_ComputeUntPr) System.out.println("  In computeUntilProbs, Place H");
 				// no
 				JDD.Ref(reach);
 				JDD.Ref(b1);
@@ -1931,26 +2026,35 @@ if (DEBUG) System.out.println("\n***** NondetModelChecker.checkExpressionMultiOb
 				// min
 				if (min) {
 					// yes: "min prob = 1" equates to "for all adversaries prob equals 1"
+if (DEBUG_ComputeUntPr) System.out.println("  In computeUntilProbs, about to call Prob1A...");
 					yes = PrismMTBDD.Prob1A(tr01, reach, nondetMask, allDDRowVars, allDDColVars, allDDNondetVars, no, b2);
+if (DEBUG_ComputeUntPr) System.out.println("  In computeUntilProbs, finished calling Prob1A...");
 				}
 				// max
 				else {
 					// yes: "max prob = 1" equates to "there exists an adversary prob equals 1"
+if (DEBUG_ComputeUntPr) System.out.println("  In computeUntilProbs, about to call Prob1E...");
 					yes = PrismMTBDD.Prob1E(tr01, reach, allDDRowVars, allDDColVars, allDDNondetVars, b1, b2, no);
+if (DEBUG_ComputeUntPr) System.out.println("  In computeUntilProbs, finished calling Prob1E...");
 				}
 			}
 			// if precomputation not enabled
 			else {
+if (DEBUG_ComputeUntPr) System.out.println("  In computeUntilProbs, Place J");
 				// yes
 				JDD.Ref(b2);
 				yes = b2;
 			}
 			// maybe
+if (DEBUG_ComputeUntPr) System.out.println("  In computeUntilProbs, Place K - calculating 'maybe'");
 			JDD.Ref(reach);
 			JDD.Ref(yes);
 			JDD.Ref(no);
 			maybe = JDD.And(reach, JDD.Not(JDD.Or(yes, no)));
 		}
+yes.setPurpose("% The 'yes' DD, as set during computeUntilProbs %");
+no.setPurpose("% The 'no' DD, as set during computeUntilProbs %");
+maybe.setPurpose("% The 'maybe' DD, as set during computeUntilProbs %");
 
 		// print out yes/no/maybe
 		mainLog.print("\nyes = " + JDD.GetNumMintermsString(yes, allDDRowVars.n()));
@@ -1959,11 +2063,13 @@ if (DEBUG) System.out.println("\n***** NondetModelChecker.checkExpressionMultiOb
 
 		// if maybe is empty, we have the answer already...
 		if (maybe.equals(JDD.ZERO)) {
+if (DEBUG_ComputeUntPr) System.out.println("  In computeUntilProbs, Place L-Case 1");
 			JDD.Ref(yes);
 			probs = new StateValuesMTBDD(yes, model);
 		}
 		// otherwise we compute the actual probabilities
 		else {
+if (DEBUG_ComputeUntPr) System.out.println("  In computeUntilProbs, Place L-Case 2");
 			// compute probabilities
 			mainLog.println("\nComputing remaining probabilities...");
 			mainLog.println("Engine: " + Prism.getEngineString(engine));
@@ -1973,7 +2079,9 @@ if (DEBUG) System.out.println("\n***** NondetModelChecker.checkExpressionMultiOb
 				JDDNode yesInQuotient = null;
 				JDDNode maybeInQuotient = null;
 
+if (DEBUG_ComputeUntPr) System.out.print("  In computeUntilProbs, Place M");
 				if (doPmaxQuotient) {
+if (DEBUG_ComputeUntPr) System.out.println(" - doPmaxQuotient was true");
 					if (!tr.equals(model.getTrans()) ||
 					    !tra.equals(model.getTransActions()) ||
 					    !tr01.equals(model.getTrans01())) {
@@ -2013,9 +2121,11 @@ if (DEBUG) System.out.println("\n***** NondetModelChecker.checkExpressionMultiOb
 					yesInQuotient = transform.mapStateSetToQuotient(yes.copy());
 					maybeInQuotient = transform.mapStateSetToQuotient(maybe.copy());
 				}
+else if (DEBUG_ComputeUntPr) System.out.println(" - doPmaxQuotient was false");
 
 				switch (engine) {
 				case Prism.MTBDD:
+if (DEBUG_ComputeUntPr) System.out.print("  In computeUntilProbs, Place N - Case MTBDD");
 					if (doIntervalIteration) {
 						if (transform != null) {
 							probsMTBDD = PrismMTBDD.NondetUntilInterval(transformed.getTrans(),
@@ -2049,6 +2159,7 @@ if (DEBUG) System.out.println("\n***** NondetModelChecker.checkExpressionMultiOb
 					probs = new StateValuesMTBDD(probsMTBDD, model);
 					break;
 				case Prism.SPARSE:
+if (DEBUG_ComputeUntPr) System.out.print("  In computeUntilProbs, Place N - Case SPARSE");
 					IntegerVector strat = null;
 					if (genStrat) {
 						JDDNode ddStrat = JDD.ITE(yes, JDD.Constant(-2), JDD.Constant(-1));
@@ -2100,8 +2211,11 @@ if (DEBUG) System.out.println("\n***** NondetModelChecker.checkExpressionMultiOb
 					}
 					break;
 				case Prism.HYBRID:
+if (DEBUG_ComputeUntPr) System.out.print("  In computeUntilProbs, Place N - Case HYBRID");
 					if (doIntervalIteration) {
+if (DEBUG_ComputeUntPr) System.out.println("  In computeUntilProbs, Place N-1: doIntevalIteartion was true");
 						if (transform != null) {
+if (DEBUG_ComputeUntPr) System.out.println("  In computeUntilProbs, Place N-2: transform was NOT null");
 							probsDV = PrismHybrid.NondetUntilInterval(transformed.getTrans(),
 							                                          transformed.getODD(),
 							                                          transformed.getAllDDRowVars(),
@@ -2113,11 +2227,14 @@ if (DEBUG) System.out.println("\n***** NondetModelChecker.checkExpressionMultiOb
 							                                          prism.getIntervalIterationFlags());
 							probs = new StateValuesDV(probsDV, transformed);
 						} else {
+if (DEBUG_ComputeUntPr) System.out.println("  In computeUntilProbs, Place N-3: transform WAS null");
 							probsDV = PrismHybrid.NondetUntilInterval(tr, odd, allDDRowVars, allDDColVars, allDDNondetVars, yes, maybe, min, prism.getIntervalIterationFlags());
 							probs = new StateValuesDV(probsDV, model);
 						}
 					} else {
+if (DEBUG_ComputeUntPr) System.out.println("  In computeUntilProbs, Place N-4: doIntevalIteartion was false");
 						if (transform != null) {
+if (DEBUG_ComputeUntPr) System.out.println("  In computeUntilProbs, Place N-5: transform was NOT null");
 							probsDV = PrismHybrid.NondetUntil(transformed.getTrans(),
 							                                  transformed.getODD(),
 							                                  transformed.getAllDDRowVars(),
@@ -2128,6 +2245,7 @@ if (DEBUG) System.out.println("\n***** NondetModelChecker.checkExpressionMultiOb
 							                                  min);
 							probs = new StateValuesDV(probsDV, transformed);
 						} else {
+if (DEBUG_ComputeUntPr) System.out.println("  In computeUntilProbs, Place N-6: transform WAS null");
 							probsDV = PrismHybrid.NondetUntil(tr, odd, allDDRowVars, allDDColVars, allDDNondetVars, yes, maybe, min);
 							probs = new StateValuesDV(probsDV, model);
 						}
@@ -2138,6 +2256,7 @@ if (DEBUG) System.out.println("\n***** NondetModelChecker.checkExpressionMultiOb
 				}
 
 				if (transform != null) {
+if (DEBUG_ComputeUntPr) System.out.println("  In computeUntilProbs, Place N-7: Need to project-back to Original (apparently)");
 					// we have to project back to the original
 					probs = transform.projectToOriginalModel(probs);
 					transform.clear();
@@ -2156,7 +2275,9 @@ if (DEBUG) System.out.println("\n***** NondetModelChecker.checkExpressionMultiOb
 		JDD.Deref(yes);
 		JDD.Deref(no);
 		JDD.Deref(maybe);
+if (DEBUG_ComputeUntPr) System.out.println("  In computeUntilProbs, Place Z");
 
+if (DEBUG_ComputeUntPr) System.out.println("</ComputeUntilProbs>\n");
 		return probs;
 	}
 
@@ -2385,6 +2506,7 @@ if (DEBUG) System.out.println("\n***** NondetModelChecker.checkExpressionMultiOb
 
 	protected StateValues computeReachRewards(JDDNode tr, JDDNode tra, JDDNode tr01, JDDNode sr, JDDNode trr, JDDNode b, boolean min) throws PrismException
 	{
+if (DEBUG_CompRR) System.out.println("<ComputeReachRewards partOf='prism.NondetModelChecker'>");
 		JDDNode inf, maybe, prob1, no;
 		JDDNode rewardsMTBDD;
 		DoubleVector rewardsDV;
@@ -2398,6 +2520,7 @@ if (DEBUG) System.out.println("\n***** NondetModelChecker.checkExpressionMultiOb
 			throw new PrismNotSupportedException("Currently, Rmin is not supported with interval iteration and the symbolic engines");
 		}
 
+if (DEBUG_CompRR) System.out.println(" !ComputeReachRewards Place 1");
 		// If required, export info about target states
 		if (prism.getExportTarget()) {
 			JDDNode labels[] = { model.getStart(), b };
@@ -2410,16 +2533,21 @@ if (DEBUG) System.out.println("\n***** NondetModelChecker.checkExpressionMultiOb
 			}
 		}
 
+if (DEBUG_CompRR) System.out.println(" !ComputeReachRewards Place 2");
 		// compute states which can't reach goal with probability 1
 		if (b.equals(JDD.ZERO)) {
+if (DEBUG_CompRR) System.out.println(" !ComputeReachRewards Place 2-A");
 			JDD.Ref(reach);
 			inf = reach;
 			maybe = JDD.Constant(0);
 		} else if (b.equals(reach)) {
+if (DEBUG_CompRR) System.out.println(" !ComputeReachRewards Place 2-B");
 			inf = JDD.Constant(0);
 			maybe = JDD.Constant(0);
 		} else {
+if (DEBUG_CompRR) System.out.println(" !ComputeReachRewards Place 2-C");
 			if (!min) {
+if (DEBUG_CompRR) System.out.println(" !ComputeReachRewards Place 2-C-1");
 				// compute states for which some adversaries don't reach goal with probability 1
 				// note that prob1a (unlike prob1e) requires no/b2, not b1/b2
 				// hence we have to call prob0e first
@@ -2429,8 +2557,10 @@ if (DEBUG) System.out.println("\n***** NondetModelChecker.checkExpressionMultiOb
 				JDD.Ref(reach);
 				inf = JDD.And(reach, JDD.Not(prob1));
 			} else {
+if (DEBUG_CompRR) System.out.println(" !ComputeReachRewards Place 2-C-2");
 
 				if (prism.getCheckZeroLoops()) {
+if (DEBUG_CompRR) System.out.println(" !ComputeReachRewards Place 2-C-2-a");
 					// find states transitions that have no cost
 					JDD.Ref(sr);
 					JDD.Ref(reach);
@@ -2455,14 +2585,20 @@ if (DEBUG) System.out.println("\n***** NondetModelChecker.checkExpressionMultiOb
 					JDD.Deref(zeroTrans);
 					JDD.Deref(zeroTrans01);
 				}
+if (DEBUG_CompRR) System.out.println(" !ComputeReachRewards Place 2-C-2-b");
 
 				// compute states for which all adversaries don't reach goal with probability 1
+if (DEBUG_CompRR) System.out.println(" !ComputeReachRewards about to call Prob0A");
 				no = PrismMTBDD.Prob0A(tr01, reach, allDDRowVars, allDDColVars, allDDNondetVars, reach, b);
+if (DEBUG_CompRR) System.out.println(" !ComputeReachRewards finished call to Prob0A");
+if (DEBUG_CompRR) System.out.println(" !ComputeReachRewards about to call Prob1E");
 				prob1 = PrismMTBDD.Prob1E(tr01, reach, allDDRowVars, allDDColVars, allDDNondetVars, reach, b, no);
+if (DEBUG_CompRR) System.out.println(" !ComputeReachRewards finished call to Prob1E");
 				JDD.Deref(no);
 				JDD.Ref(reach);
 				inf = JDD.And(reach, JDD.Not(prob1));
 			}
+if (DEBUG_CompRR) System.out.println(" !ComputeReachRewards Place 2-C-3");
 			JDD.Ref(reach);
 			JDD.Ref(inf);
 			JDD.Ref(b);
@@ -2470,6 +2606,7 @@ if (DEBUG) System.out.println("\n***** NondetModelChecker.checkExpressionMultiOb
 		}
 
 		if (prism.getCheckZeroLoops()) {
+if (DEBUG_CompRR) System.out.println(" !ComputeReachRewards Place 3");
 			// need to deal with zero loops yet
 			if (min && zeroCostEndComponents != null && zeroCostEndComponents.size() > 0) {
 				mainLog.printWarning("PRISM detected your model contains " + zeroCostEndComponents.size() + " zero-reward "
@@ -2478,6 +2615,8 @@ if (DEBUG) System.out.println("\n***** NondetModelChecker.checkExpressionMultiOb
 		} else if (min) {
 			mainLog.printWarning("PRISM hasn't checked for zero-reward loops.\n" + "Your minimum rewards may be too low...");
 		}
+
+if (DEBUG_CompRR) System.out.println(" !ComputeReachRewards Place 4 - about to show goal, inf, maybe counts");
 
 		// print out yes/no/maybe
 		mainLog.print("\ngoal = " + JDD.GetNumMintermsString(b, allDDRowVars.n()));
@@ -2489,11 +2628,13 @@ if (DEBUG) System.out.println("\n***** NondetModelChecker.checkExpressionMultiOb
 
 		// if maybe is empty, we have the rewards already
 		if (maybe.equals(JDD.ZERO)) {
+if (DEBUG_CompRR) System.out.println(" !ComputeReachRewards Place 5B");
 			JDD.Ref(inf);
 			rewards = new StateValuesMTBDD(JDD.ITE(inf, JDD.PlusInfinity(), JDD.Constant(0)), model);
 		}
 		// otherwise we compute the actual rewards
 		else {
+if (DEBUG_CompRR) System.out.println(" !ComputeReachRewards Place 5A");
 
 			if (doIntervalIteration) {
 				OptionsIntervalIteration iiOptions = OptionsIntervalIteration.from(this);
@@ -2516,6 +2657,8 @@ if (DEBUG) System.out.println("\n***** NondetModelChecker.checkExpressionMultiOb
 				}
 				lower = JDD.ITE(maybe.copy(), JDD.Constant(lowerBound), JDD.Constant(0));
 			}
+
+if (DEBUG_CompRR) System.out.println(" !ComputeReachRewards Place 5B");
 
 			// compute the rewards
 			mainLog.println("\nComputing remaining rewards...");
@@ -2581,6 +2724,7 @@ if (DEBUG) System.out.println("\n***** NondetModelChecker.checkExpressionMultiOb
 		if (lower != null) JDD.Deref(lower);
 		if (upper != null) JDD.Deref(upper);
 
+if (DEBUG_CompRR) System.out.println("</ComputeReachRewards>");
 		return rewards;
 	}
 

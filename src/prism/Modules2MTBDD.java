@@ -26,13 +26,13 @@
 
 package prism;
 
-import java.util.Vector;
-import java.util.HashSet;
-import java.util.Iterator;
+import java.util.*;
 
 import jdd.*;
 import parser.*;
 import parser.ast.*;
+
+import parser.visitor.FindRelOpInvolvingVar;
 
 // class to translate a modules description file into an MTBDD model
 
@@ -759,15 +759,15 @@ if (DEBUG_SortRanges) System.out.println("<SortRanges>");
 if(DEBUG_SortRanges) System.out.println("Considering i=" + i + " - will use varDDColVars["+i+"] which is " + varDDColVars[i]);
 			// obtain range dd by abstracting from identity matrix
 			varRangeDDs[i] = JDD.SumAbstract(varIdentities[i].copy(), varDDColVars[i]);
-varRangeDDs[i].setPurpose("varRangeDDs["+i+"], created during sortRanges()");
+varRangeDDs[i].setPurpose("% varRangeDDs["+i+"], created during sortRanges() %");
 if(DEBUG_SortRanges) System.out.println("Also, will use varDDRowVars["+i+"] which is " + varDDRowVars[i]);
 			// obtain range dd by abstracting from identity matrix
 			varColRangeDDs[i] = JDD.SumAbstract(varIdentities[i].copy(), varDDRowVars[i]);
-varRangeDDs[i].setPurpose("varColRangeDDs["+i+"], created during sortRanges()");
+varColRangeDDs[i].setPurpose("% varColRangeDDs["+i+"], created during sortRanges() %");
 			// build up range for whole system as we go
 			range = JDD.Apply(JDD.TIMES, range, varRangeDDs[i].copy());
 		}
-range.setPurpose("range, created during sortRanges()");
+range.setPurpose("% range, created during sortRanges() %");
 
 		// module ranges
 if (DEBUG_SortRanges) System.out.println("Now the second loop of sortRanges()...");
@@ -776,7 +776,7 @@ if (DEBUG_SortRanges) System.out.println("Now the second loop of sortRanges()...
 if(DEBUG_SortRanges) System.out.println("Considering i=" + i + " - will use moduleDDColVars["+i+"] which is " + moduleDDColVars[i]);
 			// obtain range dd by abstracting from identity matrix
 			moduleRangeDDs[i] = JDD.SumAbstract(moduleIdentities[i].copy(), moduleDDColVars[i]);
-moduleRangeDDs[i].setPurpose("moduleRangeDDs[" + i + "], created in sortRanges()");
+moduleRangeDDs[i].setPurpose("% moduleRangeDDs[" + i + "], created in sortRanges() %");
 		}
 if (DEBUG_SortRanges) System.out.println("</SortRanges>");
 	}
@@ -1564,7 +1564,236 @@ if (DEBUG_SHANE) System.out.println("Invoked m2m_translateSystemFullParallel");
 		
 		return compDDs;
 	}
-	
+
+// ADDED BY SHANE
+/** This method expects to be given a list containing the index to variables of varList, 
+    and will take the front one, iterate over all its possible values by recursively calling 
+    with the remainder of the list, to generate a list (returned) of Values objects which 
+    contain actual values for each variable. The 'template' parameter is used to lock other
+    variables whilst the current front one is enumerated. The initial call to start the recursion
+    should provide an empty but initialised template. The 'lowerBounds' and 'upperBounds' parameters
+    specify the ranges to be used for each variable, as determined by an analysis of other conditions
+    present in the guard which may have been there to restrict overflow cases of formulas.
+*/
+private List<Values> recurseOnVars(
+   ArrayList<Integer> varIdxsToRecurse, 
+   ArrayList<Integer> lowerBounds, 
+   ArrayList<Integer> upperBounds, 
+   Values template)
+{
+	int low, high, curValForVar;
+	String vName;
+	List<Values> resultsFromRecurse, resultsToGiveBack = null;
+
+	if (template == null)
+	   template = new Values();		// Just make a new empty one.
+System.out.println("In recurseOnVars, varIdxsToRecurse != null is : " + (varIdxsToRecurse != null) );
+System.out.println("In recurseOnVars, varIdxsToRecurse.size() is: " + varIdxsToRecurse.size() );
+System.out.println("In recurseOnVars, lowerBounds != null is : " + (lowerBounds != null) );
+System.out.println("In recurseOnVars, lowerBounds.size() is: " + lowerBounds.size() );
+System.out.println("In recurseOnVars, upperBounds != null is : " + (upperBounds != null) );
+System.out.println("In recurseOnVars, upperBounds.size() is: " + upperBounds.size() );
+	if (varIdxsToRecurse != null && lowerBounds != null && upperBounds != null &&
+	  varIdxsToRecurse.size() > 0 && lowerBounds.size() > 0 && upperBounds.size() > 0) {
+		// Create clones, to remove the front item from and then pass the remainder to recursive call...
+		ArrayList<Integer> remainingVarIdxs = (ArrayList<Integer>)varIdxsToRecurse.clone();
+		ArrayList<Integer> remLowerBounds = (ArrayList<Integer>) lowerBounds.clone();
+		ArrayList<Integer> remUpperBounds = (ArrayList<Integer>) upperBounds.clone();
+
+		int idxOfCurVar = remainingVarIdxs.remove(0);
+
+		// get some info on the variable
+		vName = varList.getName(idxOfCurVar);
+System.out.println("in recurseOnVars, front variable is: " + vName);
+		low = remLowerBounds.remove(0);
+		high = remUpperBounds.remove(0);
+System.out.println("its values are to be taken over the range from: " + low + " to " + high);
+
+		// Prepare the results from this call, which will be generated by enumeration of possible values for current variable...
+		resultsToGiveBack = new ArrayList<Values>();
+
+		// Enumerate the possible values, and translate the update for them...
+		for (curValForVar = low; curValForVar <= high; curValForVar++) {
+			Values valsToSubstitute = template.clone();		// Using the variables as defined by receive parameter.
+			valsToSubstitute.addValue(vName,new Integer(curValForVar));	// we will now add this variable, with current value.
+			if (remainingVarIdxs.size() > 0) {	// If there are more variables, then need to do a recursive call	
+//System.out.println("Will set " + vName + " to be " + curValForVar + ", and now calculate combinations for other variables...");
+				resultsFromRecurse = recurseOnVars(remainingVarIdxs, remLowerBounds, remUpperBounds, valsToSubstitute);
+				if (resultsFromRecurse != null & resultsFromRecurse.size() > 0)
+				  resultsToGiveBack.addAll(resultsFromRecurse);
+//System.out.println("Back in recurseOnVars for front-variable of: " + vName + ", received " + resultsFromRecurse.size() + " values from recursive call.");
+			} else {
+				resultsToGiveBack.add(valsToSubstitute);
+//System.out.println("Will set " + vName + " to be " + curValForVar + ", and return it alone.");
+			//EvaluateContextValues evalContext = new EvaluateContextValues(valsToSubstitute.clone());
+			}
+		}
+		System.out.println("Ending recurseOnVars for front-variable of: " + vName);
+	}
+	return resultsToGiveBack;
+
+}
+
+// ADDED BY SHANE	- BUT MAYBE SHOULD BE MERGED INTO THE recurseOnVars
+/** Purpose is to return a list where the value in position X is the lower-allowable value for variable whose index (into varList) appears in the same position X of the provided varIdxsToCheck argument.
+ */	
+private ArrayList<Integer> checkLowerBounds(List<Integer> varIdxsToCheck, Expression guardMayRestrict)
+{
+// Caller line says:		List<Integer> lowerBounds = checkLowerBounds(list_varsForAccessingIndSet, command.getGuard());
+	int low, curValForVar, idxOfCurVar;
+	String vName;
+	ArrayList<Integer> lowerBounds = new ArrayList<Integer>();
+
+	if (varIdxsToCheck == null)
+	   return null;
+
+	for (Integer curVarIdx : varIdxsToCheck) {
+		idxOfCurVar = curVarIdx;
+
+		// get some info on the variable
+		vName = varList.getName(idxOfCurVar);
+System.out.println("in checkLowerBounds, current variable being considered is: " + vName);
+
+		low = varList.getLow(idxOfCurVar);
+System.out.println(" usually its lower bounday value is: " + low + " but we will consider the following guard for any restriction to impose: " + guardMayRestrict);
+
+		low = checkRestrictLowerBound(vName,low,guardMayRestrict.deepCopy());		// Starts a Visitor to find bounds modifications
+System.out.println(" will use a lower bounday of: " + low + " for " + vName);
+
+		lowerBounds.add(low);		// Store the decided lower bound of variable		
+
+	}
+	return lowerBounds;
+}
+
+// ADDED BY SHANE	- BUT MAYBE SHOULD BE MERGED INTO THE recurseOnVars
+/** Purpose is to return a list where the value in position X is the uppermost-allowable value for variable whose index (into varList) appears in the same position X of the provided varIdxsToCheck argument.
+ */	
+private ArrayList<Integer> checkUpperBounds(List<Integer> varIdxsToCheck, Expression guardMayRestrict)
+
+{
+	int high, idxOfCurVar;
+	String vName;
+	ArrayList<Integer> upperBounds = new ArrayList<Integer>();
+
+	if (varIdxsToCheck == null)
+	   return null;
+
+	for (Integer curVarIdx : varIdxsToCheck) {
+		idxOfCurVar = curVarIdx;
+
+		// get some info on the variable
+		vName = varList.getName(idxOfCurVar);
+System.out.println("in checkUpperBounds, current variable being considered is: " + vName);
+
+		high = varList.getHigh(idxOfCurVar);
+System.out.println(" usually its Upper bounday value is: " + high + " but we will consider the following guard for any restriction to impose: " + guardMayRestrict);
+
+		high = checkRestrictUpperBound(vName,high,guardMayRestrict.deepCopy());		// Starts a Visitor to find bounds modifications
+System.out.println(" will use a Upper bounday of: " + high + " for " + vName);
+
+		upperBounds.add(high);		// Store the decided lower bound of variable		
+	}
+	return upperBounds;
+}
+
+// ADDED BY SHANE
+
+private int checkRestrictLowerBound(String varName, int curLowerBound, Expression guard) 
+{
+	int relOp, maybeBound;
+	List<ExpressionBinaryOp> relationsInvolvingVar = null;
+	FindRelOpInvolvingVar visitor = new FindRelOpInvolvingVar(varName);
+
+	int lowerBound = curLowerBound;
+
+	try {
+		guard.deepCopy().accept(visitor);		// Start searching.
+	} catch (PrismLangException peIgnore) { };
+
+	relationsInvolvingVar = visitor.getExpressionsThatInvolve();
+
+
+	if (relationsInvolvingVar != null && relationsInvolvingVar.size() > 0)
+	{
+for (Expression output : relationsInvolvingVar)
+  System.out.println(output + " may restrict the range of " + varName);
+		for (ExpressionBinaryOp curExpr : relationsInvolvingVar) {
+			relOp = curExpr.getOperator();
+			if (relOp == ExpressionBinaryOp.GT)
+			{
+				try {
+					maybeBound = (curExpr.getOperand2()).evaluateInt(constantValues,(Values)null);
+					if (maybeBound > lowerBound)	// The current 'maybeBound' value is more restrictive.
+					  lowerBound = maybeBound + 1;	// So make the subsequent integer be the new lower bound.
+				} catch (Exception ex1) {
+ex1.printStackTrace(System.out);
+System.exit(1);
+				}
+			}
+			else if (relOp == ExpressionBinaryOp.GE)
+			{
+				try {
+					maybeBound = (curExpr.getOperand2()).evaluateInt(constantValues,(Values)null);
+					if (maybeBound > lowerBound)	// The current 'maybeBound' value is more restrictive.
+					  lowerBound = maybeBound;	// So make it the new lower bound.
+				} catch (Exception ex2) {
+ex2.printStackTrace(System.out);
+System.exit(1);
+				}
+			}
+		}
+	}
+System.out.println("Final lowerBound of " + varName + " will be " + lowerBound);
+	return lowerBound;
+}
+
+
+private int checkRestrictUpperBound(String varName, int curUpperBound, Expression guard) 
+{
+	int relOp, maybeBound;
+	List<ExpressionBinaryOp> relationsInvolvingVar;
+	FindRelOpInvolvingVar visitor = new FindRelOpInvolvingVar(varName);
+
+	int upperBound = curUpperBound;
+	try {
+		guard.deepCopy().accept(visitor);		// Start searching.
+	} catch (PrismException peIgnore) { }
+	relationsInvolvingVar = visitor.getExpressionsThatInvolve();
+
+	if (relationsInvolvingVar != null && relationsInvolvingVar.size() > 0)
+	{
+for (Expression output : relationsInvolvingVar)
+  System.out.println(output + " may restrict the range of " + varName);
+		for (ExpressionBinaryOp curExpr : relationsInvolvingVar) {
+			relOp = curExpr.getOperator();
+			if (relOp == ExpressionBinaryOp.LT)
+			{
+				try {
+					maybeBound = (curExpr.getOperand2()).evaluateInt(constantValues,(Values)null);
+					if (maybeBound < upperBound)	// The current 'maybeBound' value is more restrictive.
+					  upperBound = maybeBound - 1;	// So make the preceding integer be the new lower bound.
+				} catch (Exception ex1) {
+ex1.printStackTrace(System.out);
+System.exit(1);
+				}
+			}
+			else if (relOp == ExpressionBinaryOp.LE)
+			{
+				try {
+					maybeBound = (curExpr.getOperand2()).evaluateInt(constantValues,(Values)null);
+					if (maybeBound < upperBound)	// The current 'maybeBound' value is more restrictive.
+					  upperBound = maybeBound;	// So make it the new lower bound.
+				} catch (Exception ex2) {
+ex2.printStackTrace(System.out);
+System.exit(1);
+				}
+			}
+		}
+	}
+System.out.println("Final upperBound of " + varName + " will be " + upperBound);
+	return upperBound;
+}
 	// translate a single module to a dd
 	// for a given synchronizing action ("" = none)
 	
@@ -1601,6 +1830,7 @@ if (DEBUG_TransMod)
 		for (l = 0; l < numCommands; l++) {
 if (DEBUG_TransMod) {
 	System.out.println();
+	System.out.println("<ConsidComForSync cmdNum='"+l+"' synch='"+synch+"'>");
 	PrintDebugIndent();
 	System.out.println("[in prism.Modules2MTBDD::translateModule()]: Considering command " + l + " against sync " + synch);
 }
@@ -1618,159 +1848,304 @@ if (DEBUG_TransMod) {
 if (DEBUG_TransMod) {
 	PrintDebugIndent(); System.out.println("Command " + (l+1) +" matches synch '" + synch + "'.");
 	PrintDebugIndent(); System.out.println("The command is: " + command);
-	PrintDebugIndent(); System.out.println(" <DealWithGuard>");
-	PrintDebugIndent(); System.out.println("  <TranslateGuardExpr guard=\"" + command.getGuard() + "\">");
-	DebugIndent += 2;
 }
-				// translate guard
-				guardDDs[l] = translateExpression(command.getGuard());
+
+				// New section inserted by SHANE, in order to determine if this command needs special treatment due to
+				// any IndexedSet access expressions which are to indeterminate index positions...
+if (DEBUG_TransMod || Expression.DEBUG_VPEISA) {
+	PrintDebugIndent(); System.out.println("<FindInspecificAccessExpr>");
+}
+
+				Set<ExpressionIndexedSetAccess> EISAs = command.getVariablePosEISAs();
+				Set<Expression> indexSpecifications = new TreeSet<Expression>();	// To find the unique specifications for accessing indexed positions
+
+if (DEBUG_TransMod || Expression.DEBUG_VPEISA) {
+	PrintDebugIndent(); System.out.println("</FindInspecificAccessExpr>\n");
+	PrintDebugIndent(); System.out.println("The command is: " + command);	// Repeating from earlier, so it (re-)appears in view immediately when I search on the XML tag
+}
+				// See if there are any found. If so, get the index-expressions and place unique ones into another Set
+				if (EISAs.size() > 0) {
+if (DEBUG_TransMod || Expression.DEBUG_VPEISA) {
+  PrintDebugIndent(); System.out.println("We will need to consider the impact of the following index-specification Expressions:");
+}
+					for (ExpressionIndexedSetAccess curEISA : EISAs) {
+if (DEBUG_TransMod || Expression.DEBUG_VPEISA) {
+  PrintDebugIndent(); System.out.println("  " + curEISA.getIndexExpression() + " used to access the '"+curEISA.getName() +"' indexed set.");
+}
+					  indexSpecifications.add(curEISA.getIndexExpression());
+					}
+				}
+
+				// Having determined the unique index-specification expressions, we now need to work out what variables are involved...
+				Set<ExpressionVar> varsForAccessingIndSet = new TreeSet<ExpressionVar>();
+				Set<ExpressionVar> tmpExprVars;
+				List<Values> substitutionCombins;	// Will contain the permutations that we need to generate DDs for.
+				substitutionCombins = new ArrayList<Values>();
+				if (indexSpecifications.size() > 0) {
+if (DEBUG_TransMod || Expression.DEBUG_VPEISA) {
+  System.out.println();
+  PrintDebugIndent(); System.out.println("The following are the unique set of index-specification expressions (i.e. duplicates removed):");
+	for (Expression indSpecExpr : indexSpecifications) {
+  PrintDebugIndent(); System.out.println("  " + indSpecExpr);
+	}
+}
+					// Go through each identified index-specification expression, and extract out the variables.
+					for (Expression indSpecExpr : indexSpecifications) {
+						tmpExprVars = indSpecExpr.extractVarExprs();
+						if (tmpExprVars != null && tmpExprVars.size() > 0)	// should be true, but done for safety!
+						   varsForAccessingIndSet.addAll(tmpExprVars);
+					}
+
+					// Expected to be true; will need to then consider the domain (range) of each variable.
+					if (varsForAccessingIndSet.size() > 0) {
+						// Construct a List, of the index within varList of a Variable, to give to recursive method.
+						ArrayList<Integer> list_varsForAccessingIndSet = new ArrayList<Integer>();
+						for (ExpressionVar ev :varsForAccessingIndSet) {
+/*							if (ev instanceof ExpressionIndexedSetAccess) {	// The index, is itself to come from another indexed set.
+								throw new PrismException("Too hard to work with: trying to use an indexed set to access an indexed set.");
+							} else 
+*/							// Normal variable
+							String varName = ev.getName();
+							int vIndex = varList.getIndex(varName);
+							if (vIndex == -1) {
+								throw new PrismException("Unknown variable \"" + varName + "\"");
+							}
+//							else if (varList.getType(vIndex) != parser.ast.type.TypeInt) 
+//								throw new PrismException("Variable \"" + varName + "\" not an integer type, cannot be used in index-specification expression");
+	System.out.println("Variable's name is: " + varName + ", and its index in the VarList is: " + vIndex);
+
+							list_varsForAccessingIndSet.add(vIndex);
+
+						}
+						// For each variable that appears, we need to work out its domain, which could be restricted by its use in other expressions of the same Command/Update.
+System.out.println("<REFINE_BOUNDS>");
+						ArrayList<Integer> lowerBounds = checkLowerBounds(list_varsForAccessingIndSet, command.getGuard());
+						ArrayList<Integer> upperBounds = checkUpperBounds(list_varsForAccessingIndSet, command.getGuard());
+System.out.println("</REFINE_BOUNDS>");
+						// Knowing the domain for each variable used in the index-expression, now determine the individual substitutions.
+System.out.println("Having worked out all the variables that arise in the index specification, now about to start recurseOnVars...\n<RECURSE_ON_VARS>");
+						substitutionCombins = recurseOnVars(list_varsForAccessingIndSet, lowerBounds, upperBounds, new Values());
+System.out.println("</RECURSE_ON_VARS>\n\nBack in translateModules(), received " + substitutionCombins.size() + " combinations for substitution to determine actual indexes of accessing the Indexed Sets"); 
+						// The following set will be populated with the indexes to be used
+						//Set<Integer> indexVals = enumeratIndexValues(
+					}
+				}
+
+				if (substitutionCombins.size() == 0)
+					substitutionCombins.add(new Values());		// Ensure there is at least one Values -  in this case one with no substitutions.
+				for (Values substitutions : substitutionCombins) {
+					// Generate a DD which is for a command where the current value substitutions are made
+				// NOT FACTORING OUT: upDDs[l] = translateCommandForValues(command, curSubstitutions);
+/// **********************
+/// START MODIFIED SECTION
+/// **********************
+
+if (DEBUG_TransMod) { 
+  PrintDebugIndent(); System.out.println(" <TranslateCommand>\nTranslating the following command: " + command); 
+  if (substitutions.getNumValues() > 0) 
+    System.out.println("Using the following substitutions: " + substitutions);
+}
+
+if (DEBUG_TransMod) { PrintDebugIndent(); System.out.println(" <DealWithGuard>"); }
+
+		// Find the current command's guard
+		Expression curGuard = command.getGuard();
+
+		// Generate the extra part of the guard that substitutes specific values for the variables in the supplied cases:
+		Expression extraGuard = null;
+
+		for (int i = 0; i < substitutions.getNumValues(); i++)
+		{
+			String varNameToUse = substitutions.getName(i);
+			int valToUse = (int) ((Integer)substitutions.getValue(i));
+			int indexInVarList = varList.getIndex(varNameToUse);
+
+			ExpressionVar theVar = 	new ExpressionVar( varNameToUse, varList.getType(indexInVarList));
+			theVar.setIndex(indexInVarList);		// SHANE HOPES THAT IS CORRECT - otherwise, have to find out appropriate value to use.
+System.out.println("for variable " + varNameToUse + ", create ExprVar with type set to " + varList.getType(indexInVarList) + " because the indexInVarList for that variable is " + indexInVarList);
+			ExpressionLiteral theVal = new ExpressionLiteral(varList.getType(indexInVarList),valToUse);
+
+			Expression nextPart;
+			nextPart = new ExpressionBinaryOp(ExpressionBinaryOp.EQ, theVar, theVal);
+			if (i == 0)
+				extraGuard = nextPart;
+			else
+			  extraGuard = new ExpressionBinaryOp(ExpressionBinaryOp.AND, extraGuard, nextPart);	// Concatenate, as conjunction
+		}
+		if (extraGuard != null) {
+System.out.println("The command's original guard was: " + curGuard);
+			// Exchange the known values of the current substitution into the original guard BUT ONLY where appearing inside Index-Specification expressions. 
+			curGuard = (Expression) curGuard.deepCopy();	// Use a copy, so the original can be used for next iteration.
+			curGuard.replaceIndexSpecifiers(substitutions);
+System.out.println("The command's interim guard (after substitutions into original guard, before the additional guards) is: " + curGuard);
+			// Include the constraints on this rule's applicability by prepending as guards the substitutions
+			curGuard = new ExpressionBinaryOp(ExpressionBinaryOp.AND,
+				new ExpressionUnaryOp(ExpressionUnaryOp.PARENTH,extraGuard),		// wrap new part in parentheses
+				curGuard			// and the new part, with the current/old part.
+			);
+System.out.println("The command's final guard is: " + curGuard);
+		}
+
 
 if (DEBUG_TransMod) {
+	PrintDebugIndent(); System.out.println("  <TranslateGuardExpr guard=\"" + curGuard + "\">");
+	DebugIndent += 2;
+}
+		// translate guard
+		guardDDs[l] = translateExpression(curGuard);
+if (DEBUG_TransMod) {
 	DebugIndent -= 1;
-	PrintDebugIndent(); System.out.println("  </TranslateGuardExpr guard=\"" + command.getGuard() + "\">");
+	PrintDebugIndent(); System.out.println("  </TranslateGuardExpr guard=\"" + curGuard + "\">");
 	PrintDebugIndent();
 	System.out.println("[in prism.Modules2MTBDD::translateModule()], concluded calling translateExpr for guard of command " + (l+1) );
 	PrintDebugIndent();
-	System.out.println("The guardDDs["+l+"] is: " +guardDDs[l] + "\nbut it is about to be TIMES with the following 'range' JDD: " +range);
+	System.out.println("The guardDD is: " +guardDDs[l] + "\nbut it is about to be TIMES with the following 'range' JDD: " +range);
 }
 
-				JDD.Ref(range);
-				guardDDs[l] = JDD.Apply(JDD.TIMES, guardDDs[l], range);
-				// check for false guard
-				if (guardDDs[l].equals(JDD.ZERO)) {
+		JDD.Ref(range);
+		guardDDs[l] = JDD.Apply(JDD.TIMES, guardDDs[l], range);
+		// check for false guard
+		if (guardDDs[l].equals(JDD.ZERO)) {
 if (DEBUG_TransMod) {
 	PrintDebugIndent();
-	System.out.println("[in prism.Modules2MTBDD::translateModule()]: The result is that guardDDs actually IS equal to JDD.ZERO...");
+	System.out.println("[in prism.Modules2MTBDD::translateModule()]: The result is that guardDD actually IS equal to JDD.ZERO...");
 }
-					// display a warning (unless guard is "false", in which case was probably intentional
-					if (!Expression.isFalse(command.getGuard())) {
-						String s = "Guard for command " + (l+1) + " of module \"" + module.getName() + "\" is never satisfied.";
-						mainLog.printWarning(s);
-/*SHANE*/		mainLog.println("I think the guard that is never satisfied, was: " + command.getGuard());
-					}
-					// no point bothering to compute the mtbdds for the update
-					// if the guard is never satisfied
-					upDDs[l] = JDD.Constant(0);
-					//rewDDs[l] = JDD.Constant(0);
+			// display a warning (unless guard is "false", in which case was probably intentional)
+			// Also, if extraGuard is not null, then it could be due to incoherent contradictory value for current iteration so don't warn then.
+			if (!Expression.isFalse(curGuard) && extraGuard == null) {
+				String s = "Guard for command " + (l+1) + " of module \"" + module.getName() + "\" is never satisfied.";
+				mainLog.printWarning(s);
+/*SHANE*/	mainLog.println("I think the guard that is never satisfied, was: " + curGuard);
+			}
+			// no point bothering to compute the mtbdds for the update
+			// if the guard is never satisfied
+			upDDs[l] = JDD.Constant(0);
+			//rewDDs[l] = JDD.Constant(0);
 if (DEBUG_TransMod) {
 	PrintDebugIndent(); System.out.println(" </DealWithGuard>"); DebugIndent-=1;
 }
-				}
-				else {
+		}
+		else {
 if (DEBUG_TransMod) {
 	PrintDebugIndent(); System.out.println(" </DealWithGuard>"); DebugIndent-=1;
 	System.out.println();		// Blank row.
 	PrintDebugIndent();
-	System.out.println("[in Modules2MTBDD.translateModule()]: ther result was guardDDs was not JDD.ZERO, so calling translateUpdates()...");
+	System.out.println("[in Modules2MTBDD.translateModule()]: the result was guardDDs was not JDD.ZERO, so calling translateUpdates()...");
 }
-					// translate updates and do some checks on probs/rates
-					upDDs[l] = translateUpdates(m, l, command.getUpdates(), (command.getSynch()=="")?false:true, guardDDs[l]);
+			// translate updates and do some checks on probs/rates
+			upDDs[l] = translateUpdates(m, l, command.getUpdates(), (command.getSynch()=="")?false:true, guardDDs[l], substitutions);
 	System.out.println();		// Blank row.
 	PrintDebugIndent();
 	System.out.println("[in Modules2MTBDD.translateModule()]: Finished call of translateUpdates(), doing other things...\n");
-					JDD.Ref(guardDDs[l]);
-					upDDs[l] = JDD.Apply(JDD.TIMES, upDDs[l], guardDDs[l]);
-					// are all probs/rates non-negative?
-					dmin = JDD.FindMin(upDDs[l]);
-					if (dmin < 0) {
-						String s = (modelType == ModelType.CTMC) ? "Rates" : "Probabilities";
-						s += " in command " + (l+1) + " of module \"" + module.getName() + "\" are negative";
-						s += " (" + dmin + ") for some states.\n";
-						s += "Perhaps the guard needs to be strengthened";
-						throw new PrismLangException(s, command);
-					}
-					// only do remaining checks if 'doprobchecks' flag is set
+			JDD.Ref(guardDDs[l]);
+			upDDs[l] = JDD.Apply(JDD.TIMES, upDDs[l], guardDDs[l]);
+			// are all probs/rates non-negative?
+			dmin = JDD.FindMin(upDDs[l]);
+			if (dmin < 0) {
+				String s = (modelType == ModelType.CTMC) ? "Rates" : "Probabilities";
+				s += " in command " + (l+1) + " of module \"" + module.getName() + "\" are negative";
+				s += " (" + dmin + ") for some states.\n";
+				s += "Perhaps the guard needs to be strengthened";
+				throw new PrismLangException(s, command);
+			}
+			// only do remaining checks if 'doprobchecks' flag is set
 if (DEBUG_TransMod)
 {
 	PrintDebugIndent();
 	System.out.print("[in Modules2MTBDD.translateModule()]: Place 1549 - calling prism.getDoProbChecks()... ");
 }
-					if (prism.getDoProbChecks()) {
+			if (prism.getDoProbChecks()) {
 if (DEBUG_TransMod)
 {
-	System.out.println("result was true, doing the IF branch's code");
+	System.out.println("result was true, doing the IF branch's code, which will determine if probabilities add up to 1.0");
 }
-						// sum probs/rates in updates
-						JDD.Ref(upDDs[l]);
-						tmp = JDD.SumAbstract(upDDs[l], moduleDDColVars[m]);
-						tmp = JDD.SumAbstract(tmp, globalDDColVars);
-						// put 1s in for sums which are not covered by this guard
-						JDD.Ref(guardDDs[l]);
-						tmp = JDD.ITE(guardDDs[l], tmp, JDD.Constant(1));
-						// compute min/max sums
-						dmin = JDD.FindMin(tmp);
-						dmax = JDD.FindMax(tmp);
-						// check sums for NaNs (note how to check if x=NaN i.e. x!=x)
+				// sum probs/rates in updates
+				JDD.Ref(upDDs[l]);
+				tmp = JDD.SumAbstract(upDDs[l], moduleDDColVars[m]);
+				tmp = JDD.SumAbstract(tmp, globalDDColVars);
+				// put 1s in for sums which are not covered by this guard
+				JDD.Ref(guardDDs[l]);
+				tmp = JDD.ITE(guardDDs[l], tmp, JDD.Constant(1));
+				// compute min/max sums
+				dmin = JDD.FindMin(tmp);
+				dmax = JDD.FindMax(tmp);
+				// check sums for NaNs (note how to check if x=NaN i.e. x!=x)
 if (DEBUG_TransMod) {
 	PrintDebugIndent();
 	System.out.println("[in Modules2MTBDD.translateModule()]: dmin is: " + dmin + ", dmax is: " + dmax + ", prism.getSumRoundOff() is " +prism.getSumRoundOff());
 }
-						if (dmin != dmin || dmax != dmax) {
-							JDD.Deref(tmp);
-							String s = (modelType == ModelType.CTMC) ? "Rates" : "Probabilities";
-							s += " in command " + (l+1) + " of module \"" + module.getName() + "\" have errors (NaN) for some states. ";
-							s += "Check for zeros in divide or modulo operations. ";
-							s += "Perhaps the guard needs to be strengthened";
-							throw new PrismLangException(s, command);
-						}
-						// check min sums - 1 (ish) for dtmcs/mdps, 0 for ctmcs
-						if (modelType != ModelType.CTMC && dmin < 1-prism.getSumRoundOff()) {
-							JDD.Deref(tmp);
-							String s = "Probabilities in command " + (l+1) + " of module \"" + module.getName() + "\" sum to less than one";
-							s += " (e.g. " + dmin + ") for some states. ";
-							s += "Perhaps some of the updates give out-of-range values. ";
-							s += "One possible solution is to strengthen the guard";
-							throw new PrismLangException(s, command);
-						}
-						if (modelType == ModelType.CTMC && dmin <= 0) {
-							JDD.Deref(tmp);
-							// note can't sum to less than zero - already checked for negative rates above
-							String s = "Rates in command " + (l+1) + " of module \"" + module.getName() + "\" sum to zero for some states. ";
-							s += "Perhaps some of the updates give out-of-range values. ";
-							s += "One possible solution is to strengthen the guard";
-							throw new PrismLangException(s, command);
-						}
-						// check max sums - 1 (ish) for dtmcs/mdps, infinity for ctmcs
-						if (modelType != ModelType.CTMC && dmax > 1+prism.getSumRoundOff()) {
-							JDD.Deref(tmp);
-							String s = "Probabilities in command " + (l+1) + " of module \"" + module.getName() + "\" sum to more than one";
-							s += " (e.g. " + dmax + ") for some states. ";
-							s += "Perhaps the guard needs to be strengthened";
-							throw new PrismLangException(s, command);
-						}
-						if (modelType == ModelType.CTMC && dmax == Double.POSITIVE_INFINITY) {
-							JDD.Deref(tmp);
-							String s = "Rates in command " + (l+1) + " of module \"" + module.getName() + "\" sum to infinity for some states. ";
-							s += "Perhaps the guard needs to be strengthened";
-							throw new PrismLangException(s, command);
-						}
-						JDD.Deref(tmp);
-					}
+				if (dmin != dmin || dmax != dmax) {
+					JDD.Deref(tmp);
+					String s = (modelType == ModelType.CTMC) ? "Rates" : "Probabilities";
+					s += " in command " + (l+1) + " of module \"" + module.getName() + "\" have errors (NaN) for some states. ";
+					s += "Check for zeros in divide or modulo operations. ";
+					s += "Perhaps the guard needs to be strengthened";
+					throw new PrismLangException(s, command);
+				}
+				// check min sums - 1 (ish) for dtmcs/mdps, 0 for ctmcs
+				if (modelType != ModelType.CTMC && dmin < 1-prism.getSumRoundOff()) {
+					JDD.Deref(tmp);
+					String s = "Probabilities in command " + (l+1) + " of module \"" + module.getName() + "\" sum to less than one";
+					s += " (e.g. " + dmin + ") for some states. ";
+					s += "Perhaps some of the updates give out-of-range values. ";
+					s += "One possible solution is to strengthen the guard";
+					throw new PrismLangException(s, command);
+				}
+				if (modelType == ModelType.CTMC && dmin <= 0) {
+					JDD.Deref(tmp);
+					// note can't sum to less than zero - already checked for negative rates above
+					String s = "Rates in command " + (l+1) + " of module \"" + module.getName() + "\" sum to zero for some states. ";
+					s += "Perhaps some of the updates give out-of-range values. ";
+					s += "One possible solution is to strengthen the guard";
+					throw new PrismLangException(s, command);
+				}
+				// check max sums - 1 (ish) for dtmcs/mdps, infinity for ctmcs
+				if (modelType != ModelType.CTMC && dmax > 1+prism.getSumRoundOff()) {
+					JDD.Deref(tmp);
+					String s = "Probabilities in command " + (l+1) + " of module \"" + module.getName() + "\" sum to more than one";
+					s += " (e.g. " + dmax + ") for some states. ";
+					s += "Perhaps the guard needs to be strengthened";
+					throw new PrismLangException(s, command);
+				}
+				if (modelType == ModelType.CTMC && dmax == Double.POSITIVE_INFINITY) {
+					JDD.Deref(tmp);
+					String s = "Rates in command " + (l+1) + " of module \"" + module.getName() + "\" sum to infinity for some states. ";
+					s += "Perhaps the guard needs to be strengthened";
+					throw new PrismLangException(s, command);
+				}
+				JDD.Deref(tmp);
+			}
 else	// Else to getDoProbChecks; not in original code, just here for debug.
 if (DEBUG_TransMod)
 {
-	System.out.println("was false, nothing to do.");
+	System.out.println("was false, nothing to do. (In other words, not checking that probabilities sum to 1.0)");
 }
 
-					// translate reward, if present
-					// if (command.getReward() != null) {
-					// 	tmp = translateExpression(command.getReward());
-					// 	JDD.Ref(upDDs[l]);
-					// 	rewDDs[l] = JDD.Apply(JDD.TIMES, tmp, JDD.GreaterThan(upDDs[l], 0));
-					// 	// are all rewards non-negative?
-					// if ((d = JDD.FindMin(rewDDs[l])) < 0) {
-					// 	String s = "Rewards in command " + (l+1) + " of module \"" + module.getName() + "\" are negative";
-					// 	s += " (" + d + ") for some states. ";
-					// 	s += "Perhaps the guard needs to be strengthened";
-					// 	throw new PrismException(s);
-					// }
-					// } else {
-					// 	rewDDs[l] = JDD.Constant(0);
-					// }
+			// translate reward, if present
+			// if (command.getReward() != null) {
+			// 	tmp = translateExpression(command.getReward());
+			// 	JDD.Ref(upDDs[l]);
+			// 	rewDDs[l] = JDD.Apply(JDD.TIMES, tmp, JDD.GreaterThan(upDDs[l], 0));
+			// 	// are all rewards non-negative?
+			// if ((d = JDD.FindMin(rewDDs[l])) < 0) {
+			// 	String s = "Rewards in command " + (l+1) + " of module \"" + module.getName() + "\" are negative";
+			// 	s += " (" + d + ") for some states. ";
+			// 	s += "Perhaps the guard needs to be strengthened";
+			// 	throw new PrismException(s);
+			// }
+			// } else {
+			// 	rewDDs[l] = JDD.Constant(0);
+			// }
+		}
+if (DEBUG_TransMod) { PrintDebugIndent(); System.out.println(" </TranslateCommand>\n"); }
+
+/// **********************
+/// END MODIFIED SECTION
+/// **********************
 				}
-			}
+
 			// otherwise use 0
-			else {
+			} else {
 if (DEBUG_TransMod)
 {
 	PrintDebugIndent(); 
@@ -1782,12 +2157,16 @@ if (DEBUG_TransMod)
 			}
 guardDDs[l].setPurpose("guard for command "+l);
 upDDs[l].setPurpose("upDD for command " + l);
+
+if (DEBUG_TransMod) {
+	PrintDebugIndent(); System.out.println("<ConsidComForSync cmdNum='"+l+"' synch='"+synch+"'>");
+}
 		}
 
 if (DEBUG_TransMod)
 {
 	PrintDebugIndent();
-	System.out.print("[in Modules2MTBDD.translateModule()]: @ line 1645");
+	System.out.print("[in Modules2MTBDD.translateModule()]: @ line 1645 (After having considered all commands, against the synch '" + synch + "')");
 }
 
 		// combine guard/updates dds for each command
@@ -1835,6 +2214,27 @@ if (DEBUG_TraSysMod) {
 		return compDDs;
 	}
 	
+
+	// SHANE extracted from translateModules, and has modified
+	/**
+	  Translate a command into a DD. If substitutions' is non-empty (the case when an indexed-set access using 
+	  variables in expressions) then various evaluations of expressions (possibly in guards, possibly in updates) 
+	  will be done BEFORE the translation into DD.
+	  @param m The Module number that contained this command (known by the caller translateModules)
+	  @param l The command-number (from the caller)
+	  @param command The actual command to be translated
+	  @param substitutions A partial set of variables, with specific values to be used on this particular translation.
+	 */
+	public void translateCommandForValues(int m, int l, Command command, Values substitutions)
+	{
+		ComponentDDs compDDs;
+		JDDNode guardDD, upDD, tmp;
+		double dmin = 0, dmax = 0;
+
+//		return upDD;
+	}
+
+
 	// go thru guard/updates dds for all commands of a prob. module and combine
 	// also check for any guard overlaps, etc...
 	
@@ -1980,9 +2380,10 @@ if (DEBUG_CCN) {
 		for (i = 0; i < numCommands; i++) {
 if (DEBUG_CCN) {
 	PrintDebugIndent();
-	System.out.println("<CCN_ITER i='"+i+"'>");
+	System.out.println("<CCN_ITER commandNum='"+(i+1)+"'>");
 	PrintDebugIndent();
 	System.out.println("Will reference this JDD, to 'PLUS' it to the 'overlaps' JDD and OR it with the 'covered' JDD:\n" + guardDDs[i]);
+// DOESN'T PRINT ANYTHING... guardDDs[i].ShaneShowChildren();
 }
 
 			JDD.Ref(guardDDs[i]);
@@ -1992,27 +2393,27 @@ if (DEBUG_CCN) {
 			covered = JDD.Or(covered, guardDDs[i]);
 if (DEBUG_CCN) {
 	PrintDebugIndent();
-	System.out.println("<CCN_ITER i='"+i+"'>");
+	System.out.println("</CCN_ITER commandNum='"+(i+1)+"'>");
 }
 		}
 		
 if (DEBUG_CCN) {
 	PrintDebugIndent();
-	System.out.println("About to call 'FindMax' on the Overlaps JDD...");
+	System.out.println("In CCN: About to call 'FindMax' on the Overlaps JDD...");
 }
 		// find the max number of overlaps
 		// (i.e. max number of nondet. choices)
 		maxChoices = (int)Math.round(JDD.FindMax(overlaps));
 if (DEBUG_CCN) {
 	PrintDebugIndent();
-	System.out.println("The result (maxChoices) is " + maxChoices);
+	System.out.println("IN CCN: The result (maxChoices) is " + maxChoices);
 }
 		
 		// if all the guards were false, we're done already
 		if (maxChoices == 0) {
 if (DEBUG_CCN) {
 	PrintDebugIndent();
-	System.out.println("Since it is 0, that means \"All the guards were false\", and nothing more to process.");
+	System.out.println("        Since it is 0, that means \"All the guards were false\", and nothing more to process.");
 }
 			compDDs.guards = covered;
 			compDDs.trans = transDD;
@@ -2032,7 +2433,7 @@ if (DEBUG_CCN) {
 		if (maxChoices == 1) {
 if (DEBUG_CCN) {
 	PrintDebugIndent();
-	System.out.println("Since it is 1, that means \"There are no overlaps\", so will just add up DDs for all commands.");
+	System.out.println("        Since it is 1, that means \"There are no overlaps\", so will just add up DDs for all commands.");
 }
 			// add up dds for all commands
 			for (i = 0; i < numCommands; i++) {
@@ -2041,9 +2442,9 @@ if (DEBUG_CCN) {
 				JDD.Ref(upDDs[i]);
 if (DEBUG_CCN) {
 	PrintDebugIndent();
-	System.out.println("<CCN_ITER2 cmd='"+i+"'>");
+	System.out.println("<CCN_ITER2 for_cmdNum='" + (i+1) + "'>");
 	PrintDebugIndent();
-	System.out.println("Will apply TIMES to these two DDs\nguardDDs["+i+"]: " + guardDDs[i] + "\nupDDs["+i+"]: " + upDDs[i]);
+	System.out.println("In CCN: Will apply TIMES to these two DDs\nguardDDs["+i+"]: " + guardDDs[i] + "\nupDDs["+i+"]: " + upDDs[i]);
 	PrintDebugIndent();
 	System.out.println("And will PLUS that, to transDD.");
 }
@@ -2055,7 +2456,7 @@ if (DEBUG_CCN) {
 				//rewardsDD = JDD.Apply(JDD.PLUS, rewardsDD, JDD.Apply(JDD.TIMES, guardDDs[i], rewDDs[i]));
 if (DEBUG_CCN) {
 	PrintDebugIndent();
-	System.out.println("transDD is now: " + transDD);
+	System.out.println("In CCN: transDD is now: " + transDD);
 	PrintDebugIndent();
 	System.out.println("</CCN_ITER2>");
 }
@@ -2082,7 +2483,10 @@ if (DEBUG_CCN) {
 		
 		// first, calculate how many dd vars will be needed
 		numDDChoiceVarsUsed = (int)Math.ceil(PrismUtils.log2(maxChoices));
-
+if (DEBUG_CCN) {
+	PrintDebugIndent();
+	System.out.println("We will require " + numDDChoiceVarsUsed + " choice variables (DDs), because there are " + maxChoices + " possibilities (log2 this)");
+}
 		
 		// select the variables we will use and put them in a JDDVars
 		ddChoiceVarsUsed = new JDDVars();
@@ -2097,7 +2501,7 @@ ddChoiceVarsUsed.setPurpose("ddChoiceVarsUsed, set-up in m2mtbdd.combineCommands
 		for (i = 1; i <= maxChoices; i++) {
 if (DEBUG_CCN) {
 	PrintDebugIndent();
-	System.out.println("Considering i value of " + i);
+	System.out.println("Considering cases that have " + i + " non-deterministic choices (by finding when 'overlaps' equals this number)");
 }
 			
 			// find sections of state space
@@ -2106,7 +2510,7 @@ if (DEBUG_CCN) {
 			equalsi = JDD.Equals(overlaps, (double)i);
 			// if there aren't any for this i, skip the iteration
 			if (equalsi.equals(JDD.ZERO)) {
-if (DEBUG_CCN) { PrintDebugIndent(); System.out.println("None for this i"); }
+if (DEBUG_CCN) { PrintDebugIndent(); System.out.println("None for this choice"); }
 				JDD.Deref(equalsi);
 				continue;
 			}
@@ -2125,7 +2529,7 @@ if (DEBUG_CCN) { PrintDebugIndent(); System.out.println("Some for this i. making
 			
 			// go thru each command of the module...
 			for (j = 0; j < numCommands; j++) {
-if (DEBUG_CCN) { PrintDebugIndent(); System.out.println("Check if command " + (j+1) + " matches criteria."); }
+if (DEBUG_CCN) { PrintDebugIndent(); System.out.println("Check if command " + (j+1) + " matches criteria (of having " + i + " choices)."); }
 				
 				// see if this command's guard overlaps with 'equalsi'
 				JDD.Ref(guardDDs[j]);
@@ -2133,7 +2537,7 @@ if (DEBUG_CCN) { PrintDebugIndent(); System.out.println("Check if command " + (j
 				tmp = JDD.And(guardDDs[j], equalsi);
 				// if it does...
 				if (!tmp.equals(JDD.ZERO)) {
-if (DEBUG_CCN) { PrintDebugIndent(); System.out.println(" It does (apparently)."); }
+if (DEBUG_CCN) { PrintDebugIndent(); System.out.println(" It does (apparently). So will try to split into that many choices..."); }
 					
 					// split it up into nondet. choices as necessary
 					
@@ -2142,17 +2546,21 @@ if (DEBUG_CCN) { PrintDebugIndent(); System.out.println(" It does (apparently)."
 					
 					// for each possible nondet. choice (1...i) involved...
 					for (k = 0; k < i; k ++) {
+if (DEBUG_CCN) { PrintDebugIndent(); System.out.println("   Examining choice #" + (k+1) + " of command " + (j+1)); }
 						// see how much of the command can go in nondet. choice k
 						JDD.Ref(tmp2);
 						JDD.Ref(frees[k]);
 						tmp3 = JDD.And(tmp2, frees[k]);
 						// if some will fit in...
 						if (!tmp3.equals(JDD.ZERO)) {
+if (DEBUG_CCN) { PrintDebugIndent(); System.out.println("     Some will probably fit."); }
 							JDD.Ref(tmp3);
 							frees[k] = JDD.And(frees[k], JDD.Not(tmp3));
+frees[k].setPurpose("% frees["+k+"] set in CCN%");
 							JDD.Ref(tmp3);
 							JDD.Ref(upDDs[j]);
 							transDDbits[k] = JDD.Apply(JDD.PLUS, transDDbits[k], JDD.Apply(JDD.TIMES, tmp3, upDDs[j]));
+transDDbits[k].setPurpose("% transDDbits["+k+"] set in CCN %");
 							//JDD.Ref(tmp3);
 							//JDD.Ref(rewDDs[j]);
 							//rewardsDDbits[k] = JDD.Apply(JDD.PLUS, rewardsDDbits[k], JDD.Apply(JDD.TIMES, tmp3, rewDDs[j]));
@@ -2164,6 +2572,7 @@ if (DEBUG_CCN) { PrintDebugIndent(); System.out.println(" It does (apparently)."
 						}
 					}
 					JDD.Deref(tmp2);
+if (DEBUG_CCN) { PrintDebugIndent(); System.out.println("   Finished examining choice #" + (k+1) + " of command " + (j+1) ); }
 				}
 				JDD.Deref(tmp);
 			}
@@ -2183,15 +2592,23 @@ if (DEBUG_CCN) {
 				//rewardsDD = JDD.Apply(JDD.PLUS, rewardsDD, JDD.Apply(JDD.TIMES, tmp, rewardsDDbits[j]));
 				JDD.Deref(frees[j]);
 			}
+transDD.setPurpose("% transDD when i=" + i + " after all j iterations, set in CCN %");
+
 			
 			// take the i bits out of 'overlaps'
 			overlaps = JDD.Apply(JDD.TIMES, overlaps, JDD.Not(equalsi));
+if (DEBUG_CCN) {
+	PrintDebugIndent();
+	System.out.println("Finished considering cases that have " + i + " non-deterministic choices");
+}
 		}
 		JDD.Deref(overlaps);
 		
 		// store result
 		compDDs.guards = covered;
+compDDs.guards.setPurpose("% compDDs.guards as modified during CCN %");
 		compDDs.trans = transDD;
+compDDs.trans.setPurpose("% compDDs.trans as modified during CCN %");
 		//compDDs.rewards = rewardsDD;
 		compDDs.min = synchMin;
 		compDDs.max = synchMin + numDDChoiceVarsUsed;
@@ -2205,21 +2622,25 @@ if (DEBUG_CCN) {
 	}
 
 	// translate the updates part of a command
-
-	private JDDNode translateUpdates(int m, int l, Updates u, boolean synch, JDDNode guard) throws PrismException
+// MODIFIED by SHANE - to accept a Values containing substitutions to be made (for indexed-set index-specification processing)
+	private JDDNode translateUpdates(int m, int l, Updates u, boolean synch, JDDNode guard, Values substitutions) throws PrismException
 	{
 		int i, n;
 		Expression p;
 		JDDNode dd, udd, pdd;
 		boolean warned;
 		String msg;
+if (DEBUG_TransUpd) System.out.println("<Mod2MTBDD_transUp_Pt1>");
 		
 		// sum up over possible updates
 		dd = JDD.Constant(0);
 		n = u.getNumUpdates();
+if (DEBUG_TransUpd) System.out.println("In Mod2MTBDD.transUpdates (First one - whole Command), there are " + n + " update elements to deal with for this command #" + (l+1) + ".");
 		for (i = 0; i < n; i++) {
+if (DEBUG_TransUpd) System.out.println("In Mod2MTBDD.transUpdates (First one), about to call (Second One) for updateElement #" + (i+1) );
 			// translate a single update
-			udd = translateUpdate(m, u.getUpdate(i), synch, guard);
+			udd = translateUpdate(m, u.getUpdate(i), synch, guard, substitutions);
+if (DEBUG_TransUpd) System.out.println("Back In Mod2MTBDD.transUpdates (First one), returned from call to (Second transUpd) for updateElement #" + (i+1) );
 			// check for zero update
 			warned = false;
 			if (udd.equals(JDD.ZERO)) {
@@ -2232,7 +2653,11 @@ if (DEBUG_CCN) {
 			// multiply by probability/rate
 			p = u.getProbability(i);
 			if (p == null) p = Expression.Double(1.0);
+if (DEBUG_TransUpd) System.out.println("In Mod2MTBDD.transUpdates (First one), The probability of the update is " + p + " - about to translateExpression on it...");
+
 			pdd = translateExpression(p);
+pdd.setPurpose("% DD of probability of update occurring. %");
+if (DEBUG_TransUpd) System.out.println("Back in Mod2MTBDD.transUpdates (First one), The DD for the probability is: " + pdd + "\nAbout to apply TIMES to the update's DD with that DD");
 			udd = JDD.Apply(JDD.TIMES, udd, pdd);
 			// check (again) for zero update
 			if (!warned && udd.equals(JDD.ZERO)) {
@@ -2241,15 +2666,19 @@ if (DEBUG_CCN) {
 				msg += " of module \"" + moduleNames[m] + "\" doesn't do anything";
 				mainLog.printWarning(new PrismLangException(msg, u.getUpdate(i)).getMessage());
 			}
+if (DEBUG_TransUpd) System.out.println("In Mod2MTBDD.transUpdates (First one), The resultant DD will be used to apply PLUS to the DD representing this command.");
 			dd = JDD.Apply(JDD.PLUS, dd, udd);
+dd.setPurpose("% DD representing command #" + (l+1) + " %");
 		}
 		
+if (DEBUG_TransUpd) System.out.println("</Mod2MTBDD_transUp_Pt1>");
 		return dd;
 	}
 
 	// translate an update
 	
-	private JDDNode translateUpdate(int m, Update c, boolean synch, JDDNode guard) throws PrismException
+// MODIFIED BY SHANE - to receive a Values specifying substitutions to be made for indexed-set access expressions
+	private JDDNode translateUpdate(int m, Update c, boolean synch, JDDNode guard, Values substitutions) throws PrismException
 	{
 		int i, j, n, v, l, h;
 		String s;
@@ -2264,7 +2693,7 @@ if (DEBUG_CCN) {
 		n = c.getNumElements();
 if (DEBUG_TransUpd) {
 	PrintDebugIndent();
-	System.out.println("<Mod2MTBDD_translateUpdate numUpdates='"+n+"'>");
+	System.out.println("<Mod2MTBDD_translateUpdate_pt2 numUpdates='"+n+"'>");
 	PrintDebugIndent();
 	System.out.println("   transUp - PLACE 1: The Full Update is: " + c);
 	if (DEBUG_TransUpd_ShowStack) {
@@ -2296,14 +2725,18 @@ if (DEBUG_TransUpd) {
 				// Evaluate the expression to find the definite index to retrieve
 				int indexToUse = 0;
 
-// SHANE - Needs to fix this to accept calculations and not mere literals.
+// SHANE - HOPES this has fixed it now...
+				indexToUse = accExpr.evaluateInt(constantValues,substitutions);
+
+/*Old Way, doesn't evlaute variables though...
 				indAccTmp = translateExpression(accExpr);
 				indexToUse = (int) indAccTmp.getValue();	// It gives as a double, we need an int.
+*/
 if (DEBUG_TransUpd) {
 	PrintDebugIndent();
 System.out.println("place ZIRK: back in Modules2MTBDD.translateUpdate(): Apparently, the accessExpression : " + accExpr + " evaluates as " + indexToUse + " - BUT is that sensible ??");
 
-  System.out.println("The indAccTmp node is " + indAccTmp); 
+//  System.out.println("The indAccTmp node is " + indAccTmp); 
 
 }
 
@@ -2345,48 +2778,101 @@ if (DEBUG_TransUpd) {
 			l = varList.getLow(v);
 			h = varList.getHigh(v);
 			// create dd
+if (DEBUG_TransUpd) {
+	PrintDebugIndent();
+	System.out.println("   transUp - PLACE 3A: Having determined the variable of update element " + (i+1) + ", now we will prepare it by setting its vector elements.");
+}
 			tmp1 = JDD.Constant(0);
 			for (j = l; j <= h; j++) {
 				tmp1 = JDD.SetVectorElement(tmp1, varDDColVars[v], j-l, j);
 			}
 
+			Expression calcExpr = c.getExpression(i).deepCopy();		//make a copy, so we can preserve orig, but do substitutions for current.
+			
 if (DEBUG_TransUpd) {
 	PrintDebugIndent();
-	System.out.println("   transUp - PLACE 3: Determine the value to assign.");
-	PrintDebugIndent();
-	System.out.println("   Will call translateExpression for this update element to work it out: " + c.getElement(i) );
+	System.out.println("   transUp - PLACE 3B: Having set the vector elements of update element " + (i+1) +":" + c.getElement(i) + ")");
 }
 
-			tmp2 = translateExpression(c.getExpression(i));
+if (DEBUG_TransUpd) {
+	System.out.println("<CalcExpr>\nBefore any substitutions, the calcExpression is: " + calcExpr );
+}
+			// Work out the effect of substituting any values for provided variable substitutions (and constants too).
+			calcExpr = (Expression) calcExpr.evaluatePartially(constantValues,substitutions);
 
-tmp2.setPurpose("Apparently the translation of " + c.getExpression(i));
+if (DEBUG_TransUpd) {
+	System.out.println("back in translateUpdate: After the substitutions, the calcExpression is: " + calcExpr + "\n</CalcExpr>");
+	PrintDebugIndent();
+	System.out.println("   Will call translateExpression for the following calculation expression to work it out: " + c.getExpression(i) );
+}
+
+
+			tmp2 = translateExpression(calcExpr);
+
+tmp2.setPurpose("% Apparently the translation of " + calcExpr);
 if (DEBUG_TransUpd) {
 	PrintDebugIndent();
-	System.out.println("   Returned to transUp - PLACE 4 (still dealing with this update element: " + c.getElement(i) + ")");
+	System.out.println("   Returned to transUp - PLACE 4 (still dealing with this update element " + (i+1) + ": " + c.getElement(i) + " )");
+	PrintDebugIndent();
+	System.out.println("   after having translated the calculation expression. Now to finish up tranlsating it (by integrating it with other updates of this command choice");
 }
 
 // SHANE - Needs to deeply consider what the following do:
 
 			JDD.Ref(guard);
+if (DEBUG_TransUpd) {
+	PrintDebugIndent();
+	System.out.println("<ThinkDeepAbout>");
+}
+if (DEBUG_TransUpd) {
+	PrintDebugIndent();
+	System.out.println("  will apply TIMES to tmp2: " + tmp2 + "(i.e. the current update-element, translated)\n and guard: " + guard + "\nstore as new 'tmp2'.");
+}
 			tmp2 = JDD.Apply(JDD.TIMES, tmp2, guard);
+if (DEBUG_TransUpd) {
+	PrintDebugIndent();
+	System.out.println("  cl will be the result of applying EQUALS to tmp1: " + tmp1 + " and tmp2.");
+}
 			cl = JDD.Apply(JDD.EQUALS, tmp1, tmp2);
 			JDD.Ref(guard);
+if (DEBUG_TransUpd) {
+	PrintDebugIndent();
+	System.out.println("  cl will be the result of applying TIMES to cl with guard.");
+}
 			cl = JDD.Apply(JDD.TIMES, cl, guard);
 			// filter out bits not in range
 			JDD.Ref(varColRangeDDs[v]);
+if (DEBUG_TransUpd) {
+	PrintDebugIndent();
+	System.out.println("  cl will be the result of applying TIMES to cl with varColRangeDDs[v="+v+"], which is currently: " + varColRangeDDs[v]);
+}
 			cl = JDD.Apply(JDD.TIMES, cl, varColRangeDDs[v]);
 			JDD.Ref(range);
+if (DEBUG_TransUpd) {
+	PrintDebugIndent();
+	System.out.println("  cl will be the result of applying TIMES to cl with range, which is currently: " + range);
+}
 			cl = JDD.Apply(JDD.TIMES, cl, range);
+if (DEBUG_TransUpd) {
+	PrintDebugIndent();
+	System.out.println("  now the resultant cl is used to apply TIMES of dd with cl, to be new/final value of dd. dd is currently: " + dd);
+}
 			dd = JDD.Apply(JDD.TIMES, dd, cl);
+dd.setPurpose("Partially Translated version of " + c);
+if (DEBUG_TransUpd) {
+	PrintDebugIndent();
+	System.out.println("</ThinkDeepAbout>");
+}
+
 if (DEBUG_TransUpd) {
 	PrintDebugIndent();
 	System.out.println("    transUp - PLACE 5, end of iteration for that update element.");
+	System.out.println("    dd at end of iteration "+i+" is: " + dd);
 	PrintDebugIndent();
 	System.out.println("</IterationForUpdateElement which='"+i+"' was=\"" + c.getElement(i) + "\">");
 }
 		}
 
-dd.setPurpose("Translated version of " + c);
 
 		// if a variable from this module or a global variable
 		// does not appear in this update assume it does not change value
@@ -2397,9 +2883,11 @@ dd.setPurpose("Translated version of " + c);
 				dd = JDD.Apply(JDD.TIMES, dd, varIdentities[i]);
 			}
 		}
+dd.setPurpose("% Fully Translated version of " + c + " %");
+
 if (DEBUG_TransUpd) {
 	PrintDebugIndent();
-	System.out.println("</Mod2MTBDD_translateUpdate>");
+	System.out.println("</Mod2MTBDD_translateUpdate_pt2>");
 }
 		
 		return dd;

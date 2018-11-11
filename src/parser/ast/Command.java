@@ -119,12 +119,12 @@ public class Command extends ASTElement
 		return parent;
 	}
 
-	/** Request an array of all distinct expressions for indexed set accesses that involve variable position specifications,
+	/** Request an Set all distinct expressions for indexed set accesses that involve variable position specifications,
 	    so that we can ensure that each possible valuation can be catered-for in the translation into MTBDD.
 	*/
-	public List<ExpressionIndexedSetAccess> getVariablePosEISAs()
+	public Set<ExpressionIndexedSetAccess> getVariablePosEISAs()
 	{
-		List<ExpressionIndexedSetAccess> varPosEISAs = new ArrayList<ExpressionIndexedSetAccess>();
+		Set<ExpressionIndexedSetAccess> varPosEISAs = new TreeSet<ExpressionIndexedSetAccess>();
 		List<ExpressionIndexedSetAccess> guardEISAs = guard.getVariablePosEISAs();
 		if (guardEISAs != null && guardEISAs.size() > 0)
 			varPosEISAs.addAll(guardEISAs);

@@ -282,6 +282,24 @@ if (DEBUG_VPEISA) System.out.println("   Considering op2: " + operand2);
 		return result;		
 	}
 
+	@Override
+	public Set<ExpressionVar> extractVarExprs()
+	{
+		Set<ExpressionVar> result, tmp;
+		result = new TreeSet<ExpressionVar>();
+		tmp = operand1.extractVarExprs();
+if (DEBUG_VPEISA) System.out.println("   ExpBinOp First Considering op1: " + operand1 + " its java-type is " + operand1.getClass().getName());
+		if ((tmp != null) && tmp.size() > 0)
+			result.addAll(tmp);
+if (DEBUG_VPEISA) System.out.println("   ExpBinOp Considered op1: " + operand1);
+if (DEBUG_VPEISA) System.out.println("   ExpBinOp Now Considering op2: " + operand2 + " its java-type is " + operand2.getClass().getName());
+		tmp = operand2.extractVarExprs();
+		if ((tmp != null) && tmp.size() > 0)
+			result.addAll(tmp);
+if (DEBUG_VPEISA) System.out.println("   ExpBinOp Considered op2: " + operand2);
+		return result;
+	}
+
 	// Methods required for ASTElement:
 
 	@Override

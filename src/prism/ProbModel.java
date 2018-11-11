@@ -665,27 +665,30 @@ if (DEBUG_FRS) System.out.println(" <PM_FiltReach>");
 		int i;
 		JDDNode tmp;
 
-if (DEBUG_FRS) System.out.println("  PM-FRS Place 1");
+if (DEBUG_FRS) System.out.println("  PM-FRS Place 1 - Commencing to remove non-reachable states from various DDs, and calculate num of transitions.");
 		// remove non-reachable states from transition matrix
 		JDD.Ref(reach);
 		trans = JDD.Apply(JDD.TIMES, reach, trans);
 		JDD.Ref(reach);
 		tmp = JDD.PermuteVariables(reach, allDDRowVars, allDDColVars);
 		trans = JDD.Apply(JDD.TIMES, tmp, trans);
+trans.setPurpose("% Transition matrix, with non-reachable states removed (by ProbModel.filterReachableStates) %");
 
 		// recalculate 0-1 version of trans
 		JDD.Deref(trans01);
 		JDD.Ref(trans);
 		trans01 = JDD.GreaterThan(trans, 0);
+trans.setPurpose("% The 0-1 version of transition matrix, (as recalculated by ProbModel.filterReachableStates) %");
 
 		// remove non-reachable states from state/transition rewards
-if (DEBUG_FRS) System.out.println("  PM-FRS Place 2A, prior to loop which will be done " + (stateRewards.length) + " times");
+if (DEBUG_FRS) System.out.println("  PM-FRS Place 2A, prior to loop which will be done " + (stateRewards.length) + " times for that many stateRewards.");
 		for (i = 0; i < stateRewards.length; i++) {
-if (DEBUG_FRS) System.out.println("  PM-FRS Place 2B, iter="+i);
+if (DEBUG_FRS) System.out.println("  PM-FRS Place 2B, stateReward iter="+i);
 			// state rewards vector
 			JDD.Ref(reach);
 if (DEBUG_FRS) System.out.println("  stateRewards["+i+"] before change is: " + stateRewards[i]);
 			stateRewards[i] = JDD.Apply(JDD.TIMES, reach, stateRewards[i]);
+stateRewards[i].setPurpose("% stateRewards["+i+"] as set during ProbModel.filterReachableStates %");
 			// transition reward matrix
 			JDD.Ref(reach);
 if (DEBUG_FRS) System.out.println("  transRewards["+i+"] before change is: " + transRewards[i]);
@@ -693,15 +696,20 @@ if (DEBUG_FRS) System.out.println("  transRewards["+i+"] before change is: " + t
 			JDD.Ref(reach);
 			tmp = JDD.PermuteVariables(reach, allDDRowVars, allDDColVars);
 			transRewards[i] = JDD.Apply(JDD.TIMES, tmp, transRewards[i]);
+transRewards[i].setPurpose("% transRewards["+i+"] as set during ProbModel.filterReachableStates %");
 		}
 
 		// Action label index info
 		if (transActions != null) {
-if (DEBUG_FRS) System.out.println("  PM-FRS Place 3, transActions before alteration is " + transActions);
+if (DEBUG_FRS) System.out.println("  PM-FRS Place 3 - transActions before alteration is " + transActions);
 			// transActions just stored per state so only filter rows
 			JDD.Ref(reach);
 			transActions = JDD.Apply(JDD.TIMES, reach, transActions);
+if (DEBUG_FRS) System.out.println("After alteration it is: " + transActions);
+transActions.setPurpose("% transActions, as set during ProbModel.filterReachableStates %");
 		}
+else if (DEBUG_FRS) System.out.println("  PM-FRS Place 3 not relevant");
+
 		if (transPerAction != null) {
 if (DEBUG_FRS) System.out.println("  PM-FRS Place 4A, prior to loop which will be done for " + (numSynchs+1) + " numSynchs");
 			// transPerAction stored as matrix so filter both rows/cols
@@ -712,12 +720,15 @@ if (DEBUG_FRS) System.out.println("  PM-FRS Place 4B, iter="+i + ", transPerActi
 				JDD.Ref(reach);
 				tmp = JDD.PermuteVariables(reach, allDDRowVars, allDDColVars);
 				transPerAction[i] = JDD.Apply(JDD.TIMES, tmp, transPerAction[i]);
+transPerAction[i].setPurpose("% transPerAction["+i+"], as set during ProbModel.filterReachableStates %");
 			}
 		}
+else if (DEBUG_FRS) System.out.println("  PM-FRS Place 4 not relevant");
 
 		// filter start states, work out number of initial states
 		JDD.Ref(reach);
 		start = JDD.Apply(JDD.TIMES, reach, start);
+start.setPurpose("% The JDD representing the nominated start states, that lead to reachable states, set in prism.ProbModel @ 721 %");
 		numStartStates = JDD.GetNumMinterms(start, allDDRowVars.n());
 
 		// work out number of transitions

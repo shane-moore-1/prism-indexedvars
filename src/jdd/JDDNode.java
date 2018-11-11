@@ -30,17 +30,20 @@ package jdd;
 
 public class JDDNode
 {
-private boolean SHANE_DEBUG = true;
+private static boolean DEBUG_PrintingChildren = false;
+private static boolean SHANE_DEBUG = false;
 private static String ShanePURPOSE_Unknown = "[Unknown Purpose]";
-private String ShanePURPOSE = ShanePURPOSE_Unknown;
-private int ShaneID;
 private static int ShaneNextID = 0;
+private int ShaneID;
+private String ShanePURPOSE = ShanePURPOSE_Unknown;
 private Exception ShaneCreationTimeStack;
 
 public void setPurpose(String purpose)
 {
 	ShanePURPOSE = purpose;
 }
+
+public String getPurpose() { return ShanePURPOSE; }
 
 	private long ptr;
 	
@@ -83,6 +86,7 @@ ShanePURPOSE = //ShanePURPOSE_Unknown;
 (stackElts.length >= 3 ? "\n\twhich was called by " + stackElts[3] : "") +
 (stackElts.length >= 4 ? "\n\twhich was called by " + stackElts[4] : "") +
 "\n}\n";
+if (!DEBUG_PrintingChildren) System.out.println("\nInstantiated JDDNode #" + ShaneID + " - " + ShanePURPOSE);
 }
 	}
 	
@@ -164,6 +168,36 @@ ShanePURPOSE = //ShanePURPOSE_Unknown;
 		}
 		return new JDDNode(elsePtr);
 	}
+
+private static int indent = 0;
+public void ShaneShowChildren()
+{
+    int i;
+if (!isConstant()) {
+DEBUG_PrintingChildren=true;
+        JDDNode theThen = getThen();
+	indent++;
+        theThen.ShaneShowChildren();
+	indent--;
+}
+	for (i = 0; i < indent; i++) System.out.print(" ");
+DEBUG_PrintingChildren=true;
+    if (isConstant()) 
+	System.out.println(getValue());
+    else 
+	System.out.println(":");
+    
+if (!isConstant()) {
+DEBUG_PrintingChildren=true;
+        JDDNode theElse = getElse();
+	indent++;
+        theElse.ShaneShowChildren();
+	indent--;
+}
+    
+DEBUG_PrintingChildren=false;
+}
+
 
 	public boolean equals(Object o)
 	{

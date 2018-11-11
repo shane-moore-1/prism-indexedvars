@@ -55,9 +55,11 @@ public static boolean DEBUG3_chkExprDD = true;		// Whether to debug (trace) the 
 public static boolean DEBUG_CEF = true;			// Whether to debug (trace) the behaviours of checkExpressionFilter()
 public static boolean DEBUG_CheckIndSetAcc = true;	// Whether to debug the checkIndexSetAccess() method.
 public static boolean DEBUG_chkBinOp = true;	// Whether to debug the checkIndexSetAccess() method.
+public static boolean DEBUG_ChkVar = true;		// Whether to show checkExpressionVar() stages.
 public static boolean DEBUG_WHICH = true;		// Whether to show WHICH method we are doing.
 public static int DebugIndent = 0;
 public static void PrintDebugIndent() { if (DEBUG) { for (int i = 0; i < DebugIndent; i++) System.out.print(" "); } }
+public static int ChkExpCallSeqID = 0;			// A code to uniquely identify each call to CheckExpression()
 
 	// PRISM stuff
 	protected Prism prism;
@@ -237,7 +239,7 @@ if (DEBUG_constr) System.out.println(" modelType is CTMC, making a StochModelChe
 
 		// Remove any existing filter info
 		currentFilter = null;
-mainLog.println("<check what='" + expr + "' sourcecode='in prism.SMC::check() @~230'");
+System.out.println("<check what='" + expr + "' sourcecode='in prism.SMC::check() @~230'");
 
 		// Wrap a filter round the property, if needed
 		// (in order to extract the final result of model checking) 
@@ -250,19 +252,19 @@ mainLog.println("<check what='" + expr + "' sourcecode='in prism.SMC::check() @~
 		
 		// Do model checking and store result vector
 		timer = System.currentTimeMillis();
-mainLog.println("in prism.SMC::check() @~208 for expression: " + expr + " for which I am about to call checkExpression");
+System.out.println("in prism.SMC::check() @~208 for expression: " + expr + " for which I am about to call checkExpression");
 
 		// check expression, statesOfInterest = all reachable states
 		vals = checkExpression(expr, model.getReach().copy());
 		timer = System.currentTimeMillis() - timer;
-		mainLog.println("\nTime for model checking: " + timer / 1000.0 + " seconds.");
+		System.out.println("\nTime for model checking: " + timer / 1000.0 + " seconds.");
 
 		// Print result to log
 		resultString = "Result";
 		if (!("Result".equals(expr.getResultName())))
 			resultString += " (" + expr.getResultName().toLowerCase() + ")";
 		resultString += ": " + result.getResultString();
-		mainLog.print("\n" + resultString + "\n");
+		System.out.print("\n" + resultString + "\n");
 
 		// Clean up
 		vals.clear();
@@ -274,9 +276,11 @@ mainLog.println("in prism.SMC::check() @~208 for expression: " + expr + " for wh
 	@Override
 	public StateValues checkExpression(Expression expr, JDDNode statesOfInterest) throws PrismException
 	{
+int myCallSeqID = ChkExpCallSeqID++;
+
 if (DEBUG) PrintDebugIndent();
 if (DEBUG) {
-  System.out.println("<CheckExpr comment=\'StateModelChecker.checkExpr() called for expression: " + expr + "\'>");
+  System.out.println("<CheckExpr callseq='" + myCallSeqID + "' comment=\'StateModelChecker.checkExpr() called for expression: " + expr + "\'>");
   DebugIndent++;
   System.out.println("statesOfInterest is this JDDNode: " + statesOfInterest);
 }
@@ -359,19 +363,18 @@ if (DEBUG) {PrintDebugIndent(); System.out.println("expr was not recognised - tr
 			throw new PrismException("Couldn't check " + expr.getClass());
 		}
 
-if (DEBUG) {PrintDebugIndent(); System.out.println("Back in 'SMC.checkExpr() for expression: " + expr + " we now have a value for 'res'.");}
+if (DEBUG) {System.out.println("\n"); PrintDebugIndent(); System.out.println("Back in 'SMC.checkExpr() callseq='" + myCallSeqID + "' for expression: " + expr + " we now have a value for 'res'.");}
 		// Filter out non-reachable states from solution
 		// (only necessary for symbolically stored vectors)
 		// (skip if reach is null, e.g. if just being used to convert arbitrary expressions)
 		if (res instanceof StateValuesMTBDD && reach != null)
-{
-  if (DEBUG) { 
-	PrintDebugIndent(); System.out.println("RES-CASE 1: 'res' IS an instance of StateValuesMTBDD (i.e. symbolic), AND the reach is not null,");
-    PrintDebugIndent(); System.out.println(    "            which means, we WILL FILTER OUT apparently non-reachable states.");
+		{
+if (DEBUG) { 
+  PrintDebugIndent(); System.out.println("RES-CASE 1: 'res' IS an instance of StateValuesMTBDD (i.e. symbolic),\n\t\tAND the reach is not null,");
+  System.out.println("\t\twhich means, we WILL FILTER OUT apparently non-reachable states.");
+}
 // The next line is ORIGINAL from the github version (i.e. not part of debugging):
-    
 			res.filter(reach);
-  }
 }else if (res instanceof StateValuesMTBDD) {
   if (DEBUG) { PrintDebugIndent(); System.out.println("RES-CASE 2: 'res' IS an instance of StateValuesMTBDD (i.e. symbolic),  BUT reach is null - not filtering.");
   }
@@ -382,7 +385,7 @@ if (DEBUG) {PrintDebugIndent(); System.out.println("Back in 'SMC.checkExpr() for
 
 if (DEBUG) DebugIndent--;
 if (DEBUG) PrintDebugIndent();
-if (DEBUG) System.out.println("</CheckExpr comment=\"StateModelChecker.checkExpr() finished for expression: " + expr + "\" >\n");
+if (DEBUG) System.out.println("</CheckExpr callseq='" + myCallSeqID + "' comment=\"StateModelChecker.checkExpr() finished for expression: " + expr + "\" >\n");
 
 		return res;
 	}
@@ -395,17 +398,18 @@ if (DEBUG) System.out.println("</CheckExpr comment=\"StateModelChecker.checkExpr
 		StateValuesMTBDD sv;
 		
 if (DEBUG3_chkExprDD) {
-  PrintDebugIndent(); System.out.println("<ChkDD comment='in prism.StateModelChecker.checkExpressionDD() for '" + expr + "'>");
+  StackTraceElement[] STACK = (new Exception()).getStackTrace();
+  PrintDebugIndent(); System.out.println("<ChkDD comment='in prism.StateModelChecker.checkExpressionDD() for '" + expr + "' calledFrom='"+STACK[1]+"'>");
   DebugIndent++;
 }
-if (DEBUG3_chkExprDD) {PrintDebugIndent(); System.out.println("1. [In ChkDD for '"+expr+"'] - Calling checkExpression...");}
+if (DEBUG3_chkExprDD) {PrintDebugIndent(); System.out.println("1. [In ChkDD for '"+expr+"'] - Calling checkExpression for it...");}
 
 		StateValues interimStep = checkExpression(expr, statesOfInterest);
 
 if (DEBUG3_chkExprDD) {
-	PrintDebugIndent(); mainLog.println("2. [In ChkDD for '"+expr+"'] - the StateValues returned from checkExpression is:\n");
+	PrintDebugIndent(); System.out.println("2. [In ChkDD for '"+expr+"'] - the StateValues returned from checkExpression is:\n");
 	if (interimStep != null) interimStep.print(mainLog);
-	else mainLog.println(" NULL");
+	else System.out.println(" NULL");
 }
 
 if (DEBUG3_chkExprDD) {PrintDebugIndent(); System.out.println("3. [In ChkDD for '"+expr+"'] - now calling convertToStateValuesMTBDD()");}
@@ -414,7 +418,7 @@ if (DEBUG3_chkExprDD) {PrintDebugIndent(); System.out.println("3. [In ChkDD for 
 if (DEBUG3_chkExprDD) {
 if (DEBUG3_chkExprDD) {PrintDebugIndent(); System.out.println("4. [In ChkDD for '"+expr+"'] - returned from calling convertToStateValuesMTBDD()\nResult: ");}
 	if (sv != null) sv.print(mainLog);
-	else mainLog.println(" is null - nothing to print!");
+	else System.out.println(" is null - nothing to print!");
 }
 
 //if (DEBUG3_chkExprDD) {PrintDebugIndent(); System.out.println("-Calling getJDDNode()");}
@@ -423,7 +427,9 @@ if (DEBUG3_chkExprDD) {PrintDebugIndent(); System.out.println("4. [In ChkDD for 
 
 if (DEBUG3_chkExprDD) {
   DebugIndent--;
-  PrintDebugIndent(); System.out.println("</ChkDD>");
+  PrintDebugIndent(); System.out.println("</ChkDD>\n");
+//Exception eee = new Exception("STACKTRACE ONLY (at very end of ChkDD)");
+//eee.printStackTrace(System.out);
 }
 
 		return result;
@@ -533,11 +539,12 @@ if (DEBUG_chkBinOp) System.out.println("in chkExprBinOp for " + expr + " - place
 
 		// Check operands recursively
 		try {
-if (DEBUG_chkBinOp) System.out.println("in chkExprBinOp for " + expr + " - place 2-A.");
+if (DEBUG_chkBinOp) System.out.println("in chkExprBinOp for " + expr + " - place 2-A - about to checkExpr the first operand: " + expr.getOperand1());
 			res1 = checkExpression(expr.getOperand1(), statesOfInterest.copy());
-if (DEBUG_chkBinOp) System.out.println("in chkExprBinOp for " + expr + " - place 2-B.");
+if (DEBUG_chkBinOp) System.out.println("in chkExprBinOp for " + expr + " - place 2-B - completed checkExpr of the first operand: " + expr.getOperand1());
+if (DEBUG_chkBinOp) System.out.println("in chkExprBinOp for " + expr + " - place 2-C - about to checkExpr for the second operand: " + expr.getOperand2());
 			res2 = checkExpression(expr.getOperand2(), statesOfInterest.copy());
-if (DEBUG_chkBinOp) System.out.println("in chkExprBinOp for " + expr + " - place 2-C.");
+if (DEBUG_chkBinOp) System.out.println("in chkExprBinOp for " + expr + " - place 2-D - completed checkExpr for the second operand: " + expr.getOperand2());
 		} catch (PrismException e) {
 			if (res1 != null)
 				res1.clear();
@@ -548,34 +555,51 @@ if (DEBUG_chkBinOp) System.out.println("in chkExprBinOp for " + expr + " - place
 
 		// If both operands are symbolic, result will be symbolic
 		if (res1 instanceof StateValuesMTBDD && res2 instanceof StateValuesMTBDD) {
-if (DEBUG_chkBinOp) System.out.println("in chkExprBinOp for " + expr + " - place 3-A.");
+if (DEBUG_chkBinOp) System.out.println("in chkExprBinOp for " + expr + " - place 3-A - both operands are SYMBOLIC.");
 			dd1 = ((StateValuesMTBDD) res1).getJDDNode();
 			dd2 = ((StateValuesMTBDD) res2).getJDDNode();
 			// Apply operation
 			switch (op) {
 			case ExpressionBinaryOp.IMPLIES:
+if (DEBUG_chkBinOp) System.out.println("It is IMPLIES");
 				dd = JDD.Or(JDD.Not(dd1), dd2);
+if (DEBUG_chkBinOp) System.out.println("End of IMPLIES");
 				break;
 			case ExpressionBinaryOp.IFF:
+if (DEBUG_chkBinOp) System.out.println("It is IFF");
 				dd = JDD.Not(JDD.Xor(dd1, dd2));
+if (DEBUG_chkBinOp) System.out.println("End of IFF");
 				break;
 			case ExpressionBinaryOp.OR:
+if (DEBUG_chkBinOp) System.out.println("It is OR");
 				dd = JDD.Or(dd1, dd2);
+if (DEBUG_chkBinOp) System.out.println("End of OR");
 				break;
 			case ExpressionBinaryOp.AND:
+if (DEBUG_chkBinOp) System.out.println("It is AND");
 				dd = JDD.And(dd1, dd2);
+if (DEBUG_chkBinOp) System.out.println("End of AND");
 				break;
 			case ExpressionBinaryOp.PLUS:
+if (DEBUG_chkBinOp) System.out.println("It is PLUS");
 				dd = JDD.Apply(JDD.PLUS, dd1, dd2);
+dd.setPurpose("% The DD resulting from APPLY:PLUS of " + dd1.getPurpose() +" with " +dd2.getPurpose());
+if (DEBUG_chkBinOp) System.out.println("End of PLUS");
 				break;
 			case ExpressionBinaryOp.MINUS:
+if (DEBUG_chkBinOp) System.out.println("It is MINUS");
 				dd = JDD.Apply(JDD.MINUS, dd1, dd2);
+if (DEBUG_chkBinOp) System.out.println("End of MINUS");
 				break;
 			case ExpressionBinaryOp.TIMES:
+if (DEBUG_chkBinOp) System.out.println("It is TIMES");
 				dd = JDD.Apply(JDD.TIMES, dd1, dd2);
+if (DEBUG_chkBinOp) System.out.println("End of TIMES");
 				break;
 			case ExpressionBinaryOp.DIVIDE:
+if (DEBUG_chkBinOp) System.out.println("It is DIVIDE");
 				dd = JDD.Apply(JDD.DIVIDE, dd1, dd2);
+if (DEBUG_chkBinOp) System.out.println("End of DIVIDE");
 				break;
 			default:
 				throw new PrismException("Unknown binary operator");
@@ -584,7 +608,7 @@ if (DEBUG_chkBinOp) System.out.println("in chkExprBinOp for " + expr + " - place
 		}
 		// Otherwise result will be explicit
 		else {
-if (DEBUG_chkBinOp) System.out.println("in chkExprBinOp for " + expr + " - place 4-A.");
+if (DEBUG_chkBinOp) System.out.println("in chkExprBinOp for " + expr + " - place 4-A - either or both operands are explicit, so result will be explicit.");
 			dv1 = res1.convertToStateValuesDV().getDoubleVector();
 			dv2 = res2.convertToStateValuesDV().getDoubleVector();
 			n = dv1.getSize();
@@ -598,20 +622,28 @@ if (DEBUG_chkBinOp) System.out.println("in chkExprBinOp for " + expr + " - place
 				//for (i = 0; i < n; i++) dv1.setElement(i, ((dv1.getElement(i)>0) || (dv2.getElement(i)>0)) ? 1.0 : 0.0);
 				//for (i = 0; i < n; i++) dv1.setElement(i, ((dv1.getElement(i)>0) && (dv2.getElement(i)>0)) ? 1.0 : 0.0);
 			case ExpressionBinaryOp.PLUS:
+if (DEBUG_chkBinOp) System.out.println("It is PLUS");
 				for (i = 0; i < n; i++)
 					dv1.setElement(i, dv1.getElement(i) + dv2.getElement(i));
+if (DEBUG_chkBinOp) System.out.println("End of PLUS");
 				break;
 			case ExpressionBinaryOp.MINUS:
+if (DEBUG_chkBinOp) System.out.println("It is MINUS");
 				for (i = 0; i < n; i++)
 					dv1.setElement(i, dv1.getElement(i) - dv2.getElement(i));
+if (DEBUG_chkBinOp) System.out.println("End of MINUS");
 				break;
 			case ExpressionBinaryOp.TIMES:
+if (DEBUG_chkBinOp) System.out.println("It is TIMES");
 				for (i = 0; i < n; i++)
 					dv1.setElement(i, dv1.getElement(i) * dv2.getElement(i));
+if (DEBUG_chkBinOp) System.out.println("End of TIMES");
 				break;
 			case ExpressionBinaryOp.DIVIDE:
+if (DEBUG_chkBinOp) System.out.println("It is DIVIDE");
 				for (i = 0; i < n; i++)
 					dv1.setElement(i, dv1.getElement(i) / dv2.getElement(i));
+if (DEBUG_chkBinOp) System.out.println("End of DIVIDE");
 				break;
 			default:
 				throw new PrismException("Unknown binary operator");
@@ -635,10 +667,10 @@ if (DEBUG_chkBinOp) System.out.println("in chkExprBinOp for " + expr + " - place
 		// Check for some easy (and common) special cases before resorting to
 		// the general case
 
-if (DEBUG_chkBinOp) System.out.println("In chkExpRelOp - place 1: expr1 is " + expr1 + ", expr2 is " + expr2);
+if (DEBUG_chkBinOp) System.out.println("<ChkExpRelOp exp1='"+ expr1+"' expr2='" + expr2 + "'>");
 		// var relop int
 		if (expr1 instanceof ExpressionVar && expr2.isConstant() && expr2.getType() instanceof TypeInt) {
-if (DEBUG_chkBinOp) System.out.println("In chkExpRelOp - place 2");
+if (DEBUG_chkBinOp) System.out.println("In chkExpRelOp - place 1 - CASE that expr1 is a Var, but expr2 is an int Constant");
 			JDD.Deref(statesOfInterest);
 
 			ExpressionVar e1;
@@ -660,38 +692,51 @@ if (DEBUG_chkBinOp) System.out.println("In chkExpRelOp - place 2");
 			i = e2.evaluateInt(constantValues);
 			switch (op) {
 			case ExpressionBinaryOp.EQ:
+if (DEBUG_chkBinOp) System.out.println("In chkExpRelOp - place 3 - case EQ START");
 				if (i >= l && i <= h)
 					dd = JDD.SetVectorElement(dd, varDDRowVars[v], i - l, 1);
+if (DEBUG_chkBinOp) System.out.println("In chkExpRelOp - place 3 - case EQ END");
 				break;
 			case ExpressionBinaryOp.NE:
+if (DEBUG_chkBinOp) System.out.println("In chkExpRelOp - place 3 - case NE START");
 				if (i >= l && i <= h)
 					dd = JDD.SetVectorElement(dd, varDDRowVars[v], i - l, 1);
+if (DEBUG_chkBinOp) System.out.println("In chkExpRelOp - place 3 - case NE END");
 				dd = JDD.Not(dd);
 				break;
 			case ExpressionBinaryOp.GT:
+if (DEBUG_chkBinOp) System.out.println("In chkExpRelOp - place 3 - case GT START");
 				for (j = i + 1; j <= h; j++)
 					dd = JDD.SetVectorElement(dd, varDDRowVars[v], j - l, 1);
+if (DEBUG_chkBinOp) System.out.println("In chkExpRelOp - place 3 - case GT END");
 				break;
 			case ExpressionBinaryOp.GE:
+if (DEBUG_chkBinOp) System.out.println("In chkExpRelOp - place 3 - case GE START");
 				for (j = i; j <= h; j++)
 					dd = JDD.SetVectorElement(dd, varDDRowVars[v], j - l, 1);
+if (DEBUG_chkBinOp) System.out.println("In chkExpRelOp - place 3 - case GE END");
 				break;
 			case ExpressionBinaryOp.LT:
+if (DEBUG_chkBinOp) System.out.println("In chkExpRelOp - place 3 - case LT START");
 				for (j = i - 1; j >= l; j--)
 					dd = JDD.SetVectorElement(dd, varDDRowVars[v], j - l, 1);
+if (DEBUG_chkBinOp) System.out.println("In chkExpRelOp - place 3 - case LT END");
 				break;
 			case ExpressionBinaryOp.LE:
+if (DEBUG_chkBinOp) System.out.println("In chkExpRelOp - place 3 - case LE START");
 				for (j = i; j >= l; j--)
 					dd = JDD.SetVectorElement(dd, varDDRowVars[v], j - l, 1);
+if (DEBUG_chkBinOp) System.out.println("In chkExpRelOp - place 3 - case LE END");
 				break;
 			default:
 				throw new PrismException("Unknown relational operator");
 			}
+if (DEBUG_chkBinOp) System.out.println("</ChkExpRelOp exp1='"+ expr1+"' expr2='" + expr2 + "'>");
 			return new StateValuesMTBDD(dd, model);
 		}
 		// int relop var
 		else if (expr1.isConstant() && expr1.getType() instanceof TypeInt && expr2 instanceof ExpressionVar) {
-if (DEBUG_chkBinOp) System.out.println("In chkExpRelOp - place 3");
+if (DEBUG_chkBinOp) System.out.println("In chkExpRelOp - place 2 - CASE that expr2 is a Var, but expr1 is an int Constant.");
 			JDD.Deref(statesOfInterest);
 
 			Expression e1;
@@ -740,20 +785,23 @@ if (DEBUG_chkBinOp) System.out.println("In chkExpRelOp - place 3");
 			default:
 				throw new PrismException("Unknown relational operator");
 			}
+if (DEBUG_chkBinOp) System.out.println("</ChkExpRelOp exp1='"+ expr1+"' expr2='" + expr2 + "'>");
 			return new StateValuesMTBDD(dd, model);
 		}
-if (DEBUG_chkBinOp) System.out.println("In chkExpRelOp - place 4");
+
+if (DEBUG_chkBinOp) System.out.println("In chkExprRelOp - CASE that we don't have a Var and an int Constant in either place [the 'General' case].");
 
 		// General case.
 		// Since the result is a Boolean and thus returned as an MTBDD, we
 		// just convert both operands to MTBDDs first. Optimisations would be possible here.
 		// Check operands recursively
 		try {
-if (DEBUG_chkBinOp) System.out.println("In chkExpRelOp - place 5A");
+if (DEBUG_chkBinOp) System.out.println("In chkExpRelOp - place 5A - about to checkExpression on expr1 using a copy of statesOfInterest");
 			res1 = checkExpression(expr1, statesOfInterest.copy());
-if (DEBUG_chkBinOp) System.out.println("In chkExpRelOp - place 5B, res1 is " + res1);
+if (DEBUG_chkBinOp) System.out.println("In chkExpRelOp - place 5B, res1 is " + res1 + 
+  "About to checkExpression on expr1 using a copy of statesOfInterest");
 			res2 = checkExpression(expr2, statesOfInterest.copy());
-if (DEBUG_chkBinOp) System.out.println("In chkExpRelOp - place 5C, res2 is " + res2);;
+if (DEBUG_chkBinOp) System.out.println("In chkExpRelOp - place 5C, res2 is " + res2);
 		} catch (PrismException e) {
 			if (res1 != null)
 				res1.clear();
@@ -761,31 +809,44 @@ if (DEBUG_chkBinOp) System.out.println("In chkExpRelOp - place 5C, res2 is " + r
 		} finally {
 			JDD.Deref(statesOfInterest);
 		}
+if (DEBUG_chkBinOp) System.out.println("In chkExpRelOp - place 6A, about to convert res1 to StateValuesMTBDD, and then get its JDDNode.");
 		dd1 = res1.convertToStateValuesMTBDD().getJDDNode();
+if (DEBUG_chkBinOp) System.out.println("In chkExpRelOp - place 6B, about to convert res1 to StateValuesMTBDD, and then get its JDDNode.");
 		dd2 = res2.convertToStateValuesMTBDD().getJDDNode();
+if (DEBUG_chkBinOp) System.out.println("In chkExpRelOp - place 7:\ndd1 is " + dd1 + "\ndd2 is " + dd2);
 		switch (op) {
 		case ExpressionBinaryOp.EQ:
+if (DEBUG_chkBinOp) System.out.println("Will apply JDD.EQUALS");
 			dd = JDD.Apply(JDD.EQUALS, dd1, dd2);
 			break;
 		case ExpressionBinaryOp.NE:
+if (DEBUG_chkBinOp) System.out.println("Will apply JDD.NOTEQUALS");
 			dd = JDD.Apply(JDD.NOTEQUALS, dd1, dd2);
 			break;
 		case ExpressionBinaryOp.GT:
+if (DEBUG_chkBinOp) System.out.println("Will apply JDD.GREATERTHAN");
 			dd = JDD.Apply(JDD.GREATERTHAN, dd1, dd2);
 			break;
 		case ExpressionBinaryOp.GE:
+if (DEBUG_chkBinOp) System.out.println("Will apply JDD.GREATERTHANEQUALS");
 			dd = JDD.Apply(JDD.GREATERTHANEQUALS, dd1, dd2);
 			break;
 		case ExpressionBinaryOp.LT:
+if (DEBUG_chkBinOp) System.out.println("Will apply JDD.LESSTHAN");
 			dd = JDD.Apply(JDD.LESSTHAN, dd1, dd2);
 			break;
 		case ExpressionBinaryOp.LE:
+if (DEBUG_chkBinOp) System.out.println("Will apply JDD.LESSTHANEQUALS");
 			dd = JDD.Apply(JDD.LESSTHANEQUALS, dd1, dd2);
 			break;
 		default:
 			throw new PrismException("Unknown relational operator");
 		}
-		return new StateValuesMTBDD(dd, model);
+if (DEBUG_chkBinOp) System.out.println("The result of the apply is this dd: " + dd + " which will now be turned into a StateValuesMTBDD to be returned:");
+	//ORIG:	return new StateValuesMTBDD(dd, model);
+		StateValuesMTBDD returnVal = new StateValuesMTBDD(dd, model);
+if (DEBUG_chkBinOp) System.out.println("</ChkExpRelOp exp1='"+ expr1+"' expr2='" + expr2 + "'>");
+		return returnVal;
 	}
 
 	/**
@@ -1109,7 +1170,7 @@ if (DEBUG_chkBinOp) System.out.println("In chkExpRelOp - place 5C, res2 is " + r
 
 		try {
 			dd = JDD.Constant(expr.evaluateDouble());
-dd.setPurpose("JDDNode to represent a literal: " + expr + ", created in SMC.checkExprLiteral");
+dd.setPurpose("% JDDNode to represent a literal: " + expr + ", created in SMC.checkExprLiteral %");
 		} catch (PrismLangException e) {
 			throw new PrismException("Unknown literal type");
 		}
@@ -1154,7 +1215,7 @@ dd.setPurpose("JDDNode to represent a constant: " + expr + ", created in SMC.che
 		String s;
 		int v, l, h, i;
 		JDDNode dd;
-
+if (DEBUG_ChkVar) System.out.println("<ChkVar expr='"+expr+"'>");
 		// it's generally more efficient not to restrict to statesOfInterest here
 		// so we ignore statesOfInterest
 		JDD.Deref(statesOfInterest);
@@ -1165,16 +1226,19 @@ dd.setPurpose("JDDNode to represent a constant: " + expr + ", created in SMC.che
 		if (v == -1) {
 			throw new PrismException("Unknown variable \"" + s + "\"");
 		}
+else if (DEBUG_ChkVar) System.out.println("Variable's name is: " + s + ", and its index in the VarList is: " + v);
 		// get some info on the variable
 		l = varList.getLow(v);
 		h = varList.getHigh(v);
+if (DEBUG_ChkVar) System.out.println("Variable's lowest val is: " + l + ", and its highest val is: " + h +"\nAbout to make a new DD, and manipulate it using SetVectorElement...");
 		// create dd
 		dd = JDD.Constant(0);
 		for (i = l; i <= h; i++) {
 			dd = JDD.SetVectorElement(dd, varDDRowVars[v], i - l, i);
 		}
-dd.setPurpose("JDD for an ExpressionVar for variable " + expr + ", created in SMC.checkExprVar");
+dd.setPurpose("% JDD for an ExpressionVar for variable " + expr + ", created in SMC.checkExprVar %");
 
+if (DEBUG_ChkVar) System.out.println("</ChkVar expr='"+expr+"'>\n");
 		return new StateValuesMTBDD(dd, model);
 	}
 
@@ -1279,8 +1343,8 @@ if (DEBUG_CheckIndSetAcc) System.out.println("Is res2 NOT instanceof StateValues
 			if (!(res2 instanceof StateValuesMTBDD)) {
 				
 System.out.println("Case A - res2 is of type: " + res2.getClass().getName());
-//res2.print(mainLog);
-//res2.convertToStateValuesDV().print(mainLog);
+//res2.print(System.out);
+//res2.convertToStateValuesDV().print(System.out);
 /*
 				evaluatedIndexPos = res2
 accessExpr.evaluateInt(constantValues);	// Find the value
@@ -1330,7 +1394,7 @@ if (DEBUG_CheckIndSetAcc)
 */
 // END OF IDEA 17
 
-//System.out.println("TRY THIS: " + (accessExpr.evaluateInt(constantValues,)));
+//System.out.println("TRY THIS: " + (accessExpr.evaluateInt(constantValues,whereAreTheVAR_Values)));
 //System.out.flush();
 				StateValuesMTBDD d = (StateValuesMTBDD) res2;
 	d.shaneShow();
@@ -1490,35 +1554,35 @@ if (DEBUG_CheckIndSetAcc) System.out.println("Intermediate is symbolic - Shane h
 		if (filter == null)
 			filter = Expression.True();
 
-if (DEBUG_CEF) mainLog.println("<ChkExprFilter comment=\"In StateModChkr.checkExpressionFilter() for expression: " + expr + "\">");
+if (DEBUG_CEF) System.out.println("<ChkExprFilter comment=\"In StateModChkr.checkExpressionFilter() for expression: " + expr + "\">");
 
 		// Remember whether filter is "true"
 		boolean filterTrue = Expression.isTrue(filter);
-if (DEBUG_CEF) mainLog.println("   In ChkExprFilter, @ Place 1:  isTrue(filter) is " + filterTrue);
+if (DEBUG_CEF) System.out.println("   In ChkExprFilter, @ Place 1:  isTrue(filter) is " + filterTrue);
 
 // Store some more info
 		String filterStatesString = filterTrue ? "all states" : "states satisfying filter";
-if (DEBUG_CEF) mainLog.println("   In ChkExprFilter, @ Place 2:  about to call checkExprDD on the filter...");
+if (DEBUG_CEF) System.out.println("   In ChkExprFilter, @ Place 2:  about to call checkExprDD on the filter...");
 		JDDNode ddFilter = checkExpressionDD(filter, statesOfInterest.copy());
-if (DEBUG_CEF) mainLog.println("   Back In ChkExprFilter, @ Place 3:  about to call constructor for StateListMTBDD, with ddFilter and model");
+if (DEBUG_CEF) System.out.println("   Back In ChkExprFilter, @ Place 3:  about to call constructor for StateListMTBDD, with ddFilter and model");
 		StateListMTBDD statesFilter = new StateListMTBDD(ddFilter, model);
 		// Check if filter state set is empty; we treat this as an error
 		if (ddFilter.equals(JDD.ZERO)) {
-if (DEBUG_CEF) mainLog.println("   In ChkExprFilter, the ddFilter equals JDD.ZERO, so an Exception will be thrown:  Filter satisfies no states");
+if (DEBUG_CEF) System.out.println("   In ChkExprFilter, the ddFilter equals JDD.ZERO, so an Exception will be thrown:  Filter satisfies no states");
 			throw new PrismException("Filter satisfies no states");
 		}
-else if (DEBUG_CEF) mainLog.println("   In ChkExprFilter, @ Place 4:  the ddFilter does not equal JDD.ZERO, so NO Exception will be thrown ");
+else if (DEBUG_CEF) System.out.println("   In ChkExprFilter, @ Place 4:  the ddFilter does not equal JDD.ZERO, so NO Exception will be thrown ");
 
 		// Remember whether filter is for the initial state and, if so, whether there's just one
 		boolean filterInit = (filter instanceof ExpressionLabel && ((ExpressionLabel) filter).isInitLabel());
 		boolean filterInitSingle = filterInit & model.getNumStartStates() == 1;
-if (DEBUG_CEF) mainLog.println("   In ChkExprFilter, @ Place 5:  filterInit is " + filterInit + ", filterInitSingle is " + filterInitSingle);
+if (DEBUG_CEF) System.out.println("   In ChkExprFilter, @ Place 5:  filterInit is " + filterInit + ", filterInitSingle is " + filterInitSingle);
 
 		// For some types of filter, store info that may be used to optimise model checking
 		FilterOperator op = expr.getOperatorType();
-if (DEBUG_CEF) mainLog.print("   In ChkExprFilter, @ Place 6: About to call ODDUtils.GetIndexOfFistFromDD: ");
+if (DEBUG_CEF) System.out.print("   In ChkExprFilter, @ Place 6: About to call ODDUtils.GetIndexOfFistFromDD: ");
 		if (op == FilterOperator.STATE) {
-if (DEBUG_CEF) mainLog.println("Case 1 (FilterOperator.STATE)");
+if (DEBUG_CEF) System.out.println("Case 1 (FilterOperator.STATE)");
 			// Check filter satisfied by exactly one state
 			if (statesFilter.size() != 1) {
 				String s = "Filter should be satisfied in exactly 1 state";
@@ -1527,17 +1591,17 @@ if (DEBUG_CEF) mainLog.println("Case 1 (FilterOperator.STATE)");
 			}
 			currentFilter = new Filter(Filter.FilterOperator.STATE, ODDUtils.GetIndexOfFirstFromDD(ddFilter, odd, allDDRowVars));
 		} else if (op == FilterOperator.FORALL && filterInit && filterInitSingle) {
-if (DEBUG_CEF) mainLog.println("Case 2 (FilterOperator.FORALL)");
+if (DEBUG_CEF) System.out.println("Case 2 (FilterOperator.FORALL)");
 			currentFilter = new Filter(Filter.FilterOperator.STATE, ODDUtils.GetIndexOfFirstFromDD(ddFilter, odd, allDDRowVars));
 		} else if (op == FilterOperator.FIRST && filterInit && filterInitSingle) {
-if (DEBUG_CEF) mainLog.println("Case 3 (FilterOperator.FIRST)");
+if (DEBUG_CEF) System.out.println("Case 3 (FilterOperator.FIRST)");
 			currentFilter = new Filter(Filter.FilterOperator.STATE, ODDUtils.GetIndexOfFirstFromDD(ddFilter, odd, allDDRowVars));
 		} else {
 if (DEBUG_CEF) {
- mainLog.print("Case 4 (Not calling), with: op being: ");
- if (op == FilterOperator.FORALL) mainLog.println("FilterOperator.FORALL - but check filterInit and filterInitSingle");
- else if (op == FilterOperator.FIRST) mainLog.println("FilterOperator.FIRST - but check filterInit and filterInitSingle");
- else mainLog.println(" ** SOMETHING ELSE (" + op + ") **, so currentFilter being set to null");
+ System.out.print("Case 4 (Not calling), with: op being: ");
+ if (op == FilterOperator.FORALL) System.out.println("FilterOperator.FORALL - but check filterInit and filterInitSingle");
+ else if (op == FilterOperator.FIRST) System.out.println("FilterOperator.FIRST - but check filterInit and filterInitSingle");
+ else System.out.println(" ** SOMETHING ELSE (" + op + ") **, so currentFilter being set to null");
 }
 			currentFilter = null;
 		}
@@ -1545,7 +1609,7 @@ if (DEBUG_CEF) {
 		StateValues vals = null;
 		try {
 			// Check operand recursively, using the filter as the states of interest
-if (DEBUG_CEF) mainLog.println("   In ChkExprFilter, @ Place 7: about to call checkExpression on operand: " + expr.getOperand());
+if (DEBUG_CEF) System.out.println("   In ChkExprFilter, @ Place 7: about to call checkExpression on operand: " + expr.getOperand());
 			vals = checkExpression(expr.getOperand(), ddFilter.copy());
 		} catch (PrismException e) {
 			JDD.Deref(ddFilter);
@@ -1553,7 +1617,7 @@ if (DEBUG_CEF) mainLog.println("   In ChkExprFilter, @ Place 7: about to call ch
 if (DEBUG_CEF) e.printStackTrace(System.out);
 			throw e;
 		}
-if (DEBUG_CEF) mainLog.println("   In ChkExprFilter, @ Place 8: having just completed checkExpression on operand: " + expr.getOperand());
+if (DEBUG_CEF) System.out.println("   In ChkExprFilter, @ Place 8: having just completed checkExpression on operand: " + expr.getOperand());
 
 		// Print out number of states satisfying filter
 		if (!filterInit)
@@ -1568,7 +1632,7 @@ if (DEBUG_CEF) mainLog.println("   In ChkExprFilter, @ Place 8: having just comp
 		boolean b = false;
 		String resultExpl = null;
 		Object resObj = null;
-if (DEBUG_CEF) mainLog.print("   In ChkExprFilter, @ Place 9: considering the operator type: ");
+if (DEBUG_CEF) System.out.print("   In ChkExprFilter, @ Place 9: considering the operator type: ");
 
 		switch (op) {
 		case PRINT:
@@ -1826,7 +1890,7 @@ if (DEBUG_CEF) mainLog.print("   In ChkExprFilter, @ Place 9: considering the op
 			throw new PrismException("Unrecognised filter type \"" + expr.getOperatorName() + "\"");
 		}
 
-if (DEBUG_CEF) mainLog.print("   In ChkExprFilter, @ Place 10: ddMatch != null is " + (ddMatch != null) );
+if (DEBUG_CEF) System.out.print("   In ChkExprFilter, @ Place 10: ddMatch != null is " + (ddMatch != null) );
 
 		// For some operators, print out some matching states
 		if (ddMatch != null) {
@@ -1861,7 +1925,7 @@ if (DEBUG_CEF) mainLog.print("   In ChkExprFilter, @ Place 10: ddMatch != null i
 		JDD.Deref(ddFilter);
 		JDD.Deref(statesOfInterest);
 
-if (DEBUG_CEF) mainLog.println("</ChkExprFilter comment=\"ENDED. for expression: " + expr + "\">");
+if (DEBUG_CEF) System.out.println("</ChkExprFilter comment=\"ENDED. for expression: " + expr + "\">");
 		return resVals;
 	}
 

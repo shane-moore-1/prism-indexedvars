@@ -31,6 +31,7 @@ import parser.*;
 import parser.visitor.*;
 import prism.PrismLangException;
 import parser.type.*;
+import java.util.*;
 
 public class ExpressionVar extends Expression
 {
@@ -85,6 +86,16 @@ public static boolean DEBUG_EVALUATE = true;
 	public boolean isProposition()
 	{
 		return true;
+	}
+
+	/** In this class, we override the method to return this object wrapped in a Set so as to allow the recursive calls from other Expressions.
+	*/
+	@Override
+	public Set<ExpressionVar> extractVarExprs()
+	{
+		Set<ExpressionVar> result = new TreeSet<ExpressionVar>();
+		result.add(this);
+		return result;
 	}
 	
 	@Override

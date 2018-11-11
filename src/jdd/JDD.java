@@ -34,7 +34,7 @@ import prism.PrismLog;
 
 public class JDD
 {
-private static boolean SHANE_DEBUG = true;
+private static boolean SHANE_DEBUG = false;
 	// dd library functions
 	public static native long GetCUDDManager();
 	// dd
@@ -219,6 +219,11 @@ private static boolean SHANE_DEBUG = true;
 		ONE = Constant(1);
 		PLUS_INFINITY = JDD.PlusInfinity();
 		MINUS_INFINITY = JDD.MinusInfinity();
+// TEMPORARY BY SHANE, for debugging purposes:
+ZERO.setPurpose("%% Constant rep. value 0 %%");
+ONE.setPurpose("%% Constant rep. value 1 %%");
+PLUS_INFINITY.setPurpose("%% Repr. +INFINITY %%");
+MINUS_INFINITY.setPurpose("%% Repr. -INFINITY %%");
 	}
 		
 	/**
@@ -232,6 +237,11 @@ private static boolean SHANE_DEBUG = true;
 		ONE = Constant(1);
 		PLUS_INFINITY = JDD.PlusInfinity();
 		MINUS_INFINITY = JDD.MinusInfinity();
+// TEMPORARY BY SHANE, for debugging purposes:
+ZERO.setPurpose("%% Constant rep. value 0 %%");
+ONE.setPurpose("%% Constant rep. value 1 %%");
+PLUS_INFINITY.setPurpose("%% Repr. +INFINITY %%");
+MINUS_INFINITY.setPurpose("%% Repr. -INFINITY %%");
 	}
 		
 	/**
@@ -1261,7 +1271,12 @@ private static boolean SHANE_DEBUG = true;
 	 */
 	public static JDDNode SetVectorElement(JDDNode dd, JDDVars vars, long index, double value)
 	{
-if (SHANE_DEBUG) System.out.println("JDD.SetVectorElement called with index=" + index + " and value=" + value);
+if (SHANE_DEBUG) {
+   StackTraceElement[] STACK = (new Exception()).getStackTrace();
+   System.out.println("JDD.SetVectorElement called for JDDNode: " + dd +"\n specifying index=" + index + " and value=" + value);
+   System.out.println("and for the following JDDVars: " + vars);
+   System.out.println("and was invoked from the following:\n  " + STACK[1] + "\n  " + STACK[2]);
+}
 		if (SanityJDD.enabled) {
 			SanityJDD.checkIsDDOverVars(dd, vars);
 		}

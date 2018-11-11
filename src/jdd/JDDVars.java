@@ -42,6 +42,12 @@ import java.util.Vector;
  */
 public class JDDVars implements Iterable<JDDNode>
 {
+private static boolean DEBUG = false;
+private static boolean DEBUG_ShowStack = true;
+private static boolean DEBUG_GetVInd = false;			// Show calls of GetVarIndex ?
+
+
+
 private static int NextShaneID = 1;
 private int ShaneID;
 private static String ShanePurposeUNKNOWN = "[Unknown Purpose]";
@@ -53,8 +59,6 @@ public void setPurpose(String purpose)
 if (DEBUG)	System.out.println("The purpose of instance #" + ShaneID + " is: " + purpose);
 }
 
-private static boolean DEBUG = true;
-private static boolean DEBUG_ShowStack = true;
 	private Vector<JDDNode> vars;
 	private long array;
 	private boolean arrayBuilt;
@@ -233,10 +237,13 @@ if (DEBUG) System.out.println("JDDVars.getVarPtr("+i+") invoked on JDD-V #" + Sh
 	 */
 	public int getVarIndex(int i)
 	{
-if (DEBUG) System.out.println("JDDVars.getVarIndex("+i+") invoked on JDD-V #" + ShaneID + " [ " + ShanePurposeOfThisInstance + "]");
-Exception e = new Exception("WHERE");
-//if (DEBUG) e.printStackTrace(System.out);
+if (DEBUG_GetVInd) {
+  System.out.println("JDDVars.getVarIndex("+i+") invoked on JDD-V #" + ShaneID + " [ " + ShanePurposeOfThisInstance + "]");
+  Exception e = new Exception("WHERE");
+  System.out.println("\tcalled from " + e.getStackTrace()[1]);
+  System.out.println("the purpose of the var is: " + vars.elementAt(i).getPurpose());
 System.out.flush();
+}
 		return DDV_GetIndex(((JDDNode)vars.elementAt(i)).ptr());
 	}
 

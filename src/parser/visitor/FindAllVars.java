@@ -73,7 +73,7 @@ public static boolean DEBUG_OrdinVar = true && DEBUG_SHOW_ENABLED;		// Whether t
 	 //
 	 // If the target of any ElementOfUpdate is an element of an indexed-set, the only time we could possibly
 	 // determine the position (in ModulesFile.vars) is if the index is a literal or constant. (NOT YET ACTUALLY DONE).
-	 // (The index will often need to be computed at update-run-time, if an expression is given instead).
+	 // (The index will often need to be computed at update-run-time [i.e. check-time], if an expression is given instead).
 	public void visitPost(Update e) throws PrismLangException
 	{
 if (DEBUG_Basic)
@@ -112,9 +112,11 @@ if (DEBUG) { System.out.println("  That result, after visit(), is: " + res);  Sy
 				//refresh it (in case it just got changed by above line)
 				indexExp = detail.getIndexExpression();
 
+// SHANE Needs to deal with the case that the call to 'accept' a few lines above, may have transformed some ExpressionIdent into expressionVars.
+// or rather, the case that when an access of an indexed set, is provided as the access expression of another set, the following sees a 'null' rather than an 'Int' type. Perhaps it is something that could be fixed by implementing getType in the ExprIndSetAcc class? 
 				// Perform a type check of the indexExpression for accessing the set.
 				if (!(indexExp.getType() instanceof TypeInt)) {
-					s = "Invalid index expression given to access indexed set, expected int, saw: "
+					s = "Invalid index expression '" + indexExp + "' given to access indexed set, expected int, saw: "
 						+ indexExp.getType();
 					PrismLangException ple = new PrismLangException(s, e.getVarIdent(i));	
 if (DEBUG) ple.printStackTrace(System.out); else
@@ -214,8 +216,9 @@ if (DEBUG) System.out.println(" FAV.v(EISA): Completed call visit() on the acces
 
 				// Perform a type check of the indexExpression for accessing the set.
 				if (!(indexExp.getType() instanceof TypeInt)) {
-					s = "Invalid index expression given to access indexed set, expected int, saw: "
+					s = "Invalid index expression '" + indexExp + "' given to access indexed set, expected int, saw: "
 						+ indexExp.getType();
+s += "[During FAV.visit(ExpIndSetAcc), and the object is actually a " + indexExp.getClass().getName() +"]";
 					PrismLangException ple = new PrismLangException(s, e);	
 if (DEBUG) ple.printStackTrace(System.out); else
 					throw ple;
@@ -249,12 +252,15 @@ if (DEBUG) System.out.println("</Visit_EISA visitor='FAV'>");
 	 * When we consider an expression that is an identifier, if the identifier corresponds to a name
 	 * of a variable, we convert it to an ExpressionVar node.  
 	 */
+// SHANE NOTE: It will not process any ExpressionIndexedSetAccess objects; they get dealt with by above method.
 	@Override	
 	public Object visit(ExpressionIdent e) throws PrismLangException
 	{
 		int i;
 		// See if identifier corresponds to a variable
-if (DEBUG) System.out.println("\nReached FindAllVars.visit(ExprIdent) for " + e + " [" + e.getClass().getName() + "]");
+//if (DEBUG) 
+System.out.println("\nReached FindAllVars.visit(ExprIdent) for " + e + " [" + e.getClass().getName() + "]");
+
 
 		i = varIdents.indexOf(e.getName());
 		if (i != -1) {			// An exact variable is being accessed, or a indexed variable with known index is being accessed.

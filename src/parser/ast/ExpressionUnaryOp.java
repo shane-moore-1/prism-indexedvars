@@ -32,6 +32,8 @@ import parser.visitor.*;
 import prism.PrismLangException;
 import parser.type.*;
 
+import java.util.*;
+
 public class ExpressionUnaryOp extends Expression
 {
 	// Operator constants
@@ -151,6 +153,33 @@ public class ExpressionUnaryOp extends Expression
 	public boolean returnsSingleValue()
 	{
 		return operand.returnsSingleValue();
+	}
+
+	@Override
+	public List<ExpressionIndexedSetAccess> getVariablePosEISAs()
+	{
+		// Recurse into operand, then return the results
+		List<ExpressionIndexedSetAccess> result, tmp;
+		result = new ArrayList<ExpressionIndexedSetAccess>();
+if (DEBUG_VPEISA) System.out.println("   Considering operand: " + operand);
+		tmp = operand.getVariablePosEISAs();
+		if ((tmp != null) && tmp.size() > 0)
+			result.addAll(tmp);
+		return result;
+	}
+
+	@Override
+	public Set<ExpressionVar> extractVarExprs()
+	{
+		// Recurse into operand, then return the results
+		Set<ExpressionVar> result, tmp;
+		result = new TreeSet<ExpressionVar>();
+if (DEBUG_VPEISA) System.out.println("   ExUnOp Considering operand: " + operand);
+		tmp = operand.extractVarExprs();
+		if ((tmp != null) && tmp.size() > 0)
+			result.addAll(tmp);
+if (DEBUG_VPEISA) System.out.println("   ExUnOp Considered operand: " + operand + ", returning.");
+		return result;
 	}
 
 	// Methods required for ASTElement:
