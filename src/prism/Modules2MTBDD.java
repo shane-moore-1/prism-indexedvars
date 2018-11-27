@@ -149,6 +149,15 @@ public static void PrintDebugIndent() { for (int i = 0; i < DebugIndent; i++) Sy
 			rewards = new JDDNode[modulesFile.getNumRewardStructs()];
 		}
 	}
+
+	// a data structure used to store DDs pertaining to a particular translation of a Command 
+	// (and with particular enumeration of some variables if an IndexedSet access is involved)
+// ADDED BY SHANE
+	private class TranslatedCommandDDs {
+		public JDDNode guardDD;		// The JDD representing the guard of the command
+		public JDDNode upDD;		// The JDD representing the updates
+		public int originalCommandNumber;	// The command number in the prism module from which this was derived.
+	}
 	
 	// data structure used to store mtbdds and related info
 	// for some part of the system definition
@@ -1774,8 +1783,10 @@ for (Expression output : relationsInvolvingVar)
 					if (maybeBound < upperBound)	// The current 'maybeBound' value is more restrictive.
 					  upperBound = maybeBound - 1;	// So make the preceding integer be the new lower bound.
 				} catch (Exception ex1) {
+System.out.println("<ExceptionBeingIgnored>");
 ex1.printStackTrace(System.out);
-System.exit(1);
+System.out.println("</ExceptionBeingIgnored>");
+//System.exit(1);
 				}
 			}
 			else if (relOp == ExpressionBinaryOp.LE)
@@ -1796,11 +1807,13 @@ System.out.println("Final upperBound of " + varName + " will be " + upperBound);
 }
 	// translate a single module to a dd
 	// for a given synchronizing action ("" = none)
-	
+
 	private ComponentDDs translateModule(int m, parser.ast.Module module, String synch, int synchMin) throws PrismException
 	{
 		ComponentDDs compDDs;
-		JDDNode guardDDs[], upDDs[], tmp;
+		JDDNode tmp;
+		ArrayList<JDDNode> guardDDs, upDDs;			// SHANE HAS CHANGED because we may have more generated rules than original commands.
+		TranslatedCommandDDs translatedCmd;
 		Command command;
 		int l, numCommands;
 		double dmin = 0, dmax = 0;
@@ -1813,11 +1826,12 @@ System.out.println("\n-------------");
 }
 DebugIndent++;
 
-		// get number of commands and set up arrays accordingly
+		// get number of commands 
 		numCommands = module.getNumCommands();
-		guardDDs = new JDDNode[numCommands];
-		upDDs = new JDDNode[numCommands];
-		//rewDDs = new JDDNode[numCommands];
+		// Prepare ArrayLists to store generated DDs
+		guardDDs = new ArrayList<JDDNode>();
+		upDDs = new ArrayList<JDDNode>();
+		//rewDDs = new ArrayList<JDDNode>();
 
 if (DEBUG_TransMod)
 {
@@ -1934,11 +1948,112 @@ System.out.println("</RECURSE_ON_VARS>\n\nBack in translateModules(), received "
 				if (substitutionCombins.size() == 0)
 					substitutionCombins.add(new Values());		// Ensure there is at least one Values -  in this case one with no substitutions.
 				for (Values substitutions : substitutionCombins) {
-					// Generate a DD which is for a command where the current value substitutions are made
-				// NOT FACTORING OUT: upDDs[l] = translateCommandForValues(command, curSubstitutions);
-/// **********************
-/// START MODIFIED SECTION
-/// **********************
+					// Generate 1 or more DD which is for a command where the current value substitutions are made
+					translatedCmd = translateCommandForValues(m, module, l, command, substitutions);
+					// Extract out the guardDD and the upDD, and append to this module's lists.
+					guardDDs.add( translatedCmd.guardDD );
+					upDDs.add( translatedCmd.upDD );
+//guardDDs[l].setPurpose("guard for command "+l);	// Would need to say what substitutions are made, if uncommented.
+//upDDs[l].setPurpose("upDD for command " + l);
+				}
+
+			// otherwise use 0
+			} else {
+if (DEBUG_TransMod)
+{
+	PrintDebugIndent(); 
+	System.out.println("Command " + (l+1) +" does not match synch '" + synch + "'. Nothing to do for it.");
+}
+				guardDDs.add(JDD.Constant(0));
+				upDDs.add(JDD.Constant(0));
+				//rewDDs.add(JDD.Constant(0));
+//guardDDs[l].setPurpose("guard for command "+l);
+//upDDs[l].setPurpose("upDD for command " + l);
+			}
+
+if (DEBUG_TransMod) {
+	PrintDebugIndent(); System.out.println("<ConsidComForSync cmdNum='"+l+"' synch='"+synch+"'>");
+}
+		}
+
+if (DEBUG_TransMod)
+{
+	PrintDebugIndent();
+	System.out.print("[in Modules2MTBDD.translateModule()]: @ line 1645 (After having considered all commands, against the synch '" + synch + "')");
+}
+
+		// combine guard/updates dds for each command
+		if (modelType == ModelType.DTMC) {
+if (DEBUG_TransMod) {
+	PrintDebugIndent();
+	System.out.print("[in Modules2MTBDD.translateModule()]: About to call combineCommandsProb()");
+}
+			// OLD before ArrayLists: compDDs = combineCommandsProb(m, numCommands, guardDDs, upDDs);
+			compDDs = combineCommandsProb(m, guardDDs.size(), (JDDNode[]) guardDDs.toArray(), (JDDNode[]) upDDs.toArray());
+		}
+		else if (modelType == ModelType.MDP) {
+if (DEBUG_TransMod) {
+	PrintDebugIndent();
+	System.out.print("[in Modules2MTBDD.translateModule()]: About to call combineCommandsNondet()");
+}
+			// OLD before ArrayLists: compDDs = combineCommandsNondet(m, numCommands, guardDDs, upDDs, synchMin);
+			JDDNode[] guards= new JDDNode[guardDDs.size()];
+			guards = guardDDs.toArray(guards);
+			JDDNode[] updates= new JDDNode[guardDDs.size()];	// Sizes should be same anyway
+			updates = upDDs.toArray(updates);
+			compDDs = combineCommandsNondet(m, guardDDs.size(), guards, updates, synchMin);
+		}
+		else if (modelType == ModelType.CTMC) {
+if (DEBUG_TransMod) {
+	PrintDebugIndent();
+	System.out.print("[in Modules2MTBDD.translateModule()]: About to call combineCommandsStoch()");
+}
+			// OLD before ArrayLists: compDDs = combineCommandsStoch(m, numCommands, guardDDs, upDDs);
+			compDDs = combineCommandsStoch(m, guardDDs.size(), (JDDNode[]) guardDDs.toArray(), (JDDNode[]) upDDs.toArray());
+		}
+		else {
+			 throw new PrismException("Unknown model type");
+		}
+
+if (DEBUG_TransMod)
+{
+	PrintDebugIndent();
+	System.out.print("[in Modules2MTBDD.translateModule()]: @ line 1666");
+}
+
+		// deref guards/updates
+		for (l = 0; l < guardDDs.size(); l++) {
+			JDD.Deref(guardDDs.get(l) );
+			JDD.Deref(upDDs.get(l) );
+			//JDD.Deref(rewDDs.get(l));
+		}
+		
+if (DEBUG_TraSysMod) {
+	DebugIndent--;
+	PrintDebugIndent();
+	System.out.println("</TranslateModule>");
+}		
+		return compDDs;
+	}
+	
+
+	// SHANE extracted from translateModules, and has modified
+	/**
+	  Translate a command into a DD. If substitutions' is non-empty (the case when an indexed-set access using 
+	  variables in expressions) then various evaluations of expressions (possibly in guards, possibly in updates) 
+	  will be done BEFORE the translation into DD.
+	  @param m The Module number that contained this command (known by the caller translateModules)
+	  @param l The command-number within the module of the original command (from the caller)
+	  @param command The actual command to be translated
+	  @param substitutions A partial set of variables, with specific values to be used on this particular translation.
+	 */
+	public TranslatedCommandDDs translateCommandForValues(int m, parser.ast.Module module, int l, Command command, Values substitutions)
+	throws PrismException
+	{
+		TranslatedCommandDDs translatedCommandDD;		// For the return value
+		ComponentDDs compDDs;
+		JDDNode guardDD, upDD, tmp;
+		double dmin = 0, dmax = 0;
 
 if (DEBUG_TransMod) { 
   PrintDebugIndent(); System.out.println(" <TranslateCommand>\nTranslating the following command: " + command); 
@@ -1992,23 +2107,24 @@ if (DEBUG_TransMod) {
 	DebugIndent += 2;
 }
 		// translate guard
-		guardDDs[l] = translateExpression(curGuard);
+		guardDD = translateExpression(curGuard); 
+
 if (DEBUG_TransMod) {
 	DebugIndent -= 1;
 	PrintDebugIndent(); System.out.println("  </TranslateGuardExpr guard=\"" + curGuard + "\">");
 	PrintDebugIndent();
-	System.out.println("[in prism.Modules2MTBDD::translateModule()], concluded calling translateExpr for guard of command " + (l+1) );
+System.out.println("[in prism.Modules2MTBDD::translateCommand()], concluded calling translateExpr for guard of command " + (l+1) + " for substitutions: " + substitutions );
 	PrintDebugIndent();
-	System.out.println("The guardDD is: " +guardDDs[l] + "\nbut it is about to be TIMES with the following 'range' JDD: " +range);
+	System.out.println("The guardDD is: " +guardDD + "\nbut it is about to be TIMES with the following 'range' JDD: " +range);
 }
 
 		JDD.Ref(range);
-		guardDDs[l] = JDD.Apply(JDD.TIMES, guardDDs[l], range);
+		guardDD = JDD.Apply(JDD.TIMES, guardDD, range);
 		// check for false guard
-		if (guardDDs[l].equals(JDD.ZERO)) {
+		if (guardDD.equals(JDD.ZERO)) {
 if (DEBUG_TransMod) {
 	PrintDebugIndent();
-	System.out.println("[in prism.Modules2MTBDD::translateModule()]: The result is that guardDD actually IS equal to JDD.ZERO...");
+	System.out.println("[in prism.Modules2MTBDD::translateCommand()]: The result is that guardDD actually IS equal to JDD.ZERO...");
 }
 			// display a warning (unless guard is "false", in which case was probably intentional)
 			// Also, if extraGuard is not null, then it could be due to incoherent contradictory value for current iteration so don't warn then.
@@ -2019,8 +2135,8 @@ if (DEBUG_TransMod) {
 			}
 			// no point bothering to compute the mtbdds for the update
 			// if the guard is never satisfied
-			upDDs[l] = JDD.Constant(0);
-			//rewDDs[l] = JDD.Constant(0);
+			upDD = JDD.Constant(0);
+			//rewDD = JDD.Constant(0);
 if (DEBUG_TransMod) {
 	PrintDebugIndent(); System.out.println(" </DealWithGuard>"); DebugIndent-=1;
 }
@@ -2030,17 +2146,23 @@ if (DEBUG_TransMod) {
 	PrintDebugIndent(); System.out.println(" </DealWithGuard>"); DebugIndent-=1;
 	System.out.println();		// Blank row.
 	PrintDebugIndent();
-	System.out.println("[in Modules2MTBDD.translateModule()]: the result was guardDDs was not JDD.ZERO, so calling translateUpdates()...");
+	System.out.println("[in Modules2MTBDD.translateCommand()]: the result was that guardDD was not JDD.ZERO, so calling translateUpdates()...");
 }
 			// translate updates and do some checks on probs/rates
-			upDDs[l] = translateUpdates(m, l, command.getUpdates(), (command.getSynch()=="")?false:true, guardDDs[l], substitutions);
+			upDD = translateUpdates(m, l, command.getUpdates(), (command.getSynch()=="")?false:true, guardDD, substitutions);
 	System.out.println();		// Blank row.
 	PrintDebugIndent();
-	System.out.println("[in Modules2MTBDD.translateModule()]: Finished call of translateUpdates(), doing other things...\n");
-			JDD.Ref(guardDDs[l]);
-			upDDs[l] = JDD.Apply(JDD.TIMES, upDDs[l], guardDDs[l]);
+	System.out.println("[in Modules2MTBDD.translateCommand()]: Finished call of translateUpdates(), doing other things...\n");
+/*System.out.println("ShaneShowChildren for upDD immediately upon return from translateUpdates:"); upDD.ShaneShowChildren();
+System.out.println("ShaneShowChildren for guardDD:"); guardDD.ShaneShowChildren();
+*/
+			JDD.Ref(guardDD);
+			upDD = JDD.Apply(JDD.TIMES, upDD, guardDD);
+/*
+System.out.println("ShaneShowChildren for upDD after APPLY.TIMES:"); upDD.ShaneShowChildren();
+*/
 			// are all probs/rates non-negative?
-			dmin = JDD.FindMin(upDDs[l]);
+			dmin = JDD.FindMin(upDD);
 			if (dmin < 0) {
 				String s = (modelType == ModelType.CTMC) ? "Rates" : "Probabilities";
 				s += " in command " + (l+1) + " of module \"" + module.getName() + "\" are negative";
@@ -2052,7 +2174,7 @@ if (DEBUG_TransMod) {
 if (DEBUG_TransMod)
 {
 	PrintDebugIndent();
-	System.out.print("[in Modules2MTBDD.translateModule()]: Place 1549 - calling prism.getDoProbChecks()... ");
+	System.out.print("[in Modules2MTBDD.translateCommand()]: - calling prism.getDoProbChecks()... ");
 }
 			if (prism.getDoProbChecks()) {
 if (DEBUG_TransMod)
@@ -2060,20 +2182,24 @@ if (DEBUG_TransMod)
 	System.out.println("result was true, doing the IF branch's code, which will determine if probabilities add up to 1.0");
 }
 				// sum probs/rates in updates
-				JDD.Ref(upDDs[l]);
-				tmp = JDD.SumAbstract(upDDs[l], moduleDDColVars[m]);
+				JDD.Ref(upDD);
+				tmp = JDD.SumAbstract(upDD, moduleDDColVars[m]);
+//System.out.println("ShaneShowChildren for tmp @ 1:"); tmp.ShaneShowChildren();
 				tmp = JDD.SumAbstract(tmp, globalDDColVars);
 				// put 1s in for sums which are not covered by this guard
-				JDD.Ref(guardDDs[l]);
-				tmp = JDD.ITE(guardDDs[l], tmp, JDD.Constant(1));
+				JDD.Ref(guardDD);
+				tmp = JDD.ITE(guardDD, tmp, JDD.Constant(1));
+//System.out.println("ShaneShowChildren for tmp @ 2:");tmp.ShaneShowChildren();
 				// compute min/max sums
 				dmin = JDD.FindMin(tmp);
 				dmax = JDD.FindMax(tmp);
 				// check sums for NaNs (note how to check if x=NaN i.e. x!=x)
 if (DEBUG_TransMod) {
 	PrintDebugIndent();
-	System.out.println("[in Modules2MTBDD.translateModule()]: dmin is: " + dmin + ", dmax is: " + dmax + ", prism.getSumRoundOff() is " +prism.getSumRoundOff());
+	System.out.println("[in Modules2MTBDD.translateCommand()]: dmin is: " + dmin + ", dmax is: " + dmax + ", prism.getSumRoundOff() is " +prism.getSumRoundOff());
 }
+
+	// SHANE NOTES that we may need to say in the errors, whether therewere particular substitutions being used...
 				if (dmin != dmin || dmax != dmax) {
 					JDD.Deref(tmp);
 					String s = (modelType == ModelType.CTMC) ? "Rates" : "Probabilities";
@@ -2139,99 +2265,13 @@ if (DEBUG_TransMod)
 		}
 if (DEBUG_TransMod) { PrintDebugIndent(); System.out.println(" </TranslateCommand>\n"); }
 
-/// **********************
-/// END MODIFIED SECTION
-/// **********************
-				}
+		// Construct the return value...
+		translatedCommandDD = new TranslatedCommandDDs();
+		translatedCommandDD.guardDD = guardDD;
+		translatedCommandDD.upDD = upDD;
+		translatedCommandDD.originalCommandNumber = l;
 
-			// otherwise use 0
-			} else {
-if (DEBUG_TransMod)
-{
-	PrintDebugIndent(); 
-	System.out.println("Command " + (l+1) +" does not match synch '" + synch + "'. Nothing to do for it.");
-}
-				guardDDs[l] = JDD.Constant(0);
-				upDDs[l] = JDD.Constant(0);
-				//rewDDs[l] = JDD.Constant(0);
-			}
-guardDDs[l].setPurpose("guard for command "+l);
-upDDs[l].setPurpose("upDD for command " + l);
-
-if (DEBUG_TransMod) {
-	PrintDebugIndent(); System.out.println("<ConsidComForSync cmdNum='"+l+"' synch='"+synch+"'>");
-}
-		}
-
-if (DEBUG_TransMod)
-{
-	PrintDebugIndent();
-	System.out.print("[in Modules2MTBDD.translateModule()]: @ line 1645 (After having considered all commands, against the synch '" + synch + "')");
-}
-
-		// combine guard/updates dds for each command
-		if (modelType == ModelType.DTMC) {
-if (DEBUG_TransMod) {
-	PrintDebugIndent();
-	System.out.print("[in Modules2MTBDD.translateModule()]: About to call combineCommandsProb()");
-}
-			compDDs = combineCommandsProb(m, numCommands, guardDDs, upDDs);
-		}
-		else if (modelType == ModelType.MDP) {
-if (DEBUG_TransMod) {
-	PrintDebugIndent();
-	System.out.print("[in Modules2MTBDD.translateModule()]: About to call combineCommandsNondet()");
-}
-			compDDs = combineCommandsNondet(m, numCommands, guardDDs, upDDs, synchMin);
-		}
-		else if (modelType == ModelType.CTMC) {
-if (DEBUG_TransMod) {
-	PrintDebugIndent();
-	System.out.print("[in Modules2MTBDD.translateModule()]: About to call combineCommandsStoch()");
-}
-			compDDs = combineCommandsStoch(m, numCommands, guardDDs, upDDs);
-		}
-		else {
-			 throw new PrismException("Unknown model type");
-		}
-
-if (DEBUG_TransMod)
-{
-	PrintDebugIndent();
-	System.out.print("[in Modules2MTBDD.translateModule()]: @ line 1666");
-}
-
-		// deref guards/updates
-		JDD.DerefArray(guardDDs, numCommands);
-		JDD.DerefArray(upDDs, numCommands);
-		//JDD.DerefArray(rewDDs, numCommands);
-		
-if (DEBUG_TraSysMod) {
-	DebugIndent--;
-	PrintDebugIndent();
-	System.out.println("</TranslateModule>");
-}		
-		return compDDs;
-	}
-	
-
-	// SHANE extracted from translateModules, and has modified
-	/**
-	  Translate a command into a DD. If substitutions' is non-empty (the case when an indexed-set access using 
-	  variables in expressions) then various evaluations of expressions (possibly in guards, possibly in updates) 
-	  will be done BEFORE the translation into DD.
-	  @param m The Module number that contained this command (known by the caller translateModules)
-	  @param l The command-number (from the caller)
-	  @param command The actual command to be translated
-	  @param substitutions A partial set of variables, with specific values to be used on this particular translation.
-	 */
-	public void translateCommandForValues(int m, int l, Command command, Values substitutions)
-	{
-		ComponentDDs compDDs;
-		JDDNode guardDD, upDD, tmp;
-		double dmin = 0, dmax = 0;
-
-//		return upDD;
+		return translatedCommandDD;
 	}
 
 
@@ -2383,7 +2423,6 @@ if (DEBUG_CCN) {
 	System.out.println("<CCN_ITER commandNum='"+(i+1)+"'>");
 	PrintDebugIndent();
 	System.out.println("Will reference this JDD, to 'PLUS' it to the 'overlaps' JDD and OR it with the 'covered' JDD:\n" + guardDDs[i]);
-// DOESN'T PRINT ANYTHING... guardDDs[i].ShaneShowChildren();
 }
 
 			JDD.Ref(guardDDs[i]);
@@ -2510,13 +2549,13 @@ if (DEBUG_CCN) {
 			equalsi = JDD.Equals(overlaps, (double)i);
 			// if there aren't any for this i, skip the iteration
 			if (equalsi.equals(JDD.ZERO)) {
-if (DEBUG_CCN) { PrintDebugIndent(); System.out.println("None for this choice"); }
+if (DEBUG_CCN) { PrintDebugIndent(); System.out.println("There are no cases that have exactly " + i + " non-deterministic choices."); }
 				JDD.Deref(equalsi);
 				continue;
 			}
 			
 			// create arrays of size i to store dds
-if (DEBUG_CCN) { PrintDebugIndent(); System.out.println("Some for this i. making transDDbits be a array of " + i + " JDDNode objects"); }
+if (DEBUG_CCN) { PrintDebugIndent(); System.out.println("There are some cases that have exactly " + i + " non-deterministic choices.\nTherefore, making transDDbits be a array of " + i + " JDDNode objects"); }
 			transDDbits = new JDDNode[i];
 			//rewardsDDbits = new JDDNode[i];
 			frees = new JDDNode[i];
@@ -2560,7 +2599,7 @@ frees[k].setPurpose("% frees["+k+"] set in CCN%");
 							JDD.Ref(tmp3);
 							JDD.Ref(upDDs[j]);
 							transDDbits[k] = JDD.Apply(JDD.PLUS, transDDbits[k], JDD.Apply(JDD.TIMES, tmp3, upDDs[j]));
-transDDbits[k].setPurpose("% transDDbits["+k+"] set in CCN %");
+transDDbits[k].setPurpose("% transDDbits["+k+"] set during CCN %");
 							//JDD.Ref(tmp3);
 							//JDD.Ref(rewDDs[j]);
 							//rewardsDDbits[k] = JDD.Apply(JDD.PLUS, rewardsDDbits[k], JDD.Apply(JDD.TIMES, tmp3, rewDDs[j]));
@@ -2582,7 +2621,7 @@ if (DEBUG_CCN) { PrintDebugIndent(); System.out.println("Finished checking all c
 			for (j = 0; j < i; j++) {
 
 				tmp = JDD.SetVectorElement(JDD.Constant(0), ddChoiceVarsUsed, j, 1);
-if (DEBUG_CCN) { PrintDebugIndent(); System.out.println(" we do setVectorElement, with j of " + j + " and do JDD.TIMES to tmp: " + tmp + "\n and transDDbits[j]: " + transDDbits[j] + "\nThen we PLUS that to transDD."); }
+if (DEBUG_CCN) { PrintDebugIndent(); System.out.println(" in CCN, we do setVectorElement, with j of " + j + " on ddChoiceVarsUsed to obtain 'tmp': " + tmp + "\n and then do JDD.TIMES of tmp and transDDbits[j]: " + transDDbits[j] + "\nThen we PLUS that to transDD."); }
 				transDD = JDD.Apply(JDD.PLUS, transDD, JDD.Apply(JDD.TIMES, tmp, transDDbits[j]));
 if (DEBUG_CCN) {
 	PrintDebugIndent();
@@ -2637,18 +2676,22 @@ if (DEBUG_TransUpd) System.out.println("<Mod2MTBDD_transUp_Pt1>");
 		n = u.getNumUpdates();
 if (DEBUG_TransUpd) System.out.println("In Mod2MTBDD.transUpdates (First one - whole Command), there are " + n + " update elements to deal with for this command #" + (l+1) + ".");
 		for (i = 0; i < n; i++) {
-if (DEBUG_TransUpd) System.out.println("In Mod2MTBDD.transUpdates (First one), about to call (Second One) for updateElement #" + (i+1) );
+if (DEBUG_TransUpd) System.out.println("In Mod2MTBDD.transUpdates (First version), Place A iteration i=" + (i+1) + " of " + n + " - about to call translateUpdate" );
 			// translate a single update
 			udd = translateUpdate(m, u.getUpdate(i), synch, guard, substitutions);
-if (DEBUG_TransUpd) System.out.println("Back In Mod2MTBDD.transUpdates (First one), returned from call to (Second transUpd) for updateElement #" + (i+1) );
+if (DEBUG_TransUpd) System.out.println("In Mod2MTBDD.transUpdates (First version), Place B for iteration i=" + (i+1) + " of " + n + " - returned from call of translateUpdate" );
+// System.out.println("udd is: "); udd.ShaneShowChildren();
+if (DEBUG_TransUpd) System.out.println("Remember that the whole set of updates is: " + u + "\nWe just did update #" + (i + 1) + " which was " + u.getUpdate(i) );
 			// check for zero update
 			warned = false;
 			if (udd.equals(JDD.ZERO)) {
+if (DEBUG_TransUpd) System.out.println("\n\t\t<FATAL>\n ************** ");
 				warned = true;
 				// Use a PrismLangException to get line numbers displayed
 				msg = "Update " + (i+1) + " of command " + (l+1);
 				msg += " of module \"" + moduleNames[m] + "\" doesn't do anything";
 				mainLog.printWarning(new PrismLangException(msg, u.getUpdate(i)).getMessage());
+if (DEBUG_TransUpd) System.out.println("During Mod2MTBDD_transUp_Pt1 ~ Line 2685 **************\n\t\t</FATAL>\n");
 			}
 			// multiply by probability/rate
 			p = u.getProbability(i);
@@ -2693,18 +2736,18 @@ if (DEBUG_TransUpd) System.out.println("</Mod2MTBDD_transUp_Pt1>");
 		n = c.getNumElements();
 if (DEBUG_TransUpd) {
 	PrintDebugIndent();
-	System.out.println("<Mod2MTBDD_translateUpdate_pt2 numUpdates='"+n+"'>");
+	System.out.println("<TranslateUpdate_GROUP numUpdates='"+n+"'>");
 	PrintDebugIndent();
-	System.out.println("   transUp - PLACE 1: The Full Update is: " + c);
+	System.out.println("   transUpGrp  - PLACE 1: The Full Update is: " + c);
 	if (DEBUG_TransUpd_ShowStack) {
-		(new Exception("Stack Trace ONLY - no actual exception")).printStackTrace(System.out);
+//		(new Exception("Stack Trace ONLY - no actual exception")).printStackTrace(System.out);
 	}
 }
 		for (i = 0; i < n; i++) {
 if (DEBUG_TransUpd) {
 	PrintDebugIndent();
-	System.out.println(" <IterationForUpdateElement which='"+ i +"' expr=\"" + c.getElement(i) +"\">");
-	System.out.println("    transUp - PLACE 2 (iter "+i+"): Considering which variable is being updated.");
+	System.out.println(" <IterationForUpdateElement which='"+ (i+1) +" of " + n + "' expr=\"" + c.getElement(i) +"\">");
+	System.out.println("    transUpGrp - PLACE 2 (iter "+i+"): Considering which variable is being updated.");
 }
 			
 // SHANE INSERTED CONDITIONAL BRANCH:  to deal with indexed-set variable accesses.
@@ -2759,7 +2802,13 @@ if (DEBUG_TransUpd) {
 }
 			}
 
+// SHANE NOTE: THE FOLLOWING IS COMMON FOR BOTH Indexed AND Non-Indexed Variables:
+
 			v = varList.getIndex(s);
+if (DEBUG_TransUpd) {
+	PrintDebugIndent();
+	System.out.println("The variable is " + varList.getName(v) + ". Its position in varList is " + v);
+}
 			if (v == -1) {
 				throw new PrismLangException("Unknown variable \"" + s + "\" in update", c.getVarIdent(i));
 			}
@@ -2780,10 +2829,11 @@ if (DEBUG_TransUpd) {
 			// create dd
 if (DEBUG_TransUpd) {
 	PrintDebugIndent();
-	System.out.println("   transUp - PLACE 3A: Having determined the variable of update element " + (i+1) + ", now we will prepare it by setting its vector elements.");
+	System.out.println("   transUp (Second one) - PLACE 3A: Having determined the variable of update element " + (i+1) + ", now we will prepare it by setting its vector elements.");
 }
 			tmp1 = JDD.Constant(0);
 			for (j = l; j <= h; j++) {
+System.out.println("   will SetVectorElement on (tmp1, ColVars[" + v + "], " + (j-l) + ", " + j + ")");
 				tmp1 = JDD.SetVectorElement(tmp1, varDDColVars[v], j-l, j);
 			}
 
@@ -2791,7 +2841,7 @@ if (DEBUG_TransUpd) {
 			
 if (DEBUG_TransUpd) {
 	PrintDebugIndent();
-	System.out.println("   transUp - PLACE 3B: Having set the vector elements of update element " + (i+1) +":" + c.getElement(i) + ")");
+	System.out.println("   transUpGrp - PLACE 3B: After setting the vector elements of update element " + (i+1) +":" + c.getElement(i) + ")");
 }
 
 if (DEBUG_TransUpd) {
@@ -2801,20 +2851,24 @@ if (DEBUG_TransUpd) {
 			calcExpr = (Expression) calcExpr.evaluatePartially(constantValues,substitutions);
 
 if (DEBUG_TransUpd) {
-	System.out.println("back in translateUpdate: After the substitutions, the calcExpression is: " + calcExpr + "\n</CalcExpr>");
+	System.out.println("</CalcExpr during='translateUpdate()'>\nAfter the substitutions, the calcExpression is: " + calcExpr);
 	PrintDebugIndent();
-	System.out.println("   Will call translateExpression for the following calculation expression to work it out: " + c.getExpression(i) );
+	System.out.println("   Will call translateExpression using that calculation expression.");
+	System.out.println("\n<TransCalcExpr>");
 }
 
 
 			tmp2 = translateExpression(calcExpr);
+if (DEBUG_TransUpd) System.out.println("</TransCalcExpr during='translateUpdate()'>\n");
 
 tmp2.setPurpose("% Apparently the translation of " + calcExpr);
 if (DEBUG_TransUpd) {
 	PrintDebugIndent();
-	System.out.println("   Returned to transUp - PLACE 4 (still dealing with this update element " + (i+1) + ": " + c.getElement(i) + " )");
+	System.out.println("   Returned to transUp (Second one) - PLACE 4 (still dealing with this update element " + (i+1) + ": " + c.getElement(i) + " )");
 	PrintDebugIndent();
-	System.out.println("   after having translated the calculation expression. Now to finish up tranlsating it (by integrating it with other updates of this command choice");
+	System.out.println("   after having translated the calculation expression (which was " + calcExpr + ")"  );
+	PrintDebugIndent();
+	System.out.println("   which is in tmp2.  Now to finish up tranlsating it (by integrating it with other updates of this command choice");
 }
 
 // SHANE - Needs to deeply consider what the following do:
@@ -2822,72 +2876,101 @@ if (DEBUG_TransUpd) {
 			JDD.Ref(guard);
 if (DEBUG_TransUpd) {
 	PrintDebugIndent();
-	System.out.println("<ThinkDeepAbout>");
+	System.out.println("<ThinkDeepAbout during='transUp (Second one)' >");
 }
 if (DEBUG_TransUpd) {
+//System.out.println("tmp2 is: "); tmp2.ShaneShowChildren();
+//System.out.println("guard is: "); guard.ShaneShowChildren();
 	PrintDebugIndent();
-	System.out.println("  will apply TIMES to tmp2: " + tmp2 + "(i.e. the current update-element, translated)\n and guard: " + guard + "\nstore as new 'tmp2'.");
+	System.out.println("  will apply TIMES to tmp2: (the current update-element, translated) and guard (received from transCommand), to store as new 'tmp2'.");
 }
 			tmp2 = JDD.Apply(JDD.TIMES, tmp2, guard);
 if (DEBUG_TransUpd) {
+//System.out.println("tmp2 is now: ");tmp2.ShaneShowChildren();
+//System.out.println("tmp1 is: ");tmp1.ShaneShowChildren();
 	PrintDebugIndent();
-	System.out.println("  cl will be the result of applying EQUALS to tmp1: " + tmp1 + " and tmp2.");
+	System.out.println("  cl will be the result of applying EQUALS to tmp1 (the blank JDD to which SetVectorElement was done) and tmp2.");
 }
 			cl = JDD.Apply(JDD.EQUALS, tmp1, tmp2);
 			JDD.Ref(guard);
 if (DEBUG_TransUpd) {
+//System.out.println("cl is now: ");cl.ShaneShowChildren();
 	PrintDebugIndent();
-	System.out.println("  cl will be the result of applying TIMES to cl with guard.");
+	System.out.println("  cl will now be set to the result of applying TIMES to cl with guard.");
 }
 			cl = JDD.Apply(JDD.TIMES, cl, guard);
 			// filter out bits not in range
 			JDD.Ref(varColRangeDDs[v]);
 if (DEBUG_TransUpd) {
+//System.out.println("cl is now: ");cl.ShaneShowChildren();
 	PrintDebugIndent();
-	System.out.println("  cl will be the result of applying TIMES to cl with varColRangeDDs[v="+v+"], which is currently: " + varColRangeDDs[v]);
+	System.out.println("  cl will now be set to the result of applying TIMES to cl with varColRangeDDs[v="+v+"], which is currently: " + varColRangeDDs[v]);
 }
 			cl = JDD.Apply(JDD.TIMES, cl, varColRangeDDs[v]);
 			JDD.Ref(range);
 if (DEBUG_TransUpd) {
+//System.out.println("cl is now: ");cl.ShaneShowChildren();
 	PrintDebugIndent();
-	System.out.println("  cl will be the result of applying TIMES to cl with range, which is currently: " + range);
+	System.out.println("  cl will now be set to the result of applying TIMES to cl with range, which is currently: " + range);
 }
 			cl = JDD.Apply(JDD.TIMES, cl, range);
 if (DEBUG_TransUpd) {
+//System.out.println("cl is now: ");cl.ShaneShowChildren();
 	PrintDebugIndent();
 	System.out.println("  now the resultant cl is used to apply TIMES of dd with cl, to be new/final value of dd. dd is currently: " + dd);
 }
 			dd = JDD.Apply(JDD.TIMES, dd, cl);
 dd.setPurpose("Partially Translated version of " + c);
 if (DEBUG_TransUpd) {
+//System.out.println("dd is now: ");dd.ShaneShowChildren();
 	PrintDebugIndent();
 	System.out.println("</ThinkDeepAbout>");
 }
 
 if (DEBUG_TransUpd) {
 	PrintDebugIndent();
-	System.out.println("    transUp - PLACE 5, end of iteration for that update element.");
+	System.out.println("    transUp (Second one) - PLACE 5, end of iteration for that update element.");
 	System.out.println("    dd at end of iteration "+i+" is: " + dd);
 	PrintDebugIndent();
-	System.out.println("</IterationForUpdateElement which='"+i+"' was=\"" + c.getElement(i) + "\">");
+	System.out.println("</IterationForUpdateElement which='"+ (i+1) + " of " + n + "' was=\"" + c.getElement(i) + "\">");
 }
 		}
-
+if (DEBUG_TransUpd) System.out.println("<AllUpdateElementsNowConsidered/>\n");
 
 		// if a variable from this module or a global variable
 		// does not appear in this update assume it does not change value
 		// so multiply by its identity matrix
+if (DEBUG_TransUpd) {
+	PrintDebugIndent();
+	System.out.println("    transUp (Second one) - PLACE 6A: Remember, the Full Update is: " + c);
+	PrintDebugIndent();
+	System.out.println("    transUp (Second one) - PLACE 6B, about to loop i from 0 to numVars=" + numVars + ", to determine which identies to apply...");
+}
 		for (i = 0; i < numVars; i++) {	
 			if ((varList.getModule(i) == m || varList.getModule(i) == -1) && !varsUsed[i]) {
+if (DEBUG_TransUpd) {
+	PrintDebugIndent();
+	System.out.print("    Including identity for i = " + i);
+System.out.print(", name of var is " + varList.getName(i) );
+System.out.println(", varsUsed[i] is " + varsUsed[i] + " by Applying TIMES with existing dd value");
+
+}
+
 				JDD.Ref(varIdentities[i]);
 				dd = JDD.Apply(JDD.TIMES, dd, varIdentities[i]);
 			}
+else if (DEBUG_TransUpd) {
+	PrintDebugIndent();
+	System.out.print("    EXCLUDING identity for i = " + i);
+System.out.print(", name of var is " + varList.getName(i) );
+System.out.println(", varsUsed[i] is " + varsUsed[i] + " by NOT applying TIMES - doing nothing");
+}
 		}
 dd.setPurpose("% Fully Translated version of " + c + " %");
 
 if (DEBUG_TransUpd) {
 	PrintDebugIndent();
-	System.out.println("</Mod2MTBDD_translateUpdate_pt2>");
+	System.out.println("</TranslateUpdate_GROUP>");
 }
 		
 		return dd;

@@ -48,14 +48,16 @@ import parser.visitor.ReplaceLabels;
 
 public class StateModelChecker extends PrismComponent implements ModelChecker
 {
+public static boolean DEBUG_HIDE_CHECK = true;
 public static boolean DEBUG_constr = true;		// Whether to show information during the constructor
 public static boolean DEBUG = true;			// Whether to show default/higher importance general debugging trace statements
 public static boolean DEBUG2 = true;			// Whether to show lesser importance general debugging traces
-public static boolean DEBUG3_chkExprDD = true;		// Whether to debug (trace) the checkExpressionDD() method
+public static boolean DEBUG3_chkExprDD = true && !DEBUG_HIDE_CHECK;		// Whether to debug (trace) the checkExpressionDD() method
+public static boolean DEBUG_ChkExpr = true && !DEBUG_HIDE_CHECK;	// Whether to show the checkExpression()'s debug messages
 public static boolean DEBUG_CEF = true;			// Whether to debug (trace) the behaviours of checkExpressionFilter()
-public static boolean DEBUG_CheckIndSetAcc = true;	// Whether to debug the checkIndexSetAccess() method.
-public static boolean DEBUG_chkBinOp = true;	// Whether to debug the checkIndexSetAccess() method.
-public static boolean DEBUG_ChkVar = true;		// Whether to show checkExpressionVar() stages.
+public static boolean DEBUG_CheckIndSetAcc = true && !DEBUG_HIDE_CHECK;	// Whether to debug the checkIndexSetAccess() method.
+public static boolean DEBUG_chkBinOp = true && !DEBUG_HIDE_CHECK;	// Whether to debug the checkIndexSetAccess() method.
+public static boolean DEBUG_ChkVar = true && !DEBUG_HIDE_CHECK;		// Whether to show checkExpressionVar() stages.
 public static boolean DEBUG_WHICH = true;		// Whether to show WHICH method we are doing.
 public static int DebugIndent = 0;
 public static void PrintDebugIndent() { if (DEBUG) { for (int i = 0; i < DebugIndent; i++) System.out.print(" "); } }
@@ -278,8 +280,8 @@ System.out.println("in prism.SMC::check() @~208 for expression: " + expr + " for
 	{
 int myCallSeqID = ChkExpCallSeqID++;
 
-if (DEBUG) PrintDebugIndent();
-if (DEBUG) {
+if (DEBUG_ChkExpr) PrintDebugIndent();
+if (DEBUG_ChkExpr) {
   System.out.println("<CheckExpr callseq='" + myCallSeqID + "' comment=\'StateModelChecker.checkExpr() called for expression: " + expr + "\'>");
   DebugIndent++;
   System.out.println("statesOfInterest is this JDDNode: " + statesOfInterest);
@@ -288,28 +290,28 @@ if (DEBUG) {
 
 		// If-then-else
 		if (expr instanceof ExpressionITE) {
-if (DEBUG2) {PrintDebugIndent(); System.out.println("treating as ExpressionITE");}
+if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("treating as ExpressionITE");}
 			res = checkExpressionITE((ExpressionITE) expr, statesOfInterest);
 		}
 		// Binary ops
 		else if (expr instanceof ExpressionBinaryOp) {
-if (DEBUG2) {PrintDebugIndent(); System.out.println("treating as ExpressionBinaryOp");}
+if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("treating as ExpressionBinaryOp");}
 			res = checkExpressionBinaryOp((ExpressionBinaryOp) expr, statesOfInterest);
 		}
 		// Unary ops
 		else if (expr instanceof ExpressionUnaryOp) {
-if (DEBUG2) {PrintDebugIndent(); System.out.println("treating as ExpressionUnaryOp");}
+if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("treating as ExpressionUnaryOp");}
 			res = checkExpressionUnaryOp((ExpressionUnaryOp) expr, statesOfInterest);
 		}
 		// Functions
 		else if (expr instanceof ExpressionFunc) {
-if (DEBUG2) {PrintDebugIndent(); System.out.println("treating as ExpressionFunc");}			
+if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("treating as ExpressionFunc");}			
 			res = checkExpressionFunc((ExpressionFunc) expr, statesOfInterest);
 		}
 		// Identifier for accessing an indexed set
 		else if (expr instanceof ExpressionIndexedSetAccess)		// ADDED BY SHANE
 		{
-if (DEBUG) {PrintDebugIndent(); System.out.println("treating as *****   ExpressionIndexedSetAccess *****");}
+if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("treating as *****   ExpressionIndexedSetAccess *****");}
 			res = checkExpressionIndSetAcc((ExpressionIndexedSetAccess) expr,statesOfInterest);
 		}
 		// Identifiers (non-indexed)
@@ -319,17 +321,17 @@ if (DEBUG) {PrintDebugIndent(); System.out.println("treating as *****   Expressi
 		}
 		// Literals
 		else if (expr instanceof ExpressionLiteral) {
-if (DEBUG2) {PrintDebugIndent(); System.out.println("treating as ExpressionLiteral");}
+if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("treating as ExpressionLiteral");}
 			res = checkExpressionLiteral((ExpressionLiteral) expr, statesOfInterest);
 		}
 		// Constants
 		else if (expr instanceof ExpressionConstant) {
-if (DEBUG2) {PrintDebugIndent(); System.out.println("treating as ExpressionConstant");}
+if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("treating as ExpressionConstant");}
 			res = checkExpressionConstant((ExpressionConstant) expr, statesOfInterest);
 		}
 		// Formulas
 		else if (expr instanceof ExpressionFormula) {
-if (DEBUG2) {PrintDebugIndent(); System.out.println("treating as ExpressionFormula");}
+if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("treating as ExpressionFormula");}
 			// This should have been defined or expanded by now.
 			if (((ExpressionFormula) expr).getDefinition() != null)
 				return checkExpression(((ExpressionFormula) expr).getDefinition(), statesOfInterest);
@@ -338,54 +340,54 @@ if (DEBUG2) {PrintDebugIndent(); System.out.println("treating as ExpressionFormu
 		}
 		// Variables
 		else if (expr instanceof ExpressionVar) {
-if (DEBUG2) {PrintDebugIndent(); System.out.println("treating as ExpressionVar");}
+if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("treating as ExpressionVar");}
 			res = checkExpressionVar((ExpressionVar) expr, statesOfInterest);
 		}
 		// Labels
 		else if (expr instanceof ExpressionLabel) {
-if (DEBUG2) {PrintDebugIndent(); System.out.println("treating as ExpressionLabel");}
+if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("treating as ExpressionLabel");}
 			res = checkExpressionLabel((ExpressionLabel) expr, statesOfInterest);
 		}
 		// Property refs
 		else if (expr instanceof ExpressionProp) {
-if (DEBUG) {PrintDebugIndent(); System.out.println("treating as ExpressionProp");}
+if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("treating as ExpressionProp");}
 			res = checkExpressionProp((ExpressionProp) expr, statesOfInterest);
 		}
 		// Filter
 		else if (expr instanceof ExpressionFilter) {
-if (DEBUG) {PrintDebugIndent(); System.out.println("treating as ExpressionFilter");}
+if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("treating as ExpressionFilter");}
 			res = checkExpressionFilter((ExpressionFilter) expr, statesOfInterest);
 		}
 		// Anything else - error
 		else {
-if (DEBUG) {PrintDebugIndent(); System.out.println("expr was not recognised - treating as an error - cannot check it.");}
+if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("expr was not recognised - treating as an error - cannot check it.");}
 			JDD.Deref(statesOfInterest);
 			throw new PrismException("Couldn't check " + expr.getClass());
 		}
 
-if (DEBUG) {System.out.println("\n"); PrintDebugIndent(); System.out.println("Back in 'SMC.checkExpr() callseq='" + myCallSeqID + "' for expression: " + expr + " we now have a value for 'res'.");}
+if (DEBUG_ChkExpr) {System.out.println("\n"); PrintDebugIndent(); System.out.println("Back in 'SMC.checkExpr() callseq='" + myCallSeqID + "' for expression: " + expr + " we now have a value for 'res'.");}
 		// Filter out non-reachable states from solution
 		// (only necessary for symbolically stored vectors)
 		// (skip if reach is null, e.g. if just being used to convert arbitrary expressions)
 		if (res instanceof StateValuesMTBDD && reach != null)
 		{
-if (DEBUG) { 
+if (DEBUG_ChkExpr) { 
   PrintDebugIndent(); System.out.println("RES-CASE 1: 'res' IS an instance of StateValuesMTBDD (i.e. symbolic),\n\t\tAND the reach is not null,");
   System.out.println("\t\twhich means, we WILL FILTER OUT apparently non-reachable states.");
 }
 // The next line is ORIGINAL from the github version (i.e. not part of debugging):
 			res.filter(reach);
 }else if (res instanceof StateValuesMTBDD) {
-  if (DEBUG) { PrintDebugIndent(); System.out.println("RES-CASE 2: 'res' IS an instance of StateValuesMTBDD (i.e. symbolic),  BUT reach is null - not filtering.");
+  if (DEBUG_ChkExpr) { PrintDebugIndent(); System.out.println("RES-CASE 2: 'res' IS an instance of StateValuesMTBDD (i.e. symbolic),  BUT reach is null - not filtering.");
   }
 } else {
-  if (DEBUG) { PrintDebugIndent(); System.out.println("RES-CASE 3: 'res' is NOT an instance of StateValuesMTBDD, hence 'res' is explicit.");
+  if (DEBUG_ChkExpr) { PrintDebugIndent(); System.out.println("RES-CASE 3: 'res' is NOT an instance of StateValuesMTBDD, hence 'res' is explicit.");
   }
 }
 
-if (DEBUG) DebugIndent--;
-if (DEBUG) PrintDebugIndent();
-if (DEBUG) System.out.println("</CheckExpr callseq='" + myCallSeqID + "' comment=\"StateModelChecker.checkExpr() finished for expression: " + expr + "\" >\n");
+if (DEBUG_ChkExpr) DebugIndent--;
+if (DEBUG_ChkExpr) PrintDebugIndent();
+if (DEBUG_ChkExpr) System.out.println("</CheckExpr callseq='" + myCallSeqID + "' comment=\"StateModelChecker.checkExpr() finished for expression: " + expr + "\" >\n");
 
 		return res;
 	}
