@@ -49,6 +49,10 @@ public static boolean DEBUG = false;
 	// Whether this declaration is part of the realisation of an indexed-set (true), or standalone non-indexed (false)
 	protected boolean isPartOfIndexedVar;
 
+// ADDED BY SHANE
+	// Whether to defer the creation of the DD for this variable, until the "second" round of creation.
+	protected boolean deferCreateDD = false;
+
 	public Declaration(String name, DeclarationType declType)
 	{
 		setName(name);
@@ -81,7 +85,17 @@ System.out.flush();
 		this.start = start;
 	}
 
+	public void setDeferCreateDD(boolean value)
+	{
+		this.deferCreateDD = value;
+	}
+
 	// Get methods
+
+	public boolean getDeferCreateDD()
+	{
+		return deferCreateDD;
+	}
 
 	public String getName()
 	{

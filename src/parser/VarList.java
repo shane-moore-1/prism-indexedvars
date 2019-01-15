@@ -336,6 +336,17 @@ throws PrismLangException		// Until SHANE has considered the code in more detail
 	}
 
 	/**
+	 * See whether to defer the creation of the DD for the specified variable until second round.
+	 */
+	public boolean getDeferCreation(int i)
+	{
+		if (i < 0 || i >= vars.size())
+			throw new RuntimeException("Invalid integer value given");
+		return vars.get(i).decl.getDeferCreateDD();
+		
+	}
+
+	/**
 	 * Get the value (as an Object) of a variable, from the value encoded as an integer. 
 	 */
 	public Object decodeFromInt(int var, int val)

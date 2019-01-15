@@ -62,7 +62,7 @@ public class ConvertIndexedSetDeclarations extends ASTTraverseModify {
 	 * @return for Indexed Set declarations, it returns the Declaration of the first element; otherwise it returns the
 	 * unaltered Declaration (of a non-indexed set type).
 	 */
-	// May be wrong on how it does the following (ACTUALLY, I THINK I HAVE RESOLVED THESE NOW):
+	// May be wrong on how it does the following (ACTUALLY, I THINK I HAVE RESOLVED THESE NOW, AT LEAST FOR NON-COPYABLE MODULES):
 	// - Perhaps should delete the incoming node (because keeping it may cause issues in other things called by tidyUp, like checkVarNames).
 	// - If we do delete the incoming node, should we be replacing it with a whole tree of other nodes
 	//    because currently the newly made objects are NOT LINKED INTO the AST structure.
@@ -108,6 +108,8 @@ if (DEBUG) System.out.println(" About to replace IndexedSetDeclaration of " + in
 				for (int i = 0; i < count; i++)
 				{
 					Declaration d = new Declaration(indexedSetName + "[" + i + "]", elementsType);
+					// Preserve any deferral settings to the new variables.
+					d.setDeferCreateDD(e.getDeferCreateDD());
 					d.setIsPartOfIndexedVar();
 					if (i == 0) {
 						returnVal = d;		// to replace original Declaration upon returning

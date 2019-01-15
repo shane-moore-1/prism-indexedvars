@@ -434,6 +434,7 @@ TOKEN :
 |	< CONST:			"const" >
 |	< CTMC:				"ctmc" >
 |	< C:				"C" >
+|       < DEFER:			"defer" >
 |	< DOUBLE:			"double" >
 |	< DTMC:				"dtmc" >
 |	< E:				"E" >
@@ -764,12 +765,26 @@ Declaration Declaration() :				// ALTERED BY SHANE to allow Indexed Sets.
  | decl = IndSetDecl(name) 
 )
 
+	// Optional Deferal of Creation of the DD...
+        ( deferCreateVar(decl) )?
+
 	// The terminating Semicolon:
 	<SEMICOLON>  {/*Should be after IndexedSet's SemiColon */}
 	// In both/all cases:
 	{ /* Return the parsed declaration... */
 		 decl.setPosition(begin, getToken(0)); return decl; }
 }
+
+// ADDED BY SHANE, to allow deferal of some variables' DD creation.
+void deferCreateVar(Declaration declToDefer) :
+{
+	// ADDED BY SHANE
+}
+{
+	<DEFER>
+	{ declToDefer.setDeferCreateDD(true); }
+}
+
 
 Declaration NormalDecl(String name) : 
 {
