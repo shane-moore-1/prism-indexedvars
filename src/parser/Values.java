@@ -43,7 +43,6 @@ import prism.PrismUtils;
  */
 public class Values implements Cloneable //implements Comparable
 {
-public static boolean DEBUG = true;
 
 	protected ArrayList<String> names;
 	protected ArrayList<Object> values;
@@ -103,7 +102,6 @@ public static boolean DEBUG = true;
 	 */
 	public void addValue(String name, Object value)
 	{
-if (DEBUG) System.out.println("parser.Values::addValue() - Adding value named \'" + name + "\' to the set of known values");
 		names.add(name);
 		values.add(value);
 	}
@@ -119,7 +117,6 @@ if (DEBUG) System.out.println("parser.Values::addValue() - Adding value named \'
 		if (v == null) return;
 		n = v.getNumValues();
 		for (i = 0; i < n; i ++) {
-if (DEBUG) System.out.println("parser.Values::addValues() - Adding value named \'" + v.getName(i) + "\' to the set of known values");
 			addValue(v.getName(i), v.getValue(i));
 		}
 	}

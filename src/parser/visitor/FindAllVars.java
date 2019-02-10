@@ -39,9 +39,9 @@ import prism.PrismLangException;
  */
 public class FindAllVars extends ASTTraverseModify
 {
-public static boolean DEBUG_Basic = true && DEBUG_SHOW_ENABLED;		// The most high-level (i.e. minimal) types of debug messages
-public static boolean DEBUG = true && DEBUG_SHOW_ENABLED;			// The majority of debug messages
-public static boolean DEBUG_OrdinVar = true && DEBUG_SHOW_ENABLED;		// Whether to show details for ordinary variables (as opposed to indexed ones).
+public static boolean DEBUG_Basic = false ; //true && DEBUG_SHOW_ENABLED;		// The most high-level (i.e. minimal) types of debug messages
+public static boolean DEBUG = false ; //true && DEBUG_SHOW_ENABLED;			// The majority of debug messages
+public static boolean DEBUG_OrdinVar = false ; //true && DEBUG_SHOW_ENABLED;		// Whether to show details for ordinary variables (as opposed to indexed ones).
 
 	private List<String> varIdents;
 	private List<Type> varTypes;
@@ -200,7 +200,7 @@ if (DEBUG_Basic)
 		String s;
 if (DEBUG) System.out.println("<Visit_EISA visitor='FAV'>");
 		// COPIED FROM ABOVE METHOD (at an earlier point in time)
-System.out.println("\nReached FindAllVars.visit(ExprIndSetAcc) [overrides ASTTravMod] for this access expression: " + e );
+if (DEBUG) System.out.println("\nReached FindAllVars.visit(ExprIndSetAcc) [overrides ASTTravMod] for this access expression: " + e );
 				ExpressionIndexedSetAccess detail = e;
 				// Consider the Access part's validity - is it an int value.
 				Expression indexExp = detail.getIndexExpression();
@@ -258,8 +258,7 @@ if (DEBUG) System.out.println("</Visit_EISA visitor='FAV'>");
 	{
 		int i;
 		// See if identifier corresponds to a variable
-//if (DEBUG) 
-System.out.println("\nReached FindAllVars.visit(ExprIdent) for " + e + " [" + e.getClass().getName() + "]");
+if (DEBUG) System.out.println("\nReached FindAllVars.visit(ExprIdent) for " + e + " [" + e.getClass().getName() + "]");
 
 
 		i = varIdents.indexOf(e.getName());
