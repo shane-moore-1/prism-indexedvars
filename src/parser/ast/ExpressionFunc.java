@@ -26,7 +26,7 @@
 
 package parser.ast;
 
-import java.util.ArrayList;
+import java.util.*;
 
 import param.BigRational;
 import parser.*;
@@ -468,6 +468,27 @@ public class ExpressionFunc extends Expression
 		}
 		return true;
 	}
+
+// ADDED BY SHANE
+	@Override
+	public List<ExpressionIndexedSetAccess> getVariablePosEISAs()
+	{
+		// Recurse into both operands, then return the results
+		List<ExpressionIndexedSetAccess> result, tmp;
+		result = new ArrayList<ExpressionIndexedSetAccess>();
+
+		int n = getNumOperands();
+		for (int i = 0; i < n; i++) {
+if (Expression.DEBUG_VPEISA) System.out.println("   In ExpressionFunc.getVPEs, considering operand: " + getOperand(i));
+			tmp = getOperand(i).getVariablePosEISAs();
+			if ((tmp != null) && tmp.size() > 0)
+			  result.addAll(tmp);
+
+		}
+
+		return result;		
+	}
+
 
 	// Methods required for ASTElement:
 

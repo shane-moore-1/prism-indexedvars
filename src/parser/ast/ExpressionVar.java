@@ -30,12 +30,13 @@ import param.BigRational;
 import parser.*;
 import parser.visitor.*;
 import prism.PrismLangException;
+import prism.PrismEvaluationException;
 import parser.type.*;
 import java.util.*;
 
 public class ExpressionVar extends Expression
 {
-public static boolean DEBUG_EVALUATE = true;
+public static boolean DEBUG_EVALUATE = false;
 	// Variable name
 	private String name;
 	// The index of the variable in the model to which it belongs
@@ -110,8 +111,9 @@ if (DEBUG_EVALUATE) {
 if (DEBUG_EVALUATE)
  if (res == null) System.out.println("Was UNABLE to evaluate it. Note that EvaluateContext is: " + ec);
  else System.out.println("WAS ABLE to evaluate. 	:)");
+
 		if (res == null)
-			throw new PrismLangException("Could not evaluate variable", this);
+			throw new PrismEvaluationException(this);
 		return res;
 	}
 

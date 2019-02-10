@@ -119,7 +119,7 @@ public class Command extends ASTElement
 		return parent;
 	}
 
-	/** Request an Set all distinct expressions for indexed set accesses that involve variable position specifications,
+	/** Request a Set of all distinct expressions for indexed set accesses that involve variable position specifications,
 	    so that we can ensure that each possible valuation can be catered-for in the translation into MTBDD.
 	*/
 	public Set<ExpressionIndexedSetAccess> getVariablePosEISAs()

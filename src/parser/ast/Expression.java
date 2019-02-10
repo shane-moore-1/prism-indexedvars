@@ -40,7 +40,7 @@ import java.util.*;
 
 public abstract class Expression extends ASTElement implements Comparable<Expression>
 {
-public static boolean DEBUG_VPEISA = true;		// Debug the getVarPosEISAs and their overrides in the subclasses?
+public static boolean DEBUG_VPEISA = false;		// Debug the getVarPosEISAs and their overrides in the subclasses?
 private static boolean DEBUG = false;		// Any other debugging Shane has added here.
 	/**
 	 * Is this expression constant?

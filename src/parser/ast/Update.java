@@ -44,7 +44,8 @@ import prism.PrismLangException;
 public class Update extends ASTElement
 {
 public static boolean DEBUG_MSG = false;
-public static boolean DEBUG_GetVarIndex = true;
+public static boolean DEBUG_GetVarIndex = false;
+public static boolean DEBUG_VPE = true;		// Whether to show the getVarPositionEISAs progress.
 
 // SHANE Has Replaced These individual ArrayLists, with a new internal class type (below, see ElementOfUpdate)
 	// Lists of variable/expression pairs (and types)
@@ -525,12 +526,12 @@ if (DEBUG_MSG) System.out.println("Will use index " + indexOfVarToUpdate + " as 
 		int i, n;
 
 		n = getNumElements();
-if (Expression.DEBUG_VPEISA) System.out.println("in Update: " + toString() + " There are " + n + " update-elements to consider");
+if (Expression.DEBUG_VPEISA || DEBUG_VPE) System.out.println("in Update: " + toString() + " There are " + n + " update-elements to consider");
 		for (i = 0; i < n; i++) {
-if (Expression.DEBUG_VPEISA) System.out.println(" Considering varIdent: " + getVarIdent(i).toString());
+if (Expression.DEBUG_VPEISA || DEBUG_VPE) System.out.println(" Considering varIdent: " + getVarIdent(i).toString());
 			// See whether each of the targets is an Indexed Set whose access expression is indeterminate
 			tmp = getVarIdent(i).getVariablePosEISAs();
-if (Expression.DEBUG_VPEISA) {
+if (Expression.DEBUG_VPEISA || DEBUG_VPE) {
     System.out.println(" Finished considering varIdent: " + getVarIdent(i).toString());
     if (tmp != null) System.out.println("  It has this many indeterminate access-expressions: " + tmp.size());
     else System.out.println("  It has 0 indeterminate access-expressions.");
@@ -539,9 +540,9 @@ if (Expression.DEBUG_VPEISA) {
 				varPosEISAs.addAll(tmp);
 
 			// See whether each of the calculation expressions involves an Indexed Set whose access expression is indeterminate
-if (Expression.DEBUG_VPEISA) System.out.println(" Considering calcExpr: " + getExpression(i).toString());
+if (Expression.DEBUG_VPEISA || DEBUG_VPE) System.out.println(" Considering calcExpr: " + getExpression(i).toString());
 			tmp = getExpression(i).getVariablePosEISAs();
-if (Expression.DEBUG_VPEISA) {
+if (Expression.DEBUG_VPEISA || DEBUG_VPE) {
     System.out.println(" Finished Considering calcExpr: " + getExpression(i).toString());
     if (tmp != null) System.out.println("  It has this many indeterminate access-expressions: " + tmp.size());
     else System.out.println("  It has 0 indeterminate access-expressions.");
@@ -549,7 +550,7 @@ if (Expression.DEBUG_VPEISA) {
 			if (tmp != null && tmp.size() > 0)
 				varPosEISAs.addAll(tmp);
 		}
-if (Expression.DEBUG_VPEISA) System.out.println("Finished considering this Update: " + toString());
+if (Expression.DEBUG_VPEISA || DEBUG_VPE) System.out.println("Finished considering this Update: " + toString());
 		return varPosEISAs;
 	}
 }
