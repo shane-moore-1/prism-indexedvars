@@ -223,6 +223,8 @@ if (DEBUG) System.out.println("in NondetModel.doReachability(): About to call Pr
 		JDDNode reachable = PrismMTBDD.Reachability(tmp, allDDRowVars, allDDColVars, start);
 		JDD.Deref(tmp);
 
+if (DEBUG) Modules2MTBDD.ShaneReportDD(reachable,"The JDD for 'reachable' after doing reachability",true);
+
 if (DEBUG) System.out.println("in NondetModel.doReachability(): About to call PrismMTBDD.setReach()");
 		// set the reachable states, compute numStates, create the ODD, etc
 		setReach(reachable);
@@ -309,7 +311,11 @@ if (DEBUG_FRS) System.out.println(" NM-FRS Place 5 - numChoices is " + numChoice
 		nondetMask = JDD.And(JDD.Not(nondetMask), reach);
 if (DEBUG_FRS) System.out.println(" NM-FRS Place 6 - nondetMask is now: " + nondetMask);
 nondetMask.setPurpose("% nondetMask, set in NondetModel.filterReachableStates %");
+
+Modules2MTBDD.ShaneReportDD(nondetMask,"~About nondetMask",true);
+
 if (DEBUG_FRS) System.out.println("</NondetModel_FilterReachable>");
+
 	}
 
 	@Override

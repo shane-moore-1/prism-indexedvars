@@ -253,10 +253,6 @@ else e.printStackTrace(System.out);
 	{
 		int i, j, k;
 		Result res;
-if (DEBUG) {
-	Exception e = new Exception("in PrismCL.run(): STACK TRACE at start of method (for reference)");
-	e.printStackTrace(System.out);
-}
 		
 		// Initialise
 		initialise(args);
@@ -337,7 +333,7 @@ if (DEBUG)
 if (DEBUG) {
 	System.out.flush();
 	mainLog.flush();
-	System.out.println("in PrismCL.run(): About to do the massive for loop...\n<MassiveForLoop>");
+	System.out.println("in PrismCL.run(): About to do the massive for loop...\nundefinedMFConsts.getNumModelIterations() returns " + undefinedMFConstants.getNumModelIterations() + "\n<MassiveForLoop>");
 }
 		// iterate through as many models as necessary
 		for (i = 0; i < undefinedMFConstants.getNumModelIterations(); i++) {
@@ -352,6 +348,7 @@ if (DEBUG_MassiveForLoop) System.out.println("</MFL_Part1>\nin PrismCL.run()'s M
 if (DEBUG_MassiveForLoop) System.out.println("</MFL_Part2>");
 			} catch (PrismException e) {
 				// in case of error, report it, store as result for any properties, and go on to the next model
+if (DEBUG) System.out.println("Caught Exception: " + e);
 				// (might happen for example if overflow or another numerical problem is detected at this stage)
 				error(e.getMessage());
 				for (j = 0; j < numPropertiesToCheck; j++) {
@@ -416,7 +413,7 @@ if (DEBUG) {
 			// Work through list of properties to be checked
 			for (j = 0; j < numPropertiesToCheck; j++) {
 if (DEBUG) {
-	System.out.println(" <CheckProperty which='" + j + "' at='PrismCL.java, Line ~410'");
+	System.out.println(" <CheckProperty which='" + (j+1) + "/" + numPropertiesToCheck + "' at='PrismCL.java, Line ~415'>");
 }
 
 				// for simulation we can do multiple values of property constants simultaneously
@@ -455,24 +452,24 @@ if (DEBUG) {
 							if (propertiesFile != null) {
 								definedPFConstants = undefinedConstants[j].getPFConstantValues();
 if (DEBUG) {
-	System.out.println("PrismCL - Place CP-4");
+	System.out.println("PrismCL - Place CP-B-1 - about to call setSomeUndefConst on propertiesFile");
 }
 								propertiesFile.setSomeUndefinedConstants(definedPFConstants, exactConstants);
 if (DEBUG) {
-	System.out.println("PrismCL - Place CP-5");
+	System.out.println("     - done that.");
 }
 							}
 							// Normal model checking
 							if (!simulate && !param) {
 if (DEBUG) {
-	System.out.println("PrismCL - Place CP-6A");
+	System.out.println("PrismCL - Place CP-B-2 case i");
 }
 								res = prism.modelCheck(propertiesFile, propertiesToCheck.get(j));
 							}
 							// Parametric model checking
 							else if (param) {
 if (DEBUG) {
-	System.out.println("PrismCL - Place CP-6B");
+	System.out.println("PrismCL - Place CP-B-2 case ii");
 }
 
 								res = prism.modelCheckParametric(propertiesFile, propertiesToCheck.get(j), paramNames, paramLowerBounds, paramUpperBounds);
@@ -480,7 +477,7 @@ if (DEBUG) {
 							// Approximate (simulation-based) model checking
 							else if (simulate) {
 if (DEBUG) {
-	System.out.println("PrismCL - Place CP-6C");
+	System.out.println("PrismCL - Place CP-B-2 case iii");
 }
 
 								simMethod = processSimulationOptions(propertiesToCheck.get(j).getExpression());
@@ -496,18 +493,18 @@ if (DEBUG) {
 							res = new Result(e);
 						}
 if (DEBUG) {
-	System.out.println("PrismCL - Place CP-7");
+	System.out.println("PrismCL - Place CP-B-3");
 }
 
 						// in case of build failure during model checking, store as result for any const values and continue
 						if (modelBuildFail) {
 if (DEBUG) {
-	System.out.println("PrismCL - Place CP-8");
+	System.out.println("PrismCL - Place CP-B-4 - modelBuildFail is true");
 }
 							results[j].setMultipleErrors(definedMFConstants, null, modelBuildException);
 							if (test) {
 if (DEBUG) {
-	System.out.println("PrismCL - Place CP-8T");
+	System.out.println("PrismCL - Place CP-B-4T");
 }
 								doResultTest(propertiesToCheck.get(j), new Result(modelBuildException));
 							}
@@ -515,7 +512,7 @@ if (DEBUG) {
 						}
 
 if (DEBUG) {
-	System.out.println("PrismCL - Place CP-9");
+	System.out.println("PrismCL - Place CP-B-5 - about to call setResult...");
 }
 						// store result of model checking
 						results[j].setResult(definedMFConstants, definedPFConstants, res.getResult());
@@ -562,6 +559,10 @@ if (DEBUG) {
 
 				// in case of build failure during model checking, store as result for any further properties and continue
 				if (modelBuildFail) {
+
+if (DEBUG) {
+	System.out.println("PrismCL - Place CP-C - modelBuildFail is true"); 
+}
 					for (j++; j < numPropertiesToCheck; j++) {
 						results[j].setMultipleErrors(definedMFConstants, null, modelBuildException);
 						if (test) {
@@ -571,7 +572,7 @@ if (DEBUG) {
 					break;
 				}
 if (DEBUG) {
-	System.out.println(" </CheckProperty which='" + j + "'");
+	System.out.println("Finished checking that property.\n </CheckProperty which='" + (j+1) + "/" + numPropertiesToCheck + "' at='PrismCL.java, Line ~570'>\n---------------------------\n");
 }
 
 			}

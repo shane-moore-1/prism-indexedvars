@@ -80,9 +80,10 @@ import strat.Strategy;
 public class Prism extends PrismComponent implements PrismSettingsListener
 {
 // ADDED BY SHANE to enable debugging to be switched on or off
-private static boolean DEBUG = true;
+private static boolean DEBUG = false;
 private static boolean DEBUG_loadPrismModel = false; //true;
-private static boolean DEBUG_SetModelConstants = true;
+private static boolean DEBUG_SetModelConstants = false;
+private static boolean DEBUG_DOBUILD = true;				// Whether to show steps of doBuildModel().
 	/** PRISM version (e.g. "4.0.3"). Read from prism.Version. */
 	private static String version = prism.Version.versionString;
 
@@ -2033,12 +2034,12 @@ if (currentModulesFile != null) PrismCL.showModulesNames(currentModulesFile);
 	{
 		long l; // timer
 
-if (DEBUG) System.out.print("<doBuildModel locatedIn='prism.Prism.java'>");
+if (DEBUG_DOBUILD) System.out.print("<doBuildModel locatedIn='prism.Prism.java'>");
 
-if (DEBUG) System.out.println(" <ClearBuiltModel>");
+if (DEBUG_DOBUILD) System.out.println(" <ClearBuiltModel>");
 		// Clear any existing built model(s)
 		clearBuiltModel();
-if (DEBUG) System.out.println(" </ClearBuiltModel>");
+if (DEBUG_DOBUILD) System.out.println(" </ClearBuiltModel>");
 
 		try {
 			if (currentModelType == ModelType.PTA) {
@@ -2053,36 +2054,40 @@ if (DEBUG) System.out.println(" </ClearBuiltModel>");
 			l = System.currentTimeMillis();
 			switch (currentModelSource) {
 			case PRISM_MODEL:
-if (DEBUG) System.out.println("in Prism.doBuildModel, Case is PRISM_MODEL.\n<CASE_PrismModel>");
+if (DEBUG_DOBUILD) System.out.println("in Prism.doBuildModel, Case is PRISM_MODEL.\n<CASE_PrismModel>");
 				if (currentModulesFile == null)
 					throw new PrismException("There is no currently loaded PRISM model to build");
 PrismCL.showModulesNames(currentModulesFile);
 				if (!getExplicit()) {
-if (DEBUG) System.out.println("in Prism.doBuildModel, getExplicit() returned false, so instantiate a new Modules2MTBDD...\n<MakeMod2MTBDD whereFrom='Prism.doBuildModel()'");
+
+/*SHANE NOTE: IT IS THIS BLOCK WHICH APPEARS TO BE DONE BY DEFAULT */
+if (DEBUG_DOBUILD) System.out.println("in Prism.doBuildModel, getExplicit() returned false, so instantiate a new Modules2MTBDD...\n<MakeMod2MTBDD whereFrom='Prism.doBuildModel()'");
 					Modules2MTBDD mod2mtbdd = new Modules2MTBDD(this, currentModulesFile);
-if (DEBUG) System.out.println(" </MakeMod2MTBDD>\nCalling translate on the Mod2mtbdd object...\n<M2_translate whereFrom='Prism.doBuildModel()'>");
+if (DEBUG_DOBUILD) System.out.println(" </MakeMod2MTBDD>\nCalling translate on the Mod2mtbdd object...\n<M2_translate whereFrom='Prism.doBuildModel()'>");
 					currentModel = mod2mtbdd.translate();
-if (DEBUG) System.out.println(" </M2_translate whereFrom='Prism.doBuildModel()'>");
+if (DEBUG_DOBUILD) System.out.println(" </M2_translate whereFrom='Prism.doBuildModel()'>");
 					currentModelExpl = null;
+
 				} else {
-if (DEBUG) System.out.println("in Prism.doBuildModel, getExplicit() returned true");
+
+if (DEBUG_DOBUILD) System.out.println("in Prism.doBuildModel, getExplicit() returned true");
 					if (currentModulesFile.getSystemDefn() != null) {
 						throw new PrismNotSupportedException("Explicit engine does not currently support the system...endsystem construct");
 					}
-if (DEBUG) System.out.println("in Prism.doBuildModel, instatiating a ConstructModel object...\n<Make_ConstructModel>");
+if (DEBUG_DOBUILD) System.out.println("in Prism.doBuildModel, instatiating a ConstructModel object...\n<Make_ConstructModel>");
 					ConstructModel constructModel = new ConstructModel(this);
-if (DEBUG) System.out.println("</Make_ConstructModel>\n<SetFixDeadlocks>");
+if (DEBUG_DOBUILD) System.out.println("</Make_ConstructModel>\n<SetFixDeadlocks>");
 					constructModel.setFixDeadlocks(getFixDeadlocks());
-if (DEBUG) System.out.println("</SetFixDeadlocks>\n<ConstructModel>");
+if (DEBUG_DOBUILD) System.out.println("</SetFixDeadlocks>\n<ConstructModel>");
 					currentModelExpl = constructModel.constructModel(currentModelGenerator);
-if (DEBUG) System.out.println("</ConstructModel>");
+if (DEBUG_DOBUILD) System.out.println("</ConstructModel>");
 					currentModel = null;
 				}
-if (DEBUG) System.out.println("</CASE_PrismModel>\n");
+if (DEBUG_DOBUILD) System.out.println("</CASE_PrismModel>\n");
 				// if (...) ... currentModel = buildModelExplicit(currentModulesFile);
 				break;
 			case MODEL_GENERATOR:
-if (DEBUG) System.out.println("in doBuildModel, Case is MODEL_GENERATOR");
+if (DEBUG_DOBUILD) System.out.println("in doBuildModel, Case is MODEL_GENERATOR");
 				if (currentModelGenerator == null)
 					throw new PrismException("There is no currently loaded model generator to build");
 				if (!getExplicit()) {
@@ -2097,7 +2102,7 @@ if (DEBUG) System.out.println("in doBuildModel, Case is MODEL_GENERATOR");
 				}
 				break;
 			case EXPLICIT_FILES:
-if (DEBUG) System.out.println("in doBuildModel, Case is EXPLICIT_FILES");
+if (DEBUG_DOBUILD) System.out.println("in doBuildModel, Case is EXPLICIT_FILES");
 				if (!getExplicit()) {
 					expf2mtbdd = new ExplicitFiles2MTBDD(this);
 					currentModel = expf2mtbdd.build(explicitFilesStatesFile, explicitFilesTransFile, explicitFilesLabelsFile, explicitFilesStateRewardsFile,
@@ -2175,7 +2180,7 @@ if (DEBUG) System.out.println("in doBuildModel, Case is EXPLICIT_FILES");
 				if (listener != null)
 					listener.notifyModelBuildSuccessful();
 			}
-if (DEBUG) System.out.println("</doBuildModel>");
+if (DEBUG_DOBUILD) System.out.println("</doBuildModel>");
 		} catch (PrismException e) {
 			// Notify model listeners of build failure
 			for (PrismModelListener listener : modelListeners) {

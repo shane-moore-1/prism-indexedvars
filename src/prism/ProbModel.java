@@ -615,7 +615,7 @@ stk.printStackTrace(System.out);
 if (DEBUG) System.out.println("in ProbModel.setReach(): About to call JDD.GetNumMinterms()");
 		// work out number of reachable states
 		numStates = JDD.GetNumMinterms(reach, allDDRowVars.n());
-if (DEBUG) System.out.println("result (numStates) = " + numStates + "\n About to construct odd...");
+if (DEBUG) System.out.println(" result (numStates) = " + numStates + "\n\n About to construct odd...");
 
 		// build odd, clear old one
 		if (odd != null) {

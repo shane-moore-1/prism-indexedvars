@@ -38,17 +38,34 @@ import parser.visitor.FindRelOpInvolvingVar;
 
 public class Modules2MTBDD
 {
-public static boolean DEBUG_SHANE = true;
-public static boolean DEBUG_TraSysMod = true;
-public static boolean DEBUG_TransMod = true;		// The version with parameters
-public static boolean DEBUG_tranModVoid = true;		// The void parameters version
-public static boolean DEBUG_TransUpd = true;
-public static boolean DEBUG_TransUpd_ShowStack = false;
-public static boolean DEBUG_AllocDDV = true;
-public static boolean DEBUG_CCN = true;			// Show detail of combineCommandsNondet()
-public static boolean DEBUG_SortRanges = true;
+public static boolean DEBUG_ShowEXCL_INCL = false;		// Whether to show which DDs are being INCLUDED or EXCLUDED during construction of a DD (in TransUpdate)
+public static boolean DEBUG_SHANE = false; //true && !DEBUG_SHANE_NOTHING;
+public static boolean DEBUG_RecurseVars = true;
+public static boolean DEBUG_SHANE_ShowVarList = true;
+public static boolean DEBUG_SHANE_ShowDD_Tree = false;
+public static boolean DEBUG_SHANE_ShowStepsInTM = false;
+public static boolean DEBUG_SHANE_ShowStepsInCCN2 = false;
+public static boolean DEBUG_ShowFinalTransDD = false;			// Show the ultimately final transition matrix DD ? (It could be huge!)
+public static boolean DEBUG_TrSysDef = true; //true && !DEBUG_SHANE_NOTHING;
+public static boolean DEBUG_TraSysMod = true; //true && !DEBUG_SHANE_NOTHING;
+public static boolean DEBUG_TransMod = true; //true && !DEBUG_SHANE_NOTHING;		// The version with parameters
+public static boolean DEBUG_tranModVoid = true; //true && !DEBUG_SHANE_NOTHING;		// The void parameters version
+public static boolean DEBUG_TransUpd = false ; //true && !DEBUG_SHANE_NOTHING;
+public static boolean DEBUG_TransUpd_ShowStack = false ; //false && !DEBUG_SHANE_NOTHING;
+public static boolean DEBUG_AllocDDV = false ; //true && !DEBUG_SHANE_NOTHING;
+public static boolean DEBUG_CCN = true; //true && !DEBUG_SHANE_NOTHING;			// Show detail of combineCommandsNondet()
+public static boolean DEBUG_SortRanges = false ; //true && !DEBUG_SHANE_NOTHING;
+public static boolean DEBUG_SUBSTITUTIONS = true;		// Show translation of a command for a specific substitution (or if only 1 possibility, then that possibility)
+public static boolean DEBUG_ChkRstr = true;			// Show the basic steps of CheckRestrictionLowerBound and CheckRestrictionUpperBound
+public static boolean DEBUG_ChkRstr_ExtraDetail = true && DEBUG_ChkRstr;	// Show more-detailed steps of the check restriction methods.
 public static int DebugIndent = 0;
 public static void PrintDebugIndent() { for (int i = 0; i < DebugIndent; i++) System.out.print(" "); }
+
+private String DEBUG_CurSynch;	// The current Synch name, for help in DEBUG OUTPUTS
+
+private ArrayList<Expression> cachedGuardExprs;		// SHANE ONLY - For debugging of large model with hundreds of enumerated substitutions.
+
+
 	// Prism object
 	private Prism prism;
 	
@@ -157,6 +174,7 @@ public static void PrintDebugIndent() { for (int i = 0; i < DebugIndent; i++) Sy
 		public JDDNode guardDD;		// The JDD representing the guard of the command
 		public JDDNode upDD;		// The JDD representing the updates
 		public int originalCommandNumber;	// The command number in the prism module from which this was derived.
+		public Expression guardExpr;	// The guard (after any substitutions) which is represented by the DDs.
 	}
 	
 	// data structure used to store mtbdds and related info
@@ -175,6 +193,24 @@ public static void PrintDebugIndent() { for (int i = 0; i < DebugIndent; i++) Sy
 		}
 	}
 	
+// TEMPORARY - a debugger helper for SHANE to use
+public static void ShaneReportDD(JDDNode toReport, String announcement, boolean showChildrenTree)
+{
+	System.out.println("======");
+	System.out.println(announcement);
+	System.out.println("  GetNumNodes():      " + JDD.GetNumNodes(toReport));
+	System.out.println("  GetNumTerminals():  " + JDD.GetNumTerminals(toReport));
+        System.out.println("  GetNumPaths():      " + JDD.GetNumPaths(toReport));
+	if (showChildrenTree) {
+		if (JDD.GetNumPaths(toReport) > 1500)
+		   System.out.println("Tree would be too large to report"); 
+		else 
+		   toReport.ShaneShowChildren();
+	}
+	System.out.println(announcement);
+	System.out.println("======");
+}
+
 	// constructor
 	
 	public Modules2MTBDD(Prism p, ModulesFile mf)
@@ -206,8 +242,9 @@ if (DEBUG_SHANE) mainLog.println("<m2m_translate>");
 		if (modulesFile.containsUnboundedVariables())
 			throw new PrismNotSupportedException("Cannot build a model that contains a variable with unbounded range (try the explicit engine instead)");
 		numVars = varList.getNumVars();
-if (DEBUG_SHANE) {
-	mainLog.println("numVars is " + numVars + " and these are the variables:");
+
+if (DEBUG_SHANE_ShowVarList) {
+	mainLog.println("numVars is " + numVars + " and these are the variables in varList:");
 	for (i = 0; i < numVars; i++)
 		mainLog.println("\t["+ i + "] is " + varList.getName(i));
 }
@@ -395,15 +432,16 @@ if (DEBUG_SHANE) {		// Copied from earlier, and from the immediately prior 'Extr
 	mainLog.print("Reach: " + JDD.GetNumNodes(model.getReach()) + " nodes\n");
 }
 
+
 if (DEBUG_SHANE & doSymmetry) {
 	PrintDebugIndent();
-	System.out.println("[In Modules2MTBDD.translate()] approx line 357, about to call doSymmetry()");
+	System.out.println("[In Modules2MTBDD.translate()] approx line 437, about to call doSymmetry()");
 }
 		// symmetrification
 		if (doSymmetry) doSymmetry(model);
 
 PrintDebugIndent();
-System.out.println("[In Modules2MTBDD.translate()] approx line 365, about to call getFixDeadlocks() then possibly findDeadlocks()");
+System.out.println("[In Modules2MTBDD.translate()] approx line 443, about to call getFixDeadlocks() then possibly findDeadlocks()");
 
 		// find/fix any deadlocks
 		model.findDeadlocks(prism.getFixDeadlocks());
@@ -430,7 +468,11 @@ System.out.println("[In Modules2MTBDD.translate()] approx line 365, about to cal
 
 		expr2mtbdd.clearDummyModel();
 PrintDebugIndent();
-System.out.println("[In Modules2MTBDD.translate()] Reached End of method (at approx line 389)");
+System.out.println("[In Modules2MTBDD.translate()] Reached End of method");
+
+if (DEBUG_SHANE_ShowStepsInTM)
+  ShaneReportDD(model.getReach(),"The 'reach' DD after doReachability and filterReachableStates and fixDeadlocks is the following:",true);
+
 if (DEBUG_SHANE) mainLog.println("</m2m_translate>");
 		
 		return model;
@@ -443,21 +485,26 @@ if (DEBUG_SHANE) mainLog.println("</m2m_translate>");
 	{
 		int i, j, m, n, last;
 		
+System.out.println("<ALLOC_DD_VARS>");
 		modelVariables = new ModelVariablesDD();
 		
 		switch (prism.getOrdering()) {
 		
 		case 1:
 		// ordering: (a ... a) (s ... s) (l ... l) (r c ... r c)
+System.out.println("in allocateDDVars - Case 1 is being done.");
 		
+System.out.println("Calling modelVariables.preallocateExtraActionVariables...");
 			modelVariables.preallocateExtraActionVariables(prism.getSettings().getInteger(PrismSettings.PRISM_DD_EXTRA_ACTION_VARS));
 
 			// create arrays/etc. first
 			
 			// nondeterministic variables
 			if (modelType == ModelType.MDP) {
+System.out.println("Doing the First IF block for MDP modeltypes - will create array ddSynchVars...");
 				// synchronizing action variables
 				ddSynchVars = new JDDNode[numSynchs];
+System.out.println("Create array ddSchedVars...");
 				// sched nondet vars
 				ddSchedVars = new JDDNode[numModules];
 
@@ -465,17 +512,23 @@ if (DEBUG_SHANE) mainLog.println("</m2m_translate>");
 				// max num needed = total num of commands in all modules + num of modules
 				// (actually, might need more for complex parallel compositions? hmmm...)
 				m = numModules;
+System.out.println("m, initially just the number of modules, is: " + m);
 				for (i = 0; i < numModules; i++) {
 					m += modulesFile.getModule(i).getNumCommands();
+System.out.println("Module " + i + " has " + modulesFile.getModule(i).getNumCommands() + " commands - adding that to m, so m is now: " + m);
 				}
+System.out.println("Final value of m is " + m + " - creating an array ddChoiceVars with that many elements...");
 				ddChoiceVars = new JDDNode[m];
 			}
 			// module variable (row/col) vars
+System.out.println("\nCreating varDDRowVars (of size " + numVars + ") and varDDColVars (same size)");
 			varDDRowVars = new JDDVars[numVars];
 			varDDColVars = new JDDVars[numVars];
 			for (i = 0; i < numVars; i++) {
+System.out.println("\nCreating the JDDVars for varDDRowVars["+i+"]...");
 				varDDRowVars[i] = new JDDVars();
 varDDRowVars[i].setPurpose("varDDRowVars["+i+"], set-up in m2mtbdd.allocateDDVars()");
+System.out.println("\nCreating the JDDVars for varDDColVars["+i+"]...");
 				varDDColVars[i] = new JDDVars();
 varDDColVars[i].setPurpose("varDDColVars["+i+"], set-up in m2mtbdd.allocateDDVars()");
 			}
@@ -484,56 +537,103 @@ varDDColVars[i].setPurpose("varDDColVars["+i+"], set-up in m2mtbdd.allocateDDVar
 
 			// allocate synchronizing action variables
 			if (modelType == ModelType.MDP) {
+System.out.println("\nIn the Second IF block for MDP modeltypes; about to create " + numSynchs + " variables for Synchronising Actions...");
 				// allocate vars
 				for (i = 0; i < numSynchs; i++) {
+System.out.println("Creating ddSynchVars["+i+"]...");
 					ddSynchVars[i] = modelVariables.allocateVariable(synchs.elementAt(i)+".a");
-ddSynchVars[i].setPurpose("represent synchronisation action ddSynchVars[" + i + "] ("+synchs.get(i)+"), created in allocateDDVars");
+ddSynchVars[i].setPurpose("represent synchronisation action ddSynchVars[" + i + "] ("+synchs.get(i)+" : " + synchs.elementAt(i)+".a"+"), created in allocateDDVars");
 				}
 			}
 		
 			// allocate scheduling nondet dd variables
 			if (modelType == ModelType.MDP) {
+System.out.println("\nIn the Third IF block for MDP modeltypes; about to create " + numModules + " variables for Scheduling of Modules...");
 				// allocate vars
 				for (i = 0; i < numModules; i++) {
+System.out.println("Creating ddSchedVars["+i+"], ("+moduleNames[i] + ".s)");
 					ddSchedVars[i] = modelVariables.allocateVariable(moduleNames[i] + ".s");
-ddSchedVars[i].setPurpose("represent a nondet scheduling variable ddSchedVars[" + i + "], created in allocateDDVars");
+ddSchedVars[i].setPurpose("represent a nondet scheduling variable ddSchedVars[" + i + "], named " + moduleNames[i]+".s, created in allocateDDVars");
 				}
 			}
 			
 			// allocate internal nondet choice dd variables
 			if (modelType == ModelType.MDP) {
+System.out.println("\nIn the Fourth IF block for MDP modeltypes; about to create variables for internal nondeterministic choices...");
 				m = ddChoiceVars.length;
 				for (i = 0; i < m; i++) {
+System.out.println("Creating variable for ddChoiceVars["+i+"], named l"+i);
 					ddChoiceVars[i] = modelVariables.allocateVariable("l" + i);
-ddChoiceVars[i].setPurpose("represent a nondet choice variable: ddChoiceVars["+i+"], created in allocateDDVars");
+ddChoiceVars[i].setPurpose("represent a nondet choice variable: ddChoiceVars["+i+"] - created in allocateDDVars");
 				}
 			}
 			
+
+System.out.println("About to call modelVariables.preallocateExtraStateVariables()...");
 			// create a gap in the dd variables
 			// this allows to prepend additional row/col vars, e.g. for constructing
 			// a product model when doing LTL model checking
 			modelVariables.preallocateExtraStateVariables(prism.getSettings().getInteger(PrismSettings.PRISM_DD_EXTRA_STATE_VARS));
 
 			
+System.out.println("\nAbout to allocate the DD vars for all the modules' variables (numVars is " + numVars + ")...");
 			// allocate dd variables for module variables (i.e. rows/cols)
 			// go through all vars in order (incl. global variables)
 			// so overall ordering can be specified by ordering in the input file
+//SHANE MODIFICATION: SKIP the ones which are requested for Deferral - they will be created in the next loop instead.
 			for (i = 0; i < numVars; i++) {
+			    if (!varList.getDeferCreation(i)) {
 				// get number of dd variables needed
 				// (ceiling of log2 of range of variable)
 				n = varList.getRangeLogTwo(i);
+System.out.println("\nVariable " + i + " is \"" + varList.getName(i) + "\", and its range requires " + n + " DD variables. Creating " + (n*2) + " variables (pre and post ones)...");
+
+// Set description of the RowVars[i] and ColVars[i]; each is a JDDVars to hold variable(s) pertaining to a specific prism variable.
+varDDRowVars[i].setPurpose("varDDRowVars["+i+"], the Variables to represent pre-values for " + varList.getName(i) + ", set-up in m2mtbdd.allocateDDVars()");
+varDDColVars[i].setPurpose("varDDColVars["+i+"], the Variables to represent updates for " + varList.getName(i) + "', set-up in m2mtbdd.allocateDDVars()");
 				// add pairs of variables (row/col)
 				for (j = 0; j < n; j++) {
+System.out.println("Creating " + varList.getName(i) + "." + j);
 					// new dd row variable
 					varDDRowVars[i].addVar(modelVariables.allocateVariable(varList.getName(i) + "." + j));
+System.out.println("Creating " + varList.getName(i) + "'." + j);
 					// new dd col variable
 					varDDColVars[i].addVar(modelVariables.allocateVariable(varList.getName(i) + "'." + j));
 				}
+			    }
+else System.out.println("Skipping variable " + i + " (\""+varList.getName(i) + "\") because its DD creation is to be deferred.");
 			}
 
+// ADDED BY SHANE - Now we will created the Deferred variables...
+			for (i = 0; i < numVars; i++) {
+			    if (varList.getDeferCreation(i)) {
+				// get number of dd variables needed
+				// (ceiling of log2 of range of variable)
+				n = varList.getRangeLogTwo(i);
+System.out.println("\nVariable " + i + " is \"" + varList.getName(i) + "\", and its range requires " + n + " DD variables. Creating " + (n*2) + " variables (pre and post ones)...");
+
+// Set description of the RowVars[i] and ColVars[i]; each is a JDDVars to hold variable(s) pertaining to a specific prism variable.
+varDDRowVars[i].setPurpose("varDDRowVars["+i+"], the Variables to represent pre-values for " + varList.getName(i) + ", set-up in m2mtbdd.allocateDDVars()");
+varDDColVars[i].setPurpose("varDDColVars["+i+"], the Variables to represent updates for " + varList.getName(i) + "', set-up in m2mtbdd.allocateDDVars()");
+				// add pairs of variables (row/col)
+				for (j = 0; j < n; j++) {
+System.out.println("Creating " + varList.getName(i) + "." + j);
+					// new dd row variable
+					varDDRowVars[i].addVar(modelVariables.allocateVariable(varList.getName(i) + "." + j));
+System.out.println("Creating " + varList.getName(i) + "'." + j);
+					// new dd col variable
+					varDDColVars[i].addVar(modelVariables.allocateVariable(varList.getName(i) + "'." + j));
+				}
+			    }
+else System.out.println("Skipping variable " + i + " (\""+varList.getName(i) + "\") because we created the DD earlier (non-deferred var).");
+			}
+
+
+System.out.println("END of Case 1 block (within allocateDDVars())\n");
 			break;
 			
 		case 2:
+System.out.println("in allocateDDVars - Case 2 is being done.");
 		// ordering: (a ... a) (l ... l) (s r c ... r c) (s r c ... r c) ...
 	
 			modelVariables.preallocateExtraActionVariables(prism.getSettings().getInteger(PrismSettings.PRISM_DD_EXTRA_ACTION_VARS));
@@ -599,6 +699,7 @@ ddChoiceVars[i].setPurpose("represent a nondet choice variable: ddChoiceVars["+i
 					// add scheduling dd var(s) (may do multiple ones here if modules have no vars)
 					for (j = last+1; j <= varList.getModule(i); j++) {
 						ddSchedVars[j] = modelVariables.allocateVariable(moduleNames[j] + ".s");
+ddSchedVars[j].setPurpose("represent a nondet scheduling variable ddSchedVars[" + j + "], for " + moduleNames[j] + ".s, created in allocateDDVars");
 					}
 					// change 'last'
 					last = varList.getModule(i);
@@ -610,7 +711,9 @@ ddChoiceVars[i].setPurpose("represent a nondet choice variable: ddChoiceVars["+i
 				// add pairs of variables (row/col)
 				for (j = 0; j < n; j++) {
 					varDDRowVars[i].addVar(modelVariables.allocateVariable(varList.getName(i) + "." + j));
+//System.out.println("Created DD with index " + varDDRowVars[i].GetIndex() + " for normal variable " + varList(getName(i) + "." + j);
 					varDDColVars[i].addVar(modelVariables.allocateVariable(varList.getName(i) + "'." + j));
+//System.out.println("Created DD with index " + varDDRowVars[i].GetIndex() + " for normal update-variable " + varList(getName(i) + "'." + j);
 				}
 			}
 			// add any remaining scheduling dd var(s) (happens if some modules have no vars)
@@ -635,6 +738,7 @@ System.out.println("</MODEL_VARS>");
 //			mainLog.print(" (" + i + ")" + ddVarNames.elementAt(i));
 //		}
 //		mainLog.println();
+System.out.println("</ALLOC_DD_VARS>");
 	}
 
 	// sort out DD variables and the arrays they are stored in
@@ -643,7 +747,8 @@ System.out.println("</MODEL_VARS>");
 	private void sortDDVars()
 	{
 		int i, m;
-		
+
+System.out.println("\n<SORT_DD_VARS>");		
 		// put refs for all globals and all vars in each module together
 		// create arrays
 		globalDDRowVars = new JDDVars();
@@ -652,51 +757,67 @@ globalDDRowVars.setPurpose("globalDDRowVars, set-up in m2mtbdd.sortDDVars()");
 globalDDColVars.setPurpose("globalDDColVars, set-up in m2mtbdd.sortDDVars()");
 		moduleDDRowVars = new JDDVars[numModules];
 		moduleDDColVars = new JDDVars[numModules];
+System.out.println("\nAbout to go through each module, creating a JDDVars for its row and another for its column...");
 		for (i = 0; i < numModules; i++) {
 			moduleDDRowVars[i] = new JDDVars();
-moduleDDRowVars[i].setPurpose("moduleDDRowVars["+i+"], set-up in m2mtbdd.sortDDVars()");
+moduleDDRowVars[i].setPurpose("moduleDDRowVars["+i+"], The pre-update variables for module " + i+", set-up in m2mtbdd.sortDDVars()");
 			moduleDDColVars[i] = new JDDVars();
-moduleDDColVars[i].setPurpose("moduleDDColVars["+i+"], set-up in m2mtbdd.sortDDVars()");
+moduleDDColVars[i].setPurpose("moduleDDColVars["+i+"], The post-update variables for module " + i+", set-up in m2mtbdd.sortDDVars()");
 		}
+
+System.out.println("\nAbout to go through all the variables of the model...");
 		// go thru all variables
 		for (i = 0; i < numVars; i++) {
 			// check which module it belongs to
 			m = varList.getModule(i);
+System.out.println("\nConsidering variable: \"" + varList.getName(i) + "\"");
 			// if global...
 			if (m == -1) {
+System.out.println("  It is a GLOBAL variable. So copying into globalDDRowVars...");
 				globalDDRowVars.copyVarsFrom(varDDRowVars[i]);
+System.out.println("  and copying into globalDDColVars...");
 				globalDDColVars.copyVarsFrom(varDDColVars[i]);
 			}
 			// otherwise...
 			else {
+System.out.println("  It is from module " + m + " (" + moduleNames[m] + "), so copying into moduleDDRowVars["+m+"] from varDDRowVars["+i+"]");
 				moduleDDRowVars[m].copyVarsFrom(varDDRowVars[i]);
+System.out.println("  and copying into moduleDDColVars["+m+"] from varDDColVars["+i+"]");
 				moduleDDColVars[m].copyVarsFrom(varDDColVars[i]);
 			}
 		}
 		
+System.out.println("\nCreating JDDVars for 'allDDRowVars'...");
 		// put refs for all vars in whole system together
 		// create arrays
 		allDDRowVars = new JDDVars();
 allDDRowVars.setPurpose("allDDRowVars, set-up in m2mtbdd.sortDDVars()");
+System.out.println("\nCreating JDDVars for 'allDDColVars'...");
 		allDDColVars = new JDDVars();
 allDDColVars.setPurpose("allDDColVars, set-up in m2mtbdd.sortDDVars()");
 		if (modelType == ModelType.MDP) {
+System.out.println("\nCreating JDDVars for 'allDDSynchVars'...");
 			allDDSynchVars = new JDDVars();
 allDDSynchVars.setPurpose("allDDSynchVars, set-up in m2mtbdd.sortDDVars()");
+System.out.println("\nCreating JDDVars for 'allDDSchedVars'...");
 			allDDSchedVars = new JDDVars();
 allDDSchedVars.setPurpose("allDDSchedVars, set-up in m2mtbdd.sortDDVars()");
+System.out.println("\nCreating JDDVars for 'allDDChoiceVars'...");
 			allDDChoiceVars = new JDDVars();
 allDDChoiceVars.setPurpose("allDDChoiceVars, set-up in m2mtbdd.sortDDVars()");
+System.out.println("\nCreating JDDVars for 'allDDNondetVars'...");
 			allDDNondetVars = new JDDVars();
 allDDNondetVars.setPurpose("allDDNondetVars, set-up in m2mtbdd.sortDDVars()");
 		}
 		// go thru all variables
+System.out.println("\nCopying all variables from varDDRowVars into allDDRowVars, and all variables from varDDColVars to allDDColVars...");
 		for (i = 0; i < numVars; i++) {
 			// add to list
 			allDDRowVars.copyVarsFrom(varDDRowVars[i]);
 			allDDColVars.copyVarsFrom(varDDColVars[i]);
 		}
 		if (modelType == ModelType.MDP) {
+System.out.println("\nCopying all variables from ddSynchVars into allDDSynchVars, and also into allDDNondetVars...");
 			// go thru all syncronising action vars
 			for (i = 0; i < ddSynchVars.length; i++) {
 				// add to list
@@ -704,11 +825,13 @@ allDDNondetVars.setPurpose("allDDNondetVars, set-up in m2mtbdd.sortDDVars()");
 				allDDNondetVars.addVar(ddSynchVars[i].copy());
 			}
 			// go thru all scheduler nondet vars
+System.out.println("\nCopying all variables from ddSchedVars into allDDSchedVars, and also into allDDNondetVars...");
 			for (i = 0; i < ddSchedVars.length; i++) {
 				// add to list
 				allDDSchedVars.addVar(ddSchedVars[i].copy());
 				allDDNondetVars.addVar(ddSchedVars[i].copy());
 			}
+System.out.println("\nCopying all variables from ddChoiceVars into allDDSchedVars, and also into allDDNondetVars...");
 			// go thru all local nondet vars
 			for (i = 0; i < ddChoiceVars.length; i++) {
 				// add to list
@@ -716,6 +839,7 @@ allDDNondetVars.setPurpose("allDDNondetVars, set-up in m2mtbdd.sortDDVars()");
 				allDDNondetVars.addVar(ddChoiceVars[i].copy());
 			}
 		}
+System.out.println("</SORT_DD_VARS>\n");		
 	}
 	
 	// sort DDs for identities
@@ -735,6 +859,7 @@ allDDNondetVars.setPurpose("allDDNondetVars, set-up in m2mtbdd.sortDDVars()");
 			}
 			varIdentities[i] = id;
 varIdentities[i].setPurpose("varIdentities["+i+"], created in sortIdentities");
+ShaneReportDD(varIdentities[i],"varIdentities["+i+"]",true);
 		}
 		// module identities
 		moduleIdentities = new JDDNode[numModules];
@@ -794,7 +919,7 @@ if (DEBUG_SortRanges) System.out.println("</SortRanges>");
 	
 	private void translateModules() throws PrismException
 	{
-if (DEBUG_tranModVoid) System.out.println("Start of m2mtbdd.translateModules(void)\n<TranMod>");
+if (DEBUG_tranModVoid) System.out.println("Start of m2mtbdd.translateModules(void)\n<TranMods>");
 		SystemFullParallel sys;
 		JDDNode tmp;
 		int i;
@@ -802,6 +927,7 @@ if (DEBUG_tranModVoid) System.out.println("Start of m2mtbdd.translateModules(voi
 		varsUsed = new boolean[numVars];
 		
 		if (modulesFile.getSystemDefn() == null) {
+if (DEBUG_tranModVoid) System.out.println("In Moduels2MTBDD.translateModules, inside the IF case - creating a SystemFullParallel");
 			sys = new SystemFullParallel();
 			for (i = 0; i < numModules; i++) {
 if (DEBUG_SHANE) System.out.println("in translateModules(void), moduleNames["+i+"] is " + moduleNames[i]);
@@ -818,6 +944,7 @@ if (DEBUG_tranModVoid) System.out.println("<CALL what='translateSystemDefn(sys)'
 if (DEBUG_tranModVoid) System.out.println("</CALL what='translateSystemDefn(sys)' fromWhere='m2mtbdd.translateModules(void)'>");
 		}
 		else {
+if (DEBUG_tranModVoid) System.out.println("In Moduels2MTBDD.translateModules, inside the ELSE case.");
 if (DEBUG_tranModVoid) System.out.println("<CALL what='translateSystemDefn(sys)' fromWhere='m2mtbdd.translateModules(void), the ELSE block'>");
 			translateSystemDefn(modulesFile.getSystemDefn());
 if (DEBUG_tranModVoid) System.out.println("</CALL what='translateSystemDefn(sys)' fromWhere='m2mtbdd.translateModules(void)'>");
@@ -834,7 +961,7 @@ if (DEBUG_tranModVoid) System.out.println("</CALL what='translateSystemDefn(sys)
 			tmp = JDD.SumAbstract(trans.copy(), allDDColVars);
 			trans = JDD.Apply(JDD.DIVIDE, trans, tmp);
 		}
-if (DEBUG_tranModVoid) System.out.println("</TranMod>\nending m2mtbdd.translateModules(void)");
+if (DEBUG_tranModVoid) System.out.println("</TranMods>\nending m2mtbdd.translateModules(void)");
 	}
 
 	// build system according to composition expression
@@ -846,6 +973,7 @@ if (DEBUG_tranModVoid) System.out.println("</TranMod>\nending m2mtbdd.translateM
 		int i, j, n, max;
 		int[] synchMin;
 		
+System.out.println("<TranslateSystemDefn>\nStarting to translate the system...\nThe number of synchs is " + numSynchs);
 		// initialise some values for synchMin
 		// (stores min indices of dd vars to use for local nondet)
 		synchMin = new int[numSynchs];
@@ -853,28 +981,38 @@ if (DEBUG_tranModVoid) System.out.println("</TranMod>\nending m2mtbdd.translateM
 			synchMin[i] = 0;
 		}
 		
-if (DEBUG_SHANE) System.out.println("m2mtbdd::translateSystemDefn @ line 834, just before call of translateSystemDefnRec.");
-
+if (DEBUG_TrSysDef) {
+  System.out.println("m2mtbdd::translateSystemDefn @ Place 1, just before call of translateSystemDefnRec.");
+  System.out.println("<M2__TranSystemDefnRecursive_COMMENCE>");
+}
 		// build system recursively (descend parse tree)
 		sysDDs = translateSystemDefnRec(sys, synchMin);
 		
-if (DEBUG_SHANE) System.out.println("m2mtbdd::translateSystemDefn @ line 839, just after call of translateSystemDefnRec.");
+if (DEBUG_TrSysDef) {
+  System.out.println("</M2__TranSystemDefnRecursive_COMMENCE>");
+  System.out.println("Now Back in m2mtbdd::translateSystemDefn @ Place 2. That means we have considered each synch, for every module.");
+  System.out.println("We have NOW FINISHED topmost recursive call of translateSystemDefnRec.\n");
+  System.out.println("Continuing with m2mtbdd::translateSystemDefn ...");
+}
 
 		// for the nondeterministic case, add extra mtbdd variables to encode nondeterminism
 		if (modelType == ModelType.MDP) {
+if (DEBUG_TrSysDef) System.out.println("@ CASE A - MDP case of translateSystemDefnRec. More work to do...");
 			// need to make sure all parts have the same number of dd variables for nondeterminism
-if (DEBUG_SHANE) System.out.println("m2mtbdd::translateSystemDefn @ line 844 (MDP case of translateSystemDefnRec)");
 			// so we don't generate lots of extra nondeterministic choices
 			// first compute max number of variables used
 			max = sysDDs.ind.max;
+System.out.println("  Considering each sysDDs.synchs[_].max, to see if it is > current 'max' of "+max);
 			for (i = 0; i < numSynchs; i++) {
 				if (sysDDs.synchs[i].max > max) {
 					max = sysDDs.synchs[i].max;
+System.out.println("     It was for i="+i+". Updating max to " + max);
 				}
 			}
-if (DEBUG_SHANE) System.out.println("m2mtbdd::translateSystemDefn @ line 853 (MDP case of translateSystemDefnRec)");
+if (DEBUG_TrSysDef) System.out.println("m2mtbdd::translateSystemDefn @ PLACE A2:  After considering all " + numSynchs + " synchs, Max is : " + max + " and sysDDs.ind.max is " + sysDDs.ind.max);
 			// check independent bit has this many variables
 			if (max > sysDDs.ind.max) {
+if (DEBUG_TrSysDef) System.out.println("m2mtbdd::translateSystemDefn @ PLACE A2-i. - because max IS GREATER than sysDDs.ind.max");
 				tmp = JDD.Constant(1);
 				for (i = sysDDs.ind.max; i < max; i++) {
 					v = ddChoiceVars[ddChoiceVars.length-i-1];
@@ -886,54 +1024,72 @@ if (DEBUG_SHANE) System.out.println("m2mtbdd::translateSystemDefn @ line 853 (MD
 				//sysDDs.ind.rewards = JDD.Apply(JDD.TIMES, sysDDs.ind.rewards, tmp);
 				sysDDs.ind.max = max;
 			}
-if (DEBUG_SHANE) System.out.println("m2mtbdd::translateSystemDefn @ line 867 (MDP case of translateSystemDefnRec)");
+else if (DEBUG_TrSysDef) System.out.println("m2mtbdd::translateSystemDefn @ PLACE A2-ii. - no, max was NOT greater than sysDDs.ind.max, so next task...");
+
+if (DEBUG_TrSysDef) System.out.println("m2mtbdd::translateSystemDefn @ PLACE A3-START.\n   About to check each of " + numSynchs + " synchs, has 'this many variables' ...");
 			// check each synchronous bit has this many variables
 			for (i = 0; i < numSynchs; i++) {
+if (DEBUG_TrSysDef) System.out.println("      @ PLACE A3-i:   i is " + i + " out of " + (numSynchs-1) );
 				if (max > sysDDs.synchs[i].max) {
+if (DEBUG_TrSysDef) System.out.println("          @ PLACE A3-ii (the IF was true).");
 					tmp = JDD.Constant(1);
 					for (j = sysDDs.synchs[i].max; j < max; j++) {
+if (DEBUG_TrSysDef) System.out.println("             @ PLACE A3-iii:    j is " + j);
 						v = ddChoiceVars[ddChoiceVars.length-j-1];
 						JDD.Ref(v);
 						tmp = JDD.And(tmp, JDD.Not(v));
+if (DEBUG_TrSysDef && tmp.equals(JDD.ZERO)) System.out.println("tmp is ZERO.");
 					}
 					sysDDs.synchs[i].trans = JDD.Apply(JDD.TIMES, sysDDs.synchs[i].trans, tmp);
 					//JDD.Ref(tmp);
 					//sysDDs.synchs[i].rewards = JDD.Apply(JDD.TIMES, sysDDs.synchs[i].rewards, tmp);
 					sysDDs.synchs[i].max = max;
 				}
+else if (DEBUG_TrSysDef) System.out.println("          @ PLACE A3-iii (the if was FALSE, nothing to do for this 'i' value).");
 			}
-if (DEBUG_SHANE) System.out.println("m2mtbdd::translateSystemDefn @ line 883 (MDP case of translateSystemDefnRec)");
+if (DEBUG_TrSysDef) System.out.println("m2mtbdd::translateSystemDefn @ Place A4");
 			// now add in new mtbdd variables to distinguish between actions
 			// independent bit
 			tmp = JDD.Constant(1);
 			for (i = 0; i < numSynchs; i++) {
+if (DEBUG_TrSysDef) System.out.println("      @ Place A4-i for i = " + i);
 				tmp = JDD.And(tmp, JDD.Not(ddSynchVars[i].copy()));
+if (DEBUG_TrSysDef && tmp.equals(JDD.ZERO)) System.out.println("tmp is ZERO.");
+
 			}
 			sysDDs.ind.trans = JDD.Apply(JDD.TIMES, tmp, sysDDs.ind.trans);
+if (DEBUG_TrSysDef && sysDDs.ind.trans.equals(JDD.ZERO)) System.out.println("sysDDs.ind.trans is ZERO.");
 			//JDD.Ref(tmp);
 			//transRewards = JDD.Apply(JDD.TIMES, tmp, sysDDs.ind.rewards);
 
-if (DEBUG_SHANE) System.out.println("m2mtbdd::translateSystemDefn @ line 892 (MDP case of translateSystemDefnRec)");
+if (DEBUG_TrSysDef) System.out.println("m2mtbdd::translateSystemDefn @ Place A5");
 			// synchronous bits
 			for (i = 0; i < numSynchs; i++) {
 				tmp = JDD.Constant(1);
 				for (j = 0; j < numSynchs; j++) {
-if (DEBUG_SHANE) System.out.println("m2mtbdd::translateSystemDefn @ line 897 (MDP case) - i = " + i + ", j = " + j);
 					if (j == i) {
 						tmp = JDD.And(tmp, ddSynchVars[j].copy());
+if (DEBUG_TrSysDef) System.out.println("        @ Place A5-i for synch #" + i + ", j = " + j);
 					}
 					else {
 						tmp = JDD.And(tmp, JDD.Not(ddSynchVars[j].copy()));
 					}
 				}
 				sysDDs.synchs[i].trans = JDD.Apply(JDD.TIMES, tmp, sysDDs.synchs[i].trans);
+if (DEBUG_TrSysDef && sysDDs.synchs[i].trans.equals(JDD.ZERO)) System.out.println("sysDDs.synchs["+i+"].trans is ZERO.");
 				//JDD.Ref(tmp);
 				//transRewards = JDD.Apply(JDD.PLUS, transRewards, JDD.Apply(JDD.TIMES, tmp, sysDDs.synchs[i].rewards));
 			}
+if (DEBUG_TrSysDef) System.out.println("m2mtbdd::translateSystemDefn - End of CASE A.");
 		}
+else if (DEBUG_TrSysDef) System.out.println("CASE B - not mdp.");
+
+
+if (DEBUG_TrSysDef) System.out.println("m2mtbdd::translateSystemDefn @ Place 3, about to call computeRewards()...");
 		
 		// build state and transition rewards
 		computeRewards(sysDDs);
+if (DEBUG_TrSysDef) System.out.println("m2mtbdd::translateSystemDefn @ Place 4, after computeRewards() has returned.");
 		
 		// now, for all model types, transition matrix can be built by summing over all actions
 		// also build transition rewards at the same time
@@ -948,12 +1104,16 @@ if (DEBUG_SHANE) System.out.println("m2mtbdd::translateSystemDefn @ line 897 (MD
 				transRewards[j] = JDD.Apply(JDD.PLUS, transRewards[j], sysDDs.synchs[i].rewards[j]);
 			}
 		}
+if (DEBUG_ShowFinalTransDD) ShaneReportDD(trans,"~About trans (Possibly THE final transition matrix of the whole system)",true);
+/*ALWAYS show the stats*/ ShaneReportDD(trans,"~About trans - stats alone",false);
+if (DEBUG_TrSysDef) System.out.println("m2mtbdd::translateSystemDefn @ Place 5 - just a marker.");
 		// For D/CTMCs, final rewards are scaled by dividing by total prob/rate for each transition
 		// (when individual transition rewards are computed, they are multiplied by individual probs/rates).
 		// Need to do this (for D/CTMCs) because transition prob/rate can be the sum of values from
 		// several different actions; this gives us the "expected" reward for each transition.
 		// (Note, for MDPs, nondeterministic choices are always kept separate so this never occurs.)
 		if (modelType != ModelType.MDP) {
+if (DEBUG_TrSysDef) System.out.println("m2mtbdd::translateSystemDefn @ Place 5-A");
 			n = modulesFile.getNumRewardStructs();
 			for (j = 0; j < n; j++) {
 				transRewards[j] = JDD.Apply(JDD.DIVIDE, transRewards[j], trans.copy());
@@ -963,6 +1123,7 @@ if (DEBUG_SHANE) System.out.println("m2mtbdd::translateSystemDefn @ line 897 (MD
 		// For MDPs, we take a copy of the DDs used to construct the part
 		// of the transition matrix that corresponds to each action
 		if (modelType == ModelType.MDP && storeTransParts) {
+if (DEBUG_TrSysDef) System.out.println("m2mtbdd::translateSystemDefn @ Place 5-B");
 			transInd = JDD.ThereExists(JDD.GreaterThan(sysDDs.ind.trans.copy(), 0), allDDColVars);
 			transSynch = new JDDNode[numSynchs];
 			for (i = 0; i < numSynchs; i++) {
@@ -982,6 +1143,7 @@ if (DEBUG_SHANE) System.out.println("m2mtbdd::translateSystemDefn @ line 897 (MD
 		// (as numSynchs+1 MTBDDs 'transPerAction' over allDDRowVars/allDDColVars, with terminals giving prob/rate)  
 		// because one global transition can come from several different actions.
 		if (storeTransActions) {
+if (DEBUG_TrSysDef) System.out.println("m2mtbdd::translateSystemDefn @ Place 6 - block for storeTransActions being done...");
 			// Initialise storage to null so we know what we have used
 			transActions = null;
 			transPerAction = null;
@@ -995,7 +1157,9 @@ if (DEBUG_SHANE) System.out.println("m2mtbdd::translateSystemDefn @ line 897 (MD
 				//transActions = JDD.Apply(JDD.PLUS, transActions, JDD.Apply(JDD.TIMES, tmp, JDD.Constant(1)));
 				for (i = 0; i < numSynchs; i++) {
 					tmp = JDD.ThereExists(JDD.GreaterThan(sysDDs.synchs[i].trans.copy(), 0), allDDColVars);
+if (DEBUG_TrSysDef) ShaneReportDD(tmp,"For synch " + i + " tmp is ",true);
 					transActions = JDD.Apply(JDD.PLUS, transActions, JDD.Apply(JDD.TIMES, tmp, JDD.Constant(1+i)));
+if (DEBUG_TrSysDef) ShaneReportDD(transActions,"After synch " + i + " transActions is ",true);
 				}
 				break;
 			case DTMC:
@@ -1010,6 +1174,7 @@ if (DEBUG_SHANE) System.out.println("m2mtbdd::translateSystemDefn @ line 897 (MD
 			}
 		}
 		
+if (DEBUG_TrSysDef) System.out.println("m2mtbdd::translateSystemDefn @ Place 7 (Basically at the end, just dereferencing things before returning).");
 		// deref bits of ComponentDD objects - we don't need them any more
 		JDD.Deref(sysDDs.ind.guards);
 		JDD.Deref(sysDDs.ind.trans);
@@ -1018,6 +1183,7 @@ if (DEBUG_SHANE) System.out.println("m2mtbdd::translateSystemDefn @ line 897 (MD
 			JDD.Deref(sysDDs.synchs[i].trans);
 		}
 		JDD.Deref(sysDDs.id);
+System.out.println("In Mod2MTBDD.translateSystemDefn: Finished Translating the System.\n</TranslateSystemDefn>");
 	}
 
 	// recursive part of system composition (descend parse tree)
@@ -1082,7 +1248,8 @@ System.out.flush();
 if (DEBUG_TraSysMod) {
 	System.out.println("<TransSysMod module='" + sys.getName() + "'>\n");
 	PrintDebugIndent();
-	System.out.println("\nCommencing Modules2MTBDD.tranSysMod for module '" + sys.getName() + "', where numSynchs is: " + numSynchs);
+	System.out.println("\nCommencing Modules2MTBDD.tranSysMod for module '" + sys.getName() + "'.");
+	System.out.println("We will consider all " + numSynchs + " synchs, to see how they pertain to this module.");
 	DebugIndent++;
 }
 
@@ -1095,26 +1262,48 @@ if (DEBUG_TraSysMod) System.out.println("sys.getName() is '"+ sys.getName() + "'
 
 		module = modulesFile.getModule(m);
 
-if (DEBUG_TraSysMod) {
+if (DEBUG_TraSysMod || DEBUG_TransMod) {
 	PrintDebugIndent();
 	System.out.println("in Modules2MTBDD.tranSysMod Place 1, about to call translateModule() without synchs");
+	PrintDebugIndent();
+	System.out.println("<DealWithSynch synch=''>");
 }
 
 		// build mtbdd for independent bit
 		sysDDs.ind = translateModule(m, module, "", 0);
+if (DEBUG_TraSysMod || DEBUG_TransMod) {
+	PrintDebugIndent();
+	System.out.println("</DealWithSynch synch=''>\n");
+}
 
 if (DEBUG_TraSysMod) {		
 	PrintDebugIndent();
-	System.out.println("in Modules2MTBDD.tranSysMod, Place 2 - will loop for this number of synchs: " + numSynchs); 
+	System.out.println("Back in Modules2MTBDD.tranSysMod, Place 2A for module " + sys.getName());
+	PrintDebugIndent();
+	System.out.println( "- will loop for this number of synchs: " + numSynchs); 
 }
 		// build mtbdd for each synchronising action
 		for (i = 0; i < numSynchs; i++) {
 			synch = synchs.elementAt(i);
-if (DEBUG_TraSysMod) {		
+if (DEBUG_TraSysMod || DEBUG_TransMod) {		
+	System.out.println(); PrintDebugIndent(); System.out.println("-------------\n");
 	PrintDebugIndent();
-	System.out.println("in Modules2MTBDD.tranSysMod, Place 3 [Iteration " + (i+1) + " of " + numSynchs + "] - will call translateModule for the module, for synch: " + synch); 
+	System.out.println("in Modules2MTBDD.tranSysMod, Place 2B, Iteration " + (i+1) + "/" + numSynchs + " - will call translateModule for the module, for synch: " + synch); 
+	PrintDebugIndent();
+	System.out.println("<TrSysMod_DealWithSynch synch='"+synch+"' forModule='"+module.getName()+"'>");
+
+DebugIndent++;
 }
 			sysDDs.synchs[i] = translateModule(m, module, synch, synchMin[i]);
+if (DEBUG_TraSysMod || DEBUG_TransMod) {		
+DebugIndent--;
+	System.out.println();
+	PrintDebugIndent();
+	System.out.println("Back in Mod2MTBDD.tranSysMod:  Stored the result of translateModule("+m+","+module.getName()+","+synch+","+synchMin[i]+") into sysDDs.synchs["+i+"]") ;
+	PrintDebugIndent();
+	System.out.println("</TrSysMod_DealWithSynch synch='"+synch+"' forModule='"+module.getName()+"'>");
+}
+
 		}
 
 if (DEBUG_TraSysMod) {		
@@ -1135,7 +1324,9 @@ if (DEBUG_TraSysMod) {
 DebugIndent--;
 PrintDebugIndent();
 System.out.println("Concluding Modules2MTBDD.tranSysMod for  " + sys.getName());
-System.out.println("</TransSysMod>\n");
+System.out.println("That means, we have considered ALL synchs of the whole system, to see how they pertain to module '"+sys.getName()+"'");
+System.out.println("We are returning sysDDs that was constructed by this call of tranSysMod.");
+System.out.println("</TransSysMod>\n\n##########\n");
 
 		return sysDDs;
 	}
@@ -1596,12 +1787,14 @@ private List<Values> recurseOnVars(
 
 	if (template == null)
 	   template = new Values();		// Just make a new empty one.
-System.out.println("In recurseOnVars, varIdxsToRecurse != null is : " + (varIdxsToRecurse != null) );
-System.out.println("In recurseOnVars, varIdxsToRecurse.size() is: " + varIdxsToRecurse.size() );
-System.out.println("In recurseOnVars, lowerBounds != null is : " + (lowerBounds != null) );
-System.out.println("In recurseOnVars, lowerBounds.size() is: " + lowerBounds.size() );
-System.out.println("In recurseOnVars, upperBounds != null is : " + (upperBounds != null) );
-System.out.println("In recurseOnVars, upperBounds.size() is: " + upperBounds.size() );
+if (DEBUG_RecurseVars) {
+//System.out.println("In recurseOnVars, varIdxsToRecurse != null is : " + (varIdxsToRecurse != null) );
+//System.out.println("In recurseOnVars, varIdxsToRecurse.size() is: " + varIdxsToRecurse.size() );
+//System.out.println("In recurseOnVars, lowerBounds != null is : " + (lowerBounds != null) );
+//System.out.println("In recurseOnVars, lowerBounds.size() is: " + lowerBounds.size() );
+//System.out.println("In recurseOnVars, upperBounds != null is : " + (upperBounds != null) );
+//System.out.println("In recurseOnVars, upperBounds.size() is: " + upperBounds.size() );
+}
 	if (varIdxsToRecurse != null && lowerBounds != null && upperBounds != null &&
 	  varIdxsToRecurse.size() > 0 && lowerBounds.size() > 0 && upperBounds.size() > 0) {
 		// Create clones, to remove the front item from and then pass the remainder to recursive call...
@@ -1613,10 +1806,14 @@ System.out.println("In recurseOnVars, upperBounds.size() is: " + upperBounds.siz
 
 		// get some info on the variable
 		vName = varList.getName(idxOfCurVar);
-System.out.println("in recurseOnVars, front variable is: " + vName);
+if (DEBUG_RecurseVars) System.out.println("in recurseOnVars, front variable is: " + vName);
 		low = remLowerBounds.remove(0);
 		high = remUpperBounds.remove(0);
-System.out.println("its values are to be taken over the range from: " + low + " to " + high);
+
+		// Check there is no contradiction:
+		if (low > high || high < low)
+			throw new RuntimeException("Low exceeds High, when dealing with variable " + vName);
+if (DEBUG_RecurseVars) System.out.println("its values are to be taken over the range from: " + low + " to " + high);
 
 		// Prepare the results from this call, which will be generated by enumeration of possible values for current variable...
 		resultsToGiveBack = new ArrayList<Values>();
@@ -1626,18 +1823,18 @@ System.out.println("its values are to be taken over the range from: " + low + " 
 			Values valsToSubstitute = template.clone();		// Using the variables as defined by receive parameter.
 			valsToSubstitute.addValue(vName,new Integer(curValForVar));	// we will now add this variable, with current value.
 			if (remainingVarIdxs.size() > 0) {	// If there are more variables, then need to do a recursive call	
-//System.out.println("Will set " + vName + " to be " + curValForVar + ", and now calculate combinations for other variables...");
+if (DEBUG_RecurseVars) System.out.println("Will set " + vName + " to be " + curValForVar + ", and now calculate combinations for other variables...");
 				resultsFromRecurse = recurseOnVars(remainingVarIdxs, remLowerBounds, remUpperBounds, valsToSubstitute);
 				if (resultsFromRecurse != null & resultsFromRecurse.size() > 0)
 				  resultsToGiveBack.addAll(resultsFromRecurse);
-//System.out.println("Back in recurseOnVars for front-variable of: " + vName + ", received " + resultsFromRecurse.size() + " values from recursive call.");
+if (DEBUG_RecurseVars) System.out.println("Back in recurseOnVars for front-variable of: " + vName + ", received " + resultsFromRecurse.size() + " values from recursive call.");
 			} else {
 				resultsToGiveBack.add(valsToSubstitute);
-//System.out.println("Will set " + vName + " to be " + curValForVar + ", and return it alone.");
+if (DEBUG_RecurseVars) System.out.println("Will set " + vName + " to be " + curValForVar + ", and return it alone.");
 			//EvaluateContextValues evalContext = new EvaluateContextValues(valsToSubstitute.clone());
 			}
 		}
-		System.out.println("Ending recurseOnVars for front-variable of: " + vName);
+if (DEBUG_RecurseVars) System.out.println("Ending recurseOnVars for front-variable of: " + vName + "\n");
 	}
 	return resultsToGiveBack;
 
@@ -1661,13 +1858,13 @@ private ArrayList<Integer> checkLowerBounds(List<Integer> varIdxsToCheck, Expres
 
 		// get some info on the variable
 		vName = varList.getName(idxOfCurVar);
-System.out.println("in checkLowerBounds, current variable being considered is: " + vName);
+//System.out.println("in checkLowerBounds, current variable being considered is: " + vName);
 
 		low = varList.getLow(idxOfCurVar);
-System.out.println(" usually its lower bounday value is: " + low + " but we will consider the following guard for any restriction to impose: " + guardMayRestrict);
+System.out.println(" for " + vName + " the lower boundary value is usually: " + low + " but we will consider the following guard for any restriction to impose: " + guardMayRestrict);
 
-		low = checkRestrictLowerBound(vName,low,guardMayRestrict.deepCopy());		// Starts a Visitor to find bounds modifications
-System.out.println(" will use a lower bounday of: " + low + " for " + vName);
+		low = checkRestrictLowerBound(vName,low,guardMayRestrict.deepCopy(), new Values());		// Starts a Visitor to find bounds modifications
+System.out.println(" will use a lower boundary of: " + low + " for " + vName);
 
 		lowerBounds.add(low);		// Store the decided lower bound of variable		
 
@@ -1693,13 +1890,13 @@ private ArrayList<Integer> checkUpperBounds(List<Integer> varIdxsToCheck, Expres
 
 		// get some info on the variable
 		vName = varList.getName(idxOfCurVar);
-System.out.println("in checkUpperBounds, current variable being considered is: " + vName);
+//System.out.println("in checkUpperBounds, current variable being considered is: " + vName);
 
 		high = varList.getHigh(idxOfCurVar);
-System.out.println(" usually its Upper bounday value is: " + high + " but we will consider the following guard for any restriction to impose: " + guardMayRestrict);
+//System.out.println(" usually its Upper boundary value is: " + high + " but we will consider the following guard for any restriction to impose: " + guardMayRestrict);
 
-		high = checkRestrictUpperBound(vName,high,guardMayRestrict.deepCopy());		// Starts a Visitor to find bounds modifications
-System.out.println(" will use a Upper bounday of: " + high + " for " + vName);
+		high = checkRestrictUpperBound(vName,high,guardMayRestrict.deepCopy(), new Values());		// Starts a Visitor to find bounds modifications
+System.out.println(" will use a Upper boundary of: " + high + " for " + vName);
 
 		upperBounds.add(high);		// Store the decided lower bound of variable		
 	}
@@ -1708,57 +1905,422 @@ System.out.println(" will use a Upper bounday of: " + high + " for " + vName);
 
 // ADDED BY SHANE
 
-private int checkRestrictLowerBound(String varName, int curLowerBound, Expression guard) 
+/** Considers the expressions in the guard to check if the lowerBound for a given varName could be increased. Recursive. */
+private int checkRestrictLowerBound(String varName, int curLowerBound, Expression guard, Values alreadyConsideredOnes) 
 {
-	int relOp, maybeBound;
+	int relOp, maybeBound, newLower, lowerBound;
 	List<ExpressionBinaryOp> relationsInvolvingVar = null;
 	FindRelOpInvolvingVar visitor = new FindRelOpInvolvingVar(varName);
+	Expression op2;
+	Values copyOfAlready;
 
-	int lowerBound = curLowerBound;
+	if (alreadyConsideredOnes == null) throw new NullPointerException("alreadyConsideredOnes must be an instantiated Values object, even if empty.");
+
+if (DEBUG_ChkRstr) System.out.println("\n<CHK_RSTR>\ncheckRestrictLowerBound called for: " + varName);
+
+if (DEBUG_ChkRstr) if (alreadyConsideredOnes.getNumValues() > 0)
+  System.out.println("The following values are provided as alreadyConsideredOnes:" + alreadyConsideredOnes);
+else
+  System.out.println("No values are in alreadyConsideredOnes.");
+
+if (DEBUG_ChkRstr) System.out.println("\nThe current lower bound of " + varName + " is: " + curLowerBound);
+
+	lowerBound = curLowerBound;
+
+if (DEBUG_ChkRstr) System.out.println("Going to search (using Visitor) for any place it appears in the following guard: " + guard);
 
 	try {
 		guard.deepCopy().accept(visitor);		// Start searching.
 	} catch (PrismLangException peIgnore) { };
 
+	// Extract out all the expressions within the guard, that involve the variable specified by varName
 	relationsInvolvingVar = visitor.getExpressionsThatInvolve();
 
 
 	if (relationsInvolvingVar != null && relationsInvolvingVar.size() > 0)
 	{
-for (Expression output : relationsInvolvingVar)
-  System.out.println(output + " may restrict the range of " + varName);
+if (DEBUG_ChkRstr) System.out.println("The following expressions may have an impact on " + varName + ": ");
+for (Expression output : relationsInvolvingVar) System.out.println("  " + output + " may restrict the range of " + varName);
+System.out.println();
+		// Consider each expression that involves the variable
 		for (ExpressionBinaryOp curExpr : relationsInvolvingVar) {
+if (DEBUG_ChkRstr) System.out.println("\nConsidering impact on variable " + varName + " caused by this expression: " + curExpr);
 			relOp = curExpr.getOperator();
 			if (relOp == ExpressionBinaryOp.GT)
 			{
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("Operator is >");
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("oper1 is " + curExpr.getOperand1() + ", oper2 is " + curExpr.getOperand2() ) ;
+				op2 = curExpr.getOperand2();
 				try {
-					maybeBound = (curExpr.getOperand2()).evaluateInt(constantValues,(Values)null);
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("Going to call evaluateInt on " + op2 + " substituting this for variables: " + alreadyConsideredOnes);
+					maybeBound = 1+ op2.evaluateInt(constantValues,alreadyConsideredOnes);  // ,(Values)null);
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("[C] value returned from evaluateInt (called 'maybeBound' in code) is: " + maybeBound + "\nDOES it make sense for THAT to become lowerBound??");
 					if (maybeBound > lowerBound)	// The current 'maybeBound' value is more restrictive.
-					  lowerBound = maybeBound + 1;	// So make the subsequent integer be the new lower bound.
+					  lowerBound = maybeBound;	// So make the subsequent integer be the new lower bound.
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("after all that, lowerBound for " + varName + " is: " + lowerBound);
+				} catch (PrismEvaluationException pee1) {
+					String problemVarName = ((ExpressionVar)pee1.getASTElement()).getName();
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("First need to determine lower bound of: " + problemVarName);
+					// Make a copy of the values already 'set' by prior calls.
+					copyOfAlready = new Values(alreadyConsideredOnes);
+					// set a value for the CURRENT variable, so we don't enter an infinite cycle of calls.
+					copyOfAlready.addValue(varName, new Integer(lowerBound) );
+
+					newLower = checkRestrictLowerBound( problemVarName,		// The name of the variable we want to tie-down.
+						varList.getLow(varList.getIndex(problemVarName)),	// Its default lower bound
+						guard,
+						copyOfAlready
+					);
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("Back in prior call, we are dealing with this expression: " + op2);
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("The lower bound of " + problemVarName + " we received back, ends up being " + newLower);
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("So we will copy the original set of 'alreadyConsideredVariables', and insert " + problemVarName + " with value " + newLower + " and re-evaluate " + op2);
+					// Now that we have a value resolved for the problem variable name, lets try again with it added to the list of alreadyOnes.
+					copyOfAlready = new Values(alreadyConsideredOnes);		// Reset, no longer have the CURRENT variable in it.
+					copyOfAlready.addValue(problemVarName,newLower);		// Insert the variable we have just tried to resolve.
+
+					try {
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("\nRe-Considering impact on variable " + varName + " caused by this expression: " + curExpr);
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("by calling evaluateInt on this expr: " + op2 + " using the following partial value assignments for variables: " + copyOfAlready);
+						maybeBound = 1 + op2.evaluateInt(constantValues,copyOfAlready);  // ,(Values)null);
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("[D] value returned from evaluateInt is: " + maybeBound);
+						if (maybeBound > lowerBound)	// The current 'maybeBound' value is more restrictive.
+						  lowerBound = maybeBound;	// So make the subsequent integer be the new lower bound.
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("after all that, lowerBound is: " + lowerBound);
+
+						// If we get to here, maybe we ought to replace the "alreadyConsideredOnes" with the newer copyOfAlready???
+					} catch (Exception tooHard) {
+if (DEBUG_ChkRstr) System.out.println("SHANE - PROBLEM TO DEAL WITH, in Mod2MTBDD.checkRestrictLowerBound in the TooHard case):");
+tooHard.printStackTrace(System.out);
+System.exit(1);
+}
 				} catch (Exception ex1) {
+if (DEBUG_ChkRstr) System.out.println("SHANE - PROBLEM TO DEAL WITH, in Mod2MTBDD.checkRestrictLowerBound:");
 ex1.printStackTrace(System.out);
 System.exit(1);
 				}
+if (DEBUG_ChkRstr) System.out.println("END OF THE > BLOCK");
 			}
 			else if (relOp == ExpressionBinaryOp.GE)
 			{
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("Operator is >=");
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("oper1 is " + curExpr.getOperand1() + ", oper2 is " + curExpr.getOperand2() ) ;
+				op2 = curExpr.getOperand2();
 				try {
-					maybeBound = (curExpr.getOperand2()).evaluateInt(constantValues,(Values)null);
-					if (maybeBound > lowerBound)	// The current 'maybeBound' value is more restrictive.
-					  lowerBound = maybeBound;	// So make it the new lower bound.
-				} catch (Exception ex2) {
-ex2.printStackTrace(System.out);
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("Going to call evaluateInt on " + op2 + " substituting this for variables: " + alreadyConsideredOnes);
+					maybeBound = op2.evaluateInt(constantValues,alreadyConsideredOnes);  // ,(Values)null);
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("[A] value returned from evaluateInt (called 'maybeBound' in code) is: " + maybeBound + "\nDOES it make sense for THAT to become lowerBound??");
+					if (maybeBound >= lowerBound)	// The current 'maybeBound' value is more restrictive.
+					  lowerBound = maybeBound;	// So make the subsequent integer be the new lower bound.
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("after all that, lowerBound for " + varName + " is: " + lowerBound);
+				} catch (PrismEvaluationException pee1) {
+					String problemVarName = ((ExpressionVar)pee1.getASTElement()).getName();
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("First need to determine lower bound of: " + problemVarName);
+					// Make a copy of the values already 'set' by prior calls.
+					copyOfAlready = new Values(alreadyConsideredOnes);
+					// set a value for the CURRENT variable, so we don't enter an infinite cycle of calls.
+					copyOfAlready.addValue(varName, new Integer(lowerBound) );
+
+					newLower = checkRestrictLowerBound( problemVarName,		// The name of the variable we want to tie-down.
+						varList.getLow(varList.getIndex(problemVarName)),	// Its default lower bound
+						guard,
+						copyOfAlready
+					);
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("Back in prior call, we are dealing with this expression: " + op2);
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("The lower bound of " + problemVarName + " we received back, ends up being " + newLower);
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("So we will copy the original set of 'alreadyConsideredVariables', and insert " + problemVarName + " with value " + newLower + " and re-evaluate " + op2);
+					// Now that we have a value resolved for the problem variable name, lets try again with it added to the list of alreadyOnes.
+					copyOfAlready = new Values(alreadyConsideredOnes);		// Reset, no longer have the CURRENT variable in it.
+					copyOfAlready.addValue(problemVarName,newLower);		// Insert the variable we have just tried to resolve.
+
+					try {
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("\nRe-Considering impact on variable " + varName + " caused by this expression: " + curExpr);
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("by calling evaluateInt on this expr: " + op2 + " using the following partial value assignments for variables: " + copyOfAlready);
+						maybeBound = op2.evaluateInt(constantValues,copyOfAlready);  // ,(Values)null);
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("[B] value returned from evaluateInt is: " + maybeBound);
+						if (maybeBound > lowerBound)	// The current 'maybeBound' value is more restrictive.
+						  lowerBound = maybeBound;	// So make the subsequent integer be the new lower bound.
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("after all that, lowerBound is: " + lowerBound);
+
+						// If we get to here, maybe we ought to replace the "alreadyConsideredOnes" with the newer copyOfAlready???
+					} catch (Exception tooHard) {
+if (DEBUG_ChkRstr) System.out.println("SHANE - PROBLEM TO DEAL WITH, in Mod2MTBDD.checkRestrictLowerBound in the TooHard case):");
+tooHard.printStackTrace(System.out);
+System.exit(1);
+}
+				} catch (Exception ex1) {
+if (DEBUG_ChkRstr) System.out.println("SHANE - PROBLEM TO DEAL WITH, in Mod2MTBDD.checkRestrictLowerBound:");
+ex1.printStackTrace(System.out);
 System.exit(1);
 				}
+if (DEBUG_ChkRstr) System.out.println("END OF THE >=BLOCK");
 			}
+			else if (relOp == ExpressionBinaryOp.EQ)
+			{
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("*[Case 3]*  Operator is =");
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("oper1 is " + curExpr.getOperand1() + ", oper2 is " + curExpr.getOperand2() ) ;
+				op2 = curExpr.getOperand2();
+				try {
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("Going to call evaluateInt on " + op2 + " substituting this for variables: " + alreadyConsideredOnes);
+					maybeBound = op2.evaluateInt(constantValues,alreadyConsideredOnes);  // ,(Values)null);
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("[A] value returned from evaluateInt (called 'maybeBound' in code) is: " + maybeBound + "\nDOES it make sense for THAT to become lowerBound??");
+					  lowerBound = maybeBound;	// So make the subsequent integer be the new lower bound.
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("after all that, lowerBound for " + varName + " is: " + lowerBound);
+				} catch (PrismEvaluationException pee1) {
+					String problemVarName = ((ExpressionVar)pee1.getASTElement()).getName();
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("First need to determine lower bound of: " + problemVarName);
+					// Make a copy of the values already 'set' by prior calls.
+					copyOfAlready = new Values(alreadyConsideredOnes);
+					// set a value for the CURRENT variable, so we don't enter an infinite cycle of calls.
+					copyOfAlready.addValue(varName, new Integer(lowerBound) );
+
+					newLower = checkRestrictLowerBound( problemVarName,		// The name of the variable we want to tie-down.
+						varList.getLow(varList.getIndex(problemVarName)),	// Its default lower bound
+						guard,
+						copyOfAlready
+					);
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("Back in prior call, we are dealing with this expression: " + op2);
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("The lower bound of " + problemVarName + " we received back, ends up being " + newLower);
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("So we will copy the original set of 'alreadyConsideredVariables', and insert " + problemVarName + " with value " + newLower + " and re-evaluate " + op2);
+					// Now that we have a value resolved for the problem variable name, lets try again with it added to the list of alreadyOnes.
+					copyOfAlready = new Values(alreadyConsideredOnes);		// Reset, no longer have the CURRENT variable in it.
+					copyOfAlready.addValue(problemVarName,newLower);		// Insert the variable we have just tried to resolve.
+
+					try {
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("\nRe-Considering impact on variable " + varName + " caused by this expression: " + curExpr);
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("by calling evaluateInt on this expr: " + op2 + " using the following partial value assignments for variables: " + copyOfAlready);
+						maybeBound = op2.evaluateInt(constantValues,copyOfAlready);  // ,(Values)null);
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("[B] value returned from evaluateInt is: " + maybeBound);
+						  lowerBound = maybeBound;	// So make the subsequent integer be the new lower bound.
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("after all that, lowerBound is: " + lowerBound);
+
+						// If we get to here, maybe we ought to replace the "alreadyConsideredOnes" with the newer copyOfAlready???
+					} catch (Exception tooHard) {
+if (DEBUG_ChkRstr) System.out.println("SHANE - PROBLEM TO DEAL WITH, in Mod2MTBDD.checkRestrictLowerBound in the TooHard case [3]):");
+tooHard.printStackTrace(System.out);
+System.exit(1);
+}
+				} catch (Exception ex1) {
+if (DEBUG_ChkRstr) System.out.println("SHANE - PROBLEM TO DEAL WITH, in Mod2MTBDD.checkRestrictLowerBound:");
+ex1.printStackTrace(System.out);
+System.exit(1);
+				}
+if (DEBUG_ChkRstr) System.out.println("END OF THE >=BLOCK");
+			}
+else if (DEBUG_ChkRstr) System.out.println("It is neither > nor >=, so it has NO impact; just returning the original lowerBound value.");
 		}
 	}
-System.out.println("Final lowerBound of " + varName + " will be " + lowerBound);
+if (DEBUG_ChkRstr) System.out.println("\ncheckRestrictLowerBound ending  for: " + varName + " with value: " + lowerBound + "\n</CHK_RSTR>\n");
 	return lowerBound;
 }
 
 
-private int checkRestrictUpperBound(String varName, int curUpperBound, Expression guard) 
+/** Considers the expressions in the guard to check if the upperBound for a given varName could be decreased. Recursive. */
+private int checkRestrictUpperBound(String varName, int curUpperBound, Expression guard, Values alreadyConsideredOnes) 
+{
+	int relOp, maybeBound, newUpper, upperBound;
+	List<ExpressionBinaryOp> relationsInvolvingVar = null;
+	FindRelOpInvolvingVar visitor = new FindRelOpInvolvingVar(varName);
+	Expression op2;
+	Values copyOfAlready;
+
+	if (alreadyConsideredOnes == null) throw new NullPointerException("alreadyConsideredOnes must be an instantiated Values object, even if empty.");
+
+if (DEBUG_ChkRstr) System.out.println("\n<CHK_RSTR>\ncheckRestrictUpperBound called for: " + varName);
+
+if (DEBUG_ChkRstr) if (alreadyConsideredOnes.getNumValues() > 0)
+  System.out.println("The following values are provided as alreadyConsideredOnes:" + alreadyConsideredOnes);
+else
+  System.out.println("No values are in alreadyConsideredOnes.");
+
+if (DEBUG_ChkRstr) System.out.println("\nThe current upper bound of " + varName + " is: " + curUpperBound);
+
+	upperBound = curUpperBound;
+
+if (DEBUG_ChkRstr) System.out.println("Going to search (using Visitor) for any place it appears in the following guard: " + guard);
+
+	try {
+		guard.deepCopy().accept(visitor);		// Start searching.
+	} catch (PrismLangException peIgnore) { };
+
+	// Extract out all the expressions within the guard, that involve the variable specified by varName
+	relationsInvolvingVar = visitor.getExpressionsThatInvolve();
+
+
+	if (relationsInvolvingVar != null && relationsInvolvingVar.size() > 0)
+	{
+if (DEBUG_ChkRstr) System.out.println("The following expressions may have an impact on " + varName + ": ");
+for (Expression output : relationsInvolvingVar) System.out.println("  " + output + " may restrict the range of " + varName);
+System.out.println();
+		// Consider each expression that involves the variable
+		for (ExpressionBinaryOp curExpr : relationsInvolvingVar) {
+if (DEBUG_ChkRstr) System.out.println("\nConsidering impact on variable " + varName + " caused by this expression: " + curExpr);
+			relOp = curExpr.getOperator();
+			if (relOp == ExpressionBinaryOp.LT)
+			{
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("Operator is <");
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("oper1 is " + curExpr.getOperand1() + ", oper2 is " + curExpr.getOperand2() ) ;
+				op2 = curExpr.getOperand2();
+				try {
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("Going to call evaluateInt on " + op2 + " substituting this for variables: " + alreadyConsideredOnes);
+					maybeBound = op2.evaluateInt(constantValues,alreadyConsideredOnes) - 1;
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("value returned from evaluateInt (called 'maybeBound' in code) is: " + maybeBound + "\nDOES it make sense for THAT to become upperBound??");
+					if (maybeBound < upperBound)	// The current 'maybeBound' value is more restrictive.
+					  upperBound = maybeBound;	// So make the subsequent integer be the new upper bound.
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("after all that, upperBound for " + varName + " is: " + upperBound);
+				} catch (PrismEvaluationException pee1) {
+					String problemVarName = ((ExpressionVar)pee1.getASTElement()).getName();
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("First need to determine upper bound of: " + problemVarName);
+					// Make a copy of the values already 'set' by prior calls.
+					copyOfAlready = new Values(alreadyConsideredOnes);
+					// set a value for the CURRENT variable, so we don't enter an infinite cycle of calls.
+					copyOfAlready.addValue(varName, new Integer(upperBound) );
+
+					newUpper = checkRestrictUpperBound( problemVarName,		// The name of the variable we want to tie-down.
+						varList.getHigh(varList.getIndex(problemVarName)),	// Its default upper bound
+						guard,
+						copyOfAlready
+					);
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("Back in prior call, we are dealing with this expression: " + op2);
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("The upper bound of " + problemVarName + " we received back, ends up being " + newUpper);
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("So we will copy the original set of 'alreadyConsideredVariables', and insert " + problemVarName + " with value " + newUpper + " and re-evaluate " + op2);
+					// Now that we have a value resolved for the problem variable name, lets try again with it added to the list of alreadyOnes.
+					copyOfAlready = new Values(alreadyConsideredOnes);		// Reset, no longer have the CURRENT variable in it.
+					copyOfAlready.addValue(problemVarName,newUpper);		// Insert the variable we have just tried to resolve.
+
+					try {
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("\nRe-Considering impact on variable " + varName + " caused by this expression: " + curExpr);
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("by calling evaluateInt on this expr: " + op2 + " using the following partial value assignments for variables: " + copyOfAlready);
+						maybeBound = op2.evaluateInt(constantValues,copyOfAlready) -1;
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("value returned from evaluateInt is: " + maybeBound);
+						if (maybeBound < upperBound)	// The current 'maybeBound' value is more restrictive.
+						  upperBound = maybeBound;	// So make the subsequent integer be the new upper bound.
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("after all that, upperBound is: " + upperBound);
+
+						// If we get to here, maybe we ought to replace the "alreadyConsideredOnes" with the newer copyOfAlready???
+					} catch (Exception tooHard) {
+if (DEBUG_ChkRstr) System.out.println("SHANE - PROBLEM TO DEAL WITH, in Mod2MTBDD.checkRestrictUpperBound in the TooHard case):");
+tooHard.printStackTrace(System.out);
+System.exit(1);
+}
+				} catch (Exception ex1) {
+if (DEBUG_ChkRstr) System.out.println("SHANE - PROBLEM TO DEAL WITH, in Mod2MTBDD.checkRestrictUpperBound:");
+ex1.printStackTrace(System.out);
+System.exit(1);
+				}
+			}
+			else if (relOp == ExpressionBinaryOp.LE)
+			{
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("Operator is <=");
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("oper1 is " + curExpr.getOperand1() + ", oper2 is " + curExpr.getOperand2() ) ;
+				op2 = curExpr.getOperand2();
+				try {
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("Going to call evaluateInt on " + op2 + " substituting this for variables: " + alreadyConsideredOnes);
+					maybeBound = op2.evaluateInt(constantValues,alreadyConsideredOnes);  // ,(Values)null);
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("value returned from evaluateInt (called 'maybeBound' in code) is: " + maybeBound + "\nDOES it make sense for THAT to become upperBound??");
+					if (maybeBound < upperBound)	// The current 'maybeBound' value is more restrictive.
+					  upperBound = maybeBound;	// So make the subsequent integer be the new upper bound.
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("after all that, upperBound for " + varName + " is: " + upperBound);
+				} catch (PrismEvaluationException pee1) {
+					String problemVarName = ((ExpressionVar)pee1.getASTElement()).getName();
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("First need to determine upper bound of: " + problemVarName);
+					// Make a copy of the values already 'set' by prior calls.
+					copyOfAlready = new Values(alreadyConsideredOnes);
+					// set a value for the CURRENT variable, so we don't enter an infinite cycle of calls.
+					copyOfAlready.addValue(varName, new Integer(upperBound) );
+
+					newUpper = checkRestrictUpperBound( problemVarName,		// The name of the variable we want to tie-down.
+						varList.getLow(varList.getIndex(problemVarName)),	// Its default upper bound
+						guard,
+						copyOfAlready
+					);
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("Back in prior call, we are dealing with this expression: " + op2);
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("The upper bound of " + problemVarName + " we received back, ends up being " + newUpper);
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("So we will copy the original set of 'alreadyConsideredVariables', and insert " + problemVarName + " with value " + newUpper + " and re-evaluate " + op2);
+					// Now that we have a value resolved for the problem variable name, lets try again with it added to the list of alreadyOnes.
+					copyOfAlready = new Values(alreadyConsideredOnes);		// Reset, no longer have the CURRENT variable in it.
+					copyOfAlready.addValue(problemVarName,newUpper);		// Insert the variable we have just tried to resolve.
+
+					try {
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("\nRe-Considering impact on variable " + varName + " caused by this expression: " + curExpr);
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("by calling evaluateInt on this expr: " + op2 + " using the following partial value assignments for variables: " + copyOfAlready);
+						maybeBound = op2.evaluateInt(constantValues,copyOfAlready);  // ,(Values)null);
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("value returned from evaluateInt is: " + maybeBound);
+						if (maybeBound < upperBound)	// The current 'maybeBound' value is more restrictive.
+						  upperBound = maybeBound;	// So make the subsequent integer be the new upper bound.
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("after all that, upperBound is: " + upperBound);
+
+						// If we get to here, maybe we ought to replace the "alreadyConsideredOnes" with the newer copyOfAlready???
+					} catch (Exception tooHard) {
+if (DEBUG_ChkRstr) System.out.println("SHANE - PROBLEM TO DEAL WITH, in Mod2MTBDD.checkRestrictUpperBound in the TooHard case):");
+tooHard.printStackTrace(System.out);
+System.exit(1);
+}
+				} catch (Exception ex1) {
+if (DEBUG_ChkRstr) System.out.println("SHANE - PROBLEM TO DEAL WITH, in Mod2MTBDD.checkRestrictUpperBound:");
+ex1.printStackTrace(System.out);
+System.exit(1);
+				}
+			}
+			else if (relOp == ExpressionBinaryOp.EQ)
+			{
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("Operator is =");
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("oper1 is " + curExpr.getOperand1() + ", oper2 is " + curExpr.getOperand2() ) ;
+				op2 = curExpr.getOperand2();
+				try {
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("Going to call evaluateInt on " + op2 + " substituting this for variables: " + alreadyConsideredOnes);
+					maybeBound = op2.evaluateInt(constantValues,alreadyConsideredOnes);  // ,(Values)null);
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("value returned from evaluateInt (called 'maybeBound' in code) is: " + maybeBound + "\nDOES it make sense for THAT to become upperBound??");
+					  upperBound = maybeBound;	// So make the subsequent integer be the new upper bound.
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("after all that, upperBound for " + varName + " is: " + upperBound);
+				} catch (PrismEvaluationException pee1) {
+					String problemVarName = ((ExpressionVar)pee1.getASTElement()).getName();
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("First need to determine upper bound of: " + problemVarName);
+					// Make a copy of the values already 'set' by prior calls.
+					copyOfAlready = new Values(alreadyConsideredOnes);
+					// set a value for the CURRENT variable, so we don't enter an infinite cycle of calls.
+					copyOfAlready.addValue(varName, new Integer(upperBound) );
+
+					newUpper = checkRestrictUpperBound( problemVarName,		// The name of the variable we want to tie-down.
+						varList.getLow(varList.getIndex(problemVarName)),	// Its default upper bound
+						guard,
+						copyOfAlready
+					);
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("Back in prior call, we are dealing with this expression: " + op2);
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("The upper bound of " + problemVarName + " we received back, ends up being " + newUpper);
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("So we will copy the original set of 'alreadyConsideredVariables', and insert " + problemVarName + " with value " + newUpper + " and re-evaluate " + op2);
+					// Now that we have a value resolved for the problem variable name, lets try again with it added to the list of alreadyOnes.
+					copyOfAlready = new Values(alreadyConsideredOnes);		// Reset, no longer have the CURRENT variable in it.
+					copyOfAlready.addValue(problemVarName,newUpper);		// Insert the variable we have just tried to resolve.
+
+					try {
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("\nRe-Considering impact on variable " + varName + " caused by this expression: " + curExpr);
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("by calling evaluateInt on this expr: " + op2 + " using the following partial value assignments for variables: " + copyOfAlready);
+						maybeBound = op2.evaluateInt(constantValues,copyOfAlready);  // ,(Values)null);
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("value returned from evaluateInt is: " + maybeBound);
+						  upperBound = maybeBound;	// So make the subsequent integer be the new upper bound.
+if (DEBUG_ChkRstr_ExtraDetail) System.out.println("after all that, upperBound is: " + upperBound);
+
+						// If we get to here, maybe we ought to replace the "alreadyConsideredOnes" with the newer copyOfAlready???
+					} catch (Exception tooHard) {
+if (DEBUG_ChkRstr) System.out.println("SHANE - PROBLEM TO DEAL WITH, in Mod2MTBDD.checkRestrictUpperBound in the TooHard case [3]):");
+tooHard.printStackTrace(System.out);
+System.exit(1);
+}
+				} catch (Exception ex1) {
+if (DEBUG_ChkRstr) System.out.println("SHANE - PROBLEM TO DEAL WITH, in Mod2MTBDD.checkRestrictUpperBound:");
+ex1.printStackTrace(System.out);
+System.exit(1);
+				}
+			}
+else if (DEBUG_ChkRstr) System.out.println("It is neither < nor <=, so it has NO impact; just returning the original upperBound value.");
+		}
+	}
+if (DEBUG_ChkRstr) System.out.println("\ncheckRestrictUpperBound ending  for: " + varName + " with value: " + upperBound + "\n</CHK_RSTR>\n");
+	return upperBound;
+}
+
+/*
+OLD CODE:
 {
 	int relOp, maybeBound;
 	List<ExpressionBinaryOp> relationsInvolvingVar;
@@ -1772,8 +2334,7 @@ private int checkRestrictUpperBound(String varName, int curUpperBound, Expressio
 
 	if (relationsInvolvingVar != null && relationsInvolvingVar.size() > 0)
 	{
-for (Expression output : relationsInvolvingVar)
-  System.out.println(output + " may restrict the range of " + varName);
+//for (Expression output : relationsInvolvingVar) System.out.println(output + " may restrict the range of " + varName);
 		for (ExpressionBinaryOp curExpr : relationsInvolvingVar) {
 			relOp = curExpr.getOperator();
 			if (relOp == ExpressionBinaryOp.LT)
@@ -1802,9 +2363,13 @@ System.exit(1);
 			}
 		}
 	}
-System.out.println("Final upperBound of " + varName + " will be " + upperBound);
+//System.out.println("Final upperBound of " + varName + " will be " + upperBound);
 	return upperBound;
 }
+
+*/
+
+
 	// translate a single module to a dd
 	// for a given synchronizing action ("" = none)
 
@@ -1819,12 +2384,14 @@ System.out.println("Final upperBound of " + varName + " will be " + upperBound);
 		double dmin = 0, dmax = 0;
 		boolean match;
 
-if (DEBUG_TraSysMod) {
-System.out.println("\n-------------");
+DEBUG_CurSynch = synch;
+
+//if (DEBUG_TraSysMod) 
+{
 	PrintDebugIndent();
-	System.out.println("<TranslateModule mod='"+ module.getName() + "', synch='" + synch + "'>");
+	System.out.println("<TranslateModule mod='"+ module.getName() + "', usingSynchOf='" + synch + "'>");
 }
-DebugIndent++;
+//DebugIndent++;
 
 		// get number of commands 
 		numCommands = module.getNumCommands();
@@ -1835,18 +2402,21 @@ DebugIndent++;
 
 if (DEBUG_TransMod)
 {
+cachedGuardExprs = new ArrayList<Expression>();
+
 	PrintDebugIndent();
-	System.out.println("[in prism.Modules2MTBDD::translateModule()], Module: " + module.getName() + " has " + numCommands + " commands.");
+	System.out.println("[in prism.Modules2MTBDD::translateModule()], Module: " + module.getName() + " has " + numCommands + " commands.\n");
+	PrintDebugIndent(); System.out.println("<TransMod_Phase1>");
+DebugIndent++;
 	PrintDebugIndent();
-	System.out.println("Looking for those commands with matching sync of: " + synch);
+	System.out.println("Looking for those commands with matching sync of: '" + synch +"'");
 }
 		// translate guard/updates for each command of the module
 		for (l = 0; l < numCommands; l++) {
 if (DEBUG_TransMod) {
 	System.out.println();
-	System.out.println("<ConsidComForSync cmdNum='"+l+"' synch='"+synch+"'>");
-	PrintDebugIndent();
-	System.out.println("[in prism.Modules2MTBDD::translateModule()]: Considering command " + l + " against sync " + synch);
+//	PrintDebugIndent(); System.out.println("<TrMd_ConsidComForSync cmdNum='"+(l+1)+"/"+ numCommands+"' ofModule='"+module.getName()+"' hopeForSynch='"+synch+"'>");
+//	PrintDebugIndent(); System.out.println("[in prism.Modules2MTBDD::translateModule()]: Considering command " + (l+1) + " against sync " + synch);
 }
 			command = module.getCommand(l);
 			// check if command matches requested synch
@@ -1860,9 +2430,11 @@ if (DEBUG_TransMod) {
 			// if so translate
 			if (match) {
 if (DEBUG_TransMod) {
-	PrintDebugIndent(); System.out.println("Command " + (l+1) +" matches synch '" + synch + "'.");
-	PrintDebugIndent(); System.out.println("The command is: " + command);
+	PrintDebugIndent(); System.out.println("Command " + (l+1) + " of module " +module.getName() + " MATCHES synch '" + synch + "'.");
+	PrintDebugIndent(); System.out.println("The command is:\n" + command);
+	PrintDebugIndent(); System.out.println("<DealWithMatchedSynch synch='"+synch+"' module='"+module.getName()+"'"); DebugIndent++;
 }
+
 
 				// New section inserted by SHANE, in order to determine if this command needs special treatment due to
 				// any IndexedSet access expressions which are to indeterminate index positions...
@@ -1875,7 +2447,7 @@ if (DEBUG_TransMod || Expression.DEBUG_VPEISA) {
 
 if (DEBUG_TransMod || Expression.DEBUG_VPEISA) {
 	PrintDebugIndent(); System.out.println("</FindInspecificAccessExpr>\n");
-	PrintDebugIndent(); System.out.println("The command is: " + command);	// Repeating from earlier, so it (re-)appears in view immediately when I search on the XML tag
+	PrintDebugIndent(); System.out.println("REMINDER - The command is: " + command);	// Repeating from earlier, so it (re-)appears in view immediately when I search on the XML tag
 }
 				// See if there are any found. If so, get the index-expressions and place unique ones into another Set
 				if (EISAs.size() > 0) {
@@ -1926,11 +2498,15 @@ if (DEBUG_TransMod || Expression.DEBUG_VPEISA) {
 							}
 //							else if (varList.getType(vIndex) != parser.ast.type.TypeInt) 
 //								throw new PrismException("Variable \"" + varName + "\" not an integer type, cannot be used in index-specification expression");
-	System.out.println("Variable's name is: " + varName + ", and its index in the VarList is: " + vIndex);
+	System.out.println("Adding variable " + varName + " to the list of vars used for accessing indexed set (given to checkLowerBounds, etc.)");
 
 							list_varsForAccessingIndSet.add(vIndex);
 
 						}
+						// We need to see whether there are dependencies amongst variables that may occur in those index-expressions,
+						// as these may determine an order in which to 'set' a value to determine the other substitutions.
+
+
 						// For each variable that appears, we need to work out its domain, which could be restricted by its use in other expressions of the same Command/Update.
 System.out.println("<REFINE_BOUNDS>");
 						ArrayList<Integer> lowerBounds = checkLowerBounds(list_varsForAccessingIndSet, command.getGuard());
@@ -1947,39 +2523,122 @@ System.out.println("</RECURSE_ON_VARS>\n\nBack in translateModules(), received "
 
 				if (substitutionCombins.size() == 0)
 					substitutionCombins.add(new Values());		// Ensure there is at least one Values -  in this case one with no substitutions.
+if (DEBUG_TransMod && substitutionCombins.size() == 0)
+{
+	PrintDebugIndent();
+	System.out.println("There is actually no substitutions, but we added a blank Values() to allow the following loop code to run.\n");
+}
 				for (Values substitutions : substitutionCombins) {
+if (DEBUG_TransMod) {
+	PrintDebugIndent();
+	System.out.println("[In TranslateModule for mod='"+ module.getName() + "', usingSynchOf='" + synch + "']:");
+	PrintDebugIndent();
+	System.out.println("About to try the following combination of substitutions:\n" + substitutions + "\n");
+	PrintDebugIndent();
+	System.out.println("<TrMod_DealWithSubstitution subs='"+substitutions+"'>");
+DebugIndent++;
+}
 					// Generate 1 or more DD which is for a command where the current value substitutions are made
 					translatedCmd = translateCommandForValues(m, module, l, command, substitutions);
-					// Extract out the guardDD and the upDD, and append to this module's lists.
-					guardDDs.add( translatedCmd.guardDD );
-					upDDs.add( translatedCmd.upDD );
+if (DEBUG_TransMod)
+{
+	PrintDebugIndent();
+	System.out.println("[Back In TranslateModule for mod='"+ module.getName() + "', usingSynchOf='" + synch + "']");
+	PrintDebugIndent();
+	System.out.println("After translating command " + command + "\n having used the following set of substitutions: '" + substitutions + "'");
+	PrintDebugIndent();
+        System.out.println("<GuardDDs_Add for_cmd_with_synch='"+synch+"' for_substitutions='"+substitutions+"'>");
+	
+}
+					if (!translatedCmd.guardDD.equals(JDD.ZERO))	// If the guard is never true, no point accumulating it
+					{
+
+if (DEBUG_TransMod)
+{
+	PrintDebugIndent();
+	System.out.println("In TransMod: Since translatedCmd.guardDD is not zero, we WILL ADD the translatedCommand's guard to the guardDDs...");
+}
+						// Extract out the guardDD and the upDD, and append to this module's lists.
+						guardDDs.add( translatedCmd.guardDD );
+if (DEBUG_TransMod)
+{
+	PrintDebugIndent(); System.out.println("In TransMod: The accumulated GuardDDs array now has " + guardDDs.size() + " elements");
+	PrintDebugIndent(); System.out.println("</GuardDDs_Add>");
+	PrintDebugIndent(); System.out.println("In TransMod: We will also add the translatedCommand's upDD to the upDDs...");
+	PrintDebugIndent(); System.out.println("<UpDDs_Add>");
+}
+
+						upDDs.add( translatedCmd.upDD );
+
+if (DEBUG_TransMod)
+{
+	System.out.println("</UpDDs_Add>\n");
+}
+
+cachedGuardExprs.add ( translatedCmd.guardExpr );
+
+
 //guardDDs[l].setPurpose("guard for command "+l);	// Would need to say what substitutions are made, if uncommented.
 //upDDs[l].setPurpose("upDD for command " + l);
+
+					}
+else if (DEBUG_TransMod)
+{
+	PrintDebugIndent();
+	System.out.println("Since translatedCmd.guardDD equals JDD.ZERO (never able to be true), this translated JDD is being DISCARDED.\n  </GuardDDs_Add>");
+}
+
+// Always (if debug on):
+if (DEBUG_TransMod) {
+DebugIndent--;
+	PrintDebugIndent();
+	System.out.println("</TrMod_DealWithSubstitution sub='"+substitutions+"'>");
+}
 				}
 
+
+if (DEBUG_TransMod) {
+   DebugIndent--; PrintDebugIndent(); System.out.println("</DealWithMatchedSynch synch='"+synch+"' module='"+module.getName()+"'");
+}
 			// otherwise use 0
 			} else {
 if (DEBUG_TransMod)
 {
 	PrintDebugIndent(); 
-	System.out.println("Command " + (l+1) +" does not match synch '" + synch + "'. Nothing to do for it.");
+	System.out.println("Command " + (l+1) + " of module " +module.getName() + " with synch '" + command.getSynch() + "'");
+	PrintDebugIndent(); 
+	System.out.println(" - does not match synch '" + synch + "' so skip it for now.");
 }
-				guardDDs.add(JDD.Constant(0));
-				upDDs.add(JDD.Constant(0));
+// SHANE BELIEVES THERE IS NO POINT NOW IN EVEN BOTHERING TO STORE ENTRIES FOR THIS ITERATION; it would just slow the CombineCommands phase
+
+//				guardDDs.add(JDD.Constant(0));
+//				upDDs.add(JDD.Constant(0));
 				//rewDDs.add(JDD.Constant(0));
 //guardDDs[l].setPurpose("guard for command "+l);
 //upDDs[l].setPurpose("upDD for command " + l);
+//cachedGuardExprs.add ( null );
 			}
 
 if (DEBUG_TransMod) {
-	PrintDebugIndent(); System.out.println("<ConsidComForSync cmdNum='"+l+"' synch='"+synch+"'>");
+//	PrintDebugIndent(); System.out.println("</TrMd_ConsidComForSync cmdNum='"+(l+1)+"/"+ numCommands+"' synch='"+synch+"'>");
 }
 		}
 
 if (DEBUG_TransMod)
 {
+	System.out.println();
 	PrintDebugIndent();
-	System.out.print("[in Modules2MTBDD.translateModule()]: @ line 1645 (After having considered all commands, against the synch '" + synch + "')");
+	System.out.println("in Modules2MTBDD.translateModule() - Phase 1 completed - finished considering ALL commands of module '" + module.getName() + "' against the synch '" + synch + "'");
+DebugIndent--;
+	PrintDebugIndent();
+	System.out.println("</TransMod_Phase1 forSynch='"+synch+"'>\n");
+	PrintDebugIndent();
+	System.out.println("<TransMod_Phase2 forSynch='"+synch+"'>");
+DebugIndent++;
+	PrintDebugIndent();
+	System.out.println("in Modules2MTBDD.translateModule() - Commencing Phase 2 - About to do some form of CombineCommands method.");
+	PrintDebugIndent();
+	System.out.println("for synch='"+synch+"', (within module '"+module.getName()+"' only)\n");
 }
 
 		// combine guard/updates dds for each command
@@ -1989,24 +2648,52 @@ if (DEBUG_TransMod) {
 	System.out.print("[in Modules2MTBDD.translateModule()]: About to call combineCommandsProb()");
 }
 			// OLD before ArrayLists: compDDs = combineCommandsProb(m, numCommands, guardDDs, upDDs);
-			compDDs = combineCommandsProb(m, guardDDs.size(), (JDDNode[]) guardDDs.toArray(), (JDDNode[]) upDDs.toArray());
-		}
-		else if (modelType == ModelType.MDP) {
+			JDDNode[] guards= new JDDNode[guardDDs.size()];
+			guards = guardDDs.toArray(guards);
+			JDDNode[] updates= new JDDNode[guardDDs.size()];	// Sizes should be same anyway
+			updates = upDDs.toArray(updates);
 if (DEBUG_TransMod) {
 	PrintDebugIndent();
-	System.out.print("[in Modules2MTBDD.translateModule()]: About to call combineCommandsNondet()");
+	System.out.println("The size of guardDDs is " + guardDDs.size() + " and guards[] is " + guards.length);
+	PrintDebugIndent();
+	System.out.println("and the size of 'upDDs' is hopefully the same: " + upDDs.size());
 }
+			compDDs = combineCommandsProb(m, guardDDs.size(), guards, updates);
+		}
+		else if (modelType == ModelType.MDP) {
+
 			// OLD before ArrayLists: compDDs = combineCommandsNondet(m, numCommands, guardDDs, upDDs, synchMin);
 			JDDNode[] guards= new JDDNode[guardDDs.size()];
 			guards = guardDDs.toArray(guards);
 			JDDNode[] updates= new JDDNode[guardDDs.size()];	// Sizes should be same anyway
 			updates = upDDs.toArray(updates);
+if (DEBUG_TransMod) {
+	PrintDebugIndent();
+	System.out.println("The size of guardDDs is " + guardDDs.size() + " and guards[] is " + guards.length);
+	PrintDebugIndent();
+	System.out.println("and the size of 'upDDs' is hopefully the same: " + upDDs.size());
+}
+			
+if (DEBUG_TransMod) {
+	PrintDebugIndent();
+	System.out.println("[in Modules2MTBDD.translateModule()]: ~2104: About to call combineCommandsNondet() ...");
+}				
+
 			compDDs = combineCommandsNondet(m, guardDDs.size(), guards, updates, synchMin);
+			
+if (DEBUG_TransMod) {
+	PrintDebugIndent();
+	System.out.println("[in Modules2MTBDD.translateModule()]: ~2111: After returning from call of combineCommandsNondet() for synch: " + synch);
+}			
+			// hopefully, the garbage collector will reclaim memory previously used by these arrays:
+			guards = null;
+			updates = null;
+
 		}
 		else if (modelType == ModelType.CTMC) {
 if (DEBUG_TransMod) {
 	PrintDebugIndent();
-	System.out.print("[in Modules2MTBDD.translateModule()]: About to call combineCommandsStoch()");
+	System.out.println("[in Modules2MTBDD.translateModule()]: About to call combineCommandsStoch()");
 }
 			// OLD before ArrayLists: compDDs = combineCommandsStoch(m, numCommands, guardDDs, upDDs);
 			compDDs = combineCommandsStoch(m, guardDDs.size(), (JDDNode[]) guardDDs.toArray(), (JDDNode[]) upDDs.toArray());
@@ -2018,7 +2705,7 @@ if (DEBUG_TransMod) {
 if (DEBUG_TransMod)
 {
 	PrintDebugIndent();
-	System.out.print("[in Modules2MTBDD.translateModule()]: @ line 1666");
+	System.out.println("[in Modules2MTBDD.translateModule()]: @ line 2130 (Prior to calling deref on the gaurdDDs and upDDs - guardDDs.size is " + guardDDs.size() + " and upDDs.get is " + upDDs.size() + ") ");
 }
 
 		// deref guards/updates
@@ -2027,11 +2714,15 @@ if (DEBUG_TransMod)
 			JDD.Deref(upDDs.get(l) );
 			//JDD.Deref(rewDDs.get(l));
 		}
+	System.out.println("[in Modules2MTBDD.translateModule()]: @ line 2130 (After calling deref on the gaurdDDs and upDDs) ");
 		
-if (DEBUG_TraSysMod) {
+if (DEBUG_TraSysMod) 
+{
 	DebugIndent--;
 	PrintDebugIndent();
-	System.out.println("</TranslateModule>");
+	System.out.println("\n </TransMod_Phase2 forSynch='"+synch+"'>");
+	PrintDebugIndent(); System.out.println("Finished processing synch " + synch + " within current module");
+	System.out.println("</TranslateModule mod='"+ module.getName() + "', usingSynchOf='" + synch + "'>\n");
 }		
 		return compDDs;
 	}
@@ -2055,10 +2746,10 @@ if (DEBUG_TraSysMod) {
 		JDDNode guardDD, upDD, tmp;
 		double dmin = 0, dmax = 0;
 
-if (DEBUG_TransMod) { 
+if (DEBUG_SUBSTITUTIONS) { 
   PrintDebugIndent(); System.out.println(" <TranslateCommand>\nTranslating the following command: " + command); 
   if (substitutions.getNumValues() > 0) 
-    System.out.println("Using the following substitutions: " + substitutions);
+    System.out.println("\nUsing the following substitutions: " + substitutions);
 }
 
 if (DEBUG_TransMod) { PrintDebugIndent(); System.out.println(" <DealWithGuard>"); }
@@ -2077,7 +2768,7 @@ if (DEBUG_TransMod) { PrintDebugIndent(); System.out.println(" <DealWithGuard>")
 
 			ExpressionVar theVar = 	new ExpressionVar( varNameToUse, varList.getType(indexInVarList));
 			theVar.setIndex(indexInVarList);		// SHANE HOPES THAT IS CORRECT - otherwise, have to find out appropriate value to use.
-System.out.println("for variable " + varNameToUse + ", create ExprVar with type set to " + varList.getType(indexInVarList) + " because the indexInVarList for that variable is " + indexInVarList);
+//if (DEBUG_TransMod) System.out.println("for variable " + varNameToUse + ", create ExprVar with type set to " + varList.getType(indexInVarList)");
 			ExpressionLiteral theVal = new ExpressionLiteral(varList.getType(indexInVarList),valToUse);
 
 			Expression nextPart;
@@ -2085,25 +2776,27 @@ System.out.println("for variable " + varNameToUse + ", create ExprVar with type 
 			if (i == 0)
 				extraGuard = nextPart;
 			else
-			  extraGuard = new ExpressionBinaryOp(ExpressionBinaryOp.AND, extraGuard, nextPart);	// Concatenate, as conjunction
+			  extraGuard = new ExpressionBinaryOp(ExpressionBinaryOp.AND, nextPart, extraGuard);	// Pre-catenate, as conjunction
 		}
 		if (extraGuard != null) {
-System.out.println("The command's original guard was: " + curGuard);
+if (DEBUG_SUBSTITUTIONS) System.out.println("\nThe command with synch "+ DEBUG_CurSynch + "'s original guard was: " + curGuard + "\n");
 			// Exchange the known values of the current substitution into the original guard BUT ONLY where appearing inside Index-Specification expressions. 
 			curGuard = (Expression) curGuard.deepCopy();	// Use a copy, so the original can be used for next iteration.
 			curGuard.replaceIndexSpecifiers(substitutions);
-System.out.println("The command's interim guard (after substitutions into original guard, before the additional guards) is: " + curGuard);
-			// Include the constraints on this rule's applicability by prepending as guards the substitutions
+if (DEBUG_SUBSTITUTIONS) System.out.println("\nThe command's interim guard (after substitutions into original guard, before the additional guards) is: " + curGuard);
+			// Include the constraints on this rule's applicability by appending as guards the substitutions
 			curGuard = new ExpressionBinaryOp(ExpressionBinaryOp.AND,
-				new ExpressionUnaryOp(ExpressionUnaryOp.PARENTH,extraGuard),		// wrap new part in parentheses
-				curGuard			// and the new part, with the current/old part.
+				curGuard,			// and the new part, with the current/old part.
+				// wrap new part in parentheses
+				//new ExpressionUnaryOp(ExpressionUnaryOp.PARENTH,
+				extraGuard
 			);
-System.out.println("The command's final guard is: " + curGuard);
+if (DEBUG_SUBSTITUTIONS) System.out.println("\nThe command's final guard is: " + curGuard + "\n");
 		}
 
 
 if (DEBUG_TransMod) {
-	PrintDebugIndent(); System.out.println("  <TranslateGuardExpr guard=\"" + curGuard + "\">");
+	PrintDebugIndent(); System.out.println(" <TranslateGuardExpr guard=\"" + curGuard + "\">");
 	DebugIndent += 2;
 }
 		// translate guard
@@ -2111,15 +2804,18 @@ if (DEBUG_TransMod) {
 
 if (DEBUG_TransMod) {
 	DebugIndent -= 1;
-	PrintDebugIndent(); System.out.println("  </TranslateGuardExpr guard=\"" + curGuard + "\">");
+	PrintDebugIndent(); System.out.println("</TranslateGuardExpr guard=\"" + curGuard + "\">");
 	PrintDebugIndent();
-System.out.println("[in prism.Modules2MTBDD::translateCommand()], concluded calling translateExpr for guard of command " + (l+1) + " for substitutions: " + substitutions );
-	PrintDebugIndent();
-	System.out.println("The guardDD is: " +guardDD + "\nbut it is about to be TIMES with the following 'range' JDD: " +range);
+System.out.println("[in prism.Modules2MTBDD::translateCommand()], concluded calling translateExpr for guard of command " + (l+1) + " for substitutions: '" + substitutions +"'");
 }
+
+if (DEBUG_SHANE_ShowStepsInTM) ShaneReportDD(range,"~About the JDDNode describing 'range' ",true);
 
 		JDD.Ref(range);
 		guardDD = JDD.Apply(JDD.TIMES, guardDD, range);
+
+if (DEBUG_SHANE_ShowStepsInTM) ShaneReportDD(guardDD,"~About the JDDNode describing the final guard after TIMES by range: ",true);
+
 		// check for false guard
 		if (guardDD.equals(JDD.ZERO)) {
 if (DEBUG_TransMod) {
@@ -2152,15 +2848,16 @@ if (DEBUG_TransMod) {
 			upDD = translateUpdates(m, l, command.getUpdates(), (command.getSynch()=="")?false:true, guardDD, substitutions);
 	System.out.println();		// Blank row.
 	PrintDebugIndent();
+if (DEBUG_TransMod) {
 	System.out.println("[in Modules2MTBDD.translateCommand()]: Finished call of translateUpdates(), doing other things...\n");
-/*System.out.println("ShaneShowChildren for upDD immediately upon return from translateUpdates:"); upDD.ShaneShowChildren();
-System.out.println("ShaneShowChildren for guardDD:"); guardDD.ShaneShowChildren();
-*/
+}
+
+if (DEBUG_SHANE_ShowStepsInTM) ShaneReportDD(upDD,"~About the JDDNode describing the update: " + command.getUpdates() + " for substitutions " + substitutions,true);
+
 			JDD.Ref(guardDD);
 			upDD = JDD.Apply(JDD.TIMES, upDD, guardDD);
-/*
-System.out.println("ShaneShowChildren for upDD after APPLY.TIMES:"); upDD.ShaneShowChildren();
-*/
+if (DEBUG_SHANE_ShowStepsInTM) ShaneReportDD(upDD,"~About the JDDNode describing the update after TIMES with the guardDD: ",true);
+
 			// are all probs/rates non-negative?
 			dmin = JDD.FindMin(upDD);
 			if (dmin < 0) {
@@ -2184,19 +2881,17 @@ if (DEBUG_TransMod)
 				// sum probs/rates in updates
 				JDD.Ref(upDD);
 				tmp = JDD.SumAbstract(upDD, moduleDDColVars[m]);
-//System.out.println("ShaneShowChildren for tmp @ 1:"); tmp.ShaneShowChildren();
 				tmp = JDD.SumAbstract(tmp, globalDDColVars);
 				// put 1s in for sums which are not covered by this guard
 				JDD.Ref(guardDD);
 				tmp = JDD.ITE(guardDD, tmp, JDD.Constant(1));
-//System.out.println("ShaneShowChildren for tmp @ 2:");tmp.ShaneShowChildren();
 				// compute min/max sums
 				dmin = JDD.FindMin(tmp);
 				dmax = JDD.FindMax(tmp);
 				// check sums for NaNs (note how to check if x=NaN i.e. x!=x)
 if (DEBUG_TransMod) {
 	PrintDebugIndent();
-	System.out.println("[in Modules2MTBDD.translateCommand()]: dmin is: " + dmin + ", dmax is: " + dmax + ", prism.getSumRoundOff() is " +prism.getSumRoundOff());
+	System.out.println("dmin is: " + dmin + ", dmax is: " + dmax + ", prism.getSumRoundOff() is " +prism.getSumRoundOff());
 }
 
 	// SHANE NOTES that we may need to say in the errors, whether therewere particular substitutions being used...
@@ -2263,17 +2958,19 @@ if (DEBUG_TransMod)
 			// 	rewDDs[l] = JDD.Constant(0);
 			// }
 		}
-if (DEBUG_TransMod) { PrintDebugIndent(); System.out.println(" </TranslateCommand>\n"); }
+if (DEBUG_SUBSTITUTIONS) { 
+	PrintDebugIndent(); System.out.println(" </TranslateCommand>\n"); 
+}
 
 		// Construct the return value...
 		translatedCommandDD = new TranslatedCommandDDs();
 		translatedCommandDD.guardDD = guardDD;
 		translatedCommandDD.upDD = upDD;
 		translatedCommandDD.originalCommandNumber = l;
+		translatedCommandDD.guardExpr = curGuard;
 
 		return translatedCommandDD;
 	}
-
 
 	// go thru guard/updates dds for all commands of a prob. module and combine
 	// also check for any guard overlaps, etc...
@@ -2396,10 +3093,11 @@ if (DEBUG_TransMod) { PrintDebugIndent(); System.out.println(" </TranslateComman
 		JDDVars ddChoiceVarsUsed;
 if (DEBUG_CCN) {
 	PrintDebugIndent();
-	System.out.println("<CombineCommandsNondet>");
+	System.out.println("\n<CombineCommandsNondet numCommands='" + numCommands + "' sizeof_guardDDs='"+guardDDs.length+"'>");
 	DebugIndent++;
 }
-
+long startTime = 0;
+long nowTime;
 		
 		// create object to return result
 		compDDs = new ComponentDDs();
@@ -2415,28 +3113,56 @@ if (DEBUG_CCN) {
 		overlaps = JDD.Constant(0);
 if (DEBUG_CCN) {
 	PrintDebugIndent();
-	System.out.println("About to commence a loop over " + numCommands + " commands");
+	System.out.println("Before any CCN Iterations we have these facts (I expect 0 for each):");
+if (DEBUG_SHANE_ShowStepsInTM)	ShaneReportDD(overlaps,"The 'overlaps' DD before any CCN itereations:",true);
+if (DEBUG_SHANE_ShowStepsInTM)	ShaneReportDD(covered,"The 'covered' DD before any CCN itereations: ",true);
+	System.out.println("In CCN: About to commence first loop (over " + numCommands + " commands)");
+	System.out.println("\n<DetermineGuardOverlaps>");
 }
 		for (i = 0; i < numCommands; i++) {
-if (DEBUG_CCN) {
-	PrintDebugIndent();
-	System.out.println("<CCN_ITER commandNum='"+(i+1)+"'>");
-	PrintDebugIndent();
-	System.out.println("Will reference this JDD, to 'PLUS' it to the 'overlaps' JDD and OR it with the 'covered' JDD:\n" + guardDDs[i]);
-}
 
-			JDD.Ref(guardDDs[i]);
-			overlaps = JDD.Apply(JDD.PLUS, overlaps, guardDDs[i]);
-			// compute bdd of all guards at same time
-			JDD.Ref(guardDDs[i]);
-			covered = JDD.Or(covered, guardDDs[i]);
+
 if (DEBUG_CCN) {
 	PrintDebugIndent();
-	System.out.println("</CCN_ITER commandNum='"+(i+1)+"'>");
+	System.out.println("<CCN_ITER1_ConsidGuard commandNum='"+(i+1)+"/"+numCommands+"'>");
+//	PrintDebugIndent();
+//	System.out.println("Will reference this JDD, to 'PLUS' it to the 'overlaps' JDD and OR it with the 'covered' JDD:\n" + guardDDs[i]);
+System.out.println("Considering command which has the following guard: \n" +cachedGuardExprs.get(i));
+
+if (DEBUG_SHANE_ShowStepsInTM) ShaneReportDD(guardDDs[i],"~About DD for guardDDs["+i+"]",true);
 }
+			if (guardDDs[i] != null && !guardDDs[i].equals(JDD.ZERO)) {	// Nothing to do if it is null/zero
+
+				JDD.Ref(guardDDs[i]);
+if (DEBUG_CCN) { 
+startTime = System.currentTimeMillis();
+PrintDebugIndent(); System.out.println(" CCN at point A - about to do JDD Plus (to grow 'overlaps')");}
+				overlaps = JDD.Apply(JDD.PLUS, overlaps, guardDDs[i]);
+if (DEBUG_CCN) { 
+nowTime = System.currentTimeMillis();
+PrintDebugIndent(); System.out.println(" That took " + ((nowTime-startTime)/1000) + " seconds to do.");
+if (DEBUG_SHANE_ShowStepsInTM) ShaneReportDD(overlaps,"~About DD for 'overlaps' after PLUS-ing guardDDs["+i+"] into it:",DEBUG_SHANE_ShowDD_Tree);
+
+PrintDebugIndent(); System.out.println(" CCN at point B - about to do JDD.Or (to grow 'covered')");}
+startTime = System.currentTimeMillis();
+				// compute bdd of all guards at same time
+				JDD.Ref(guardDDs[i]);
+				covered = JDD.Or(covered, guardDDs[i]);
+if (DEBUG_CCN) {
+	PrintDebugIndent();
+	nowTime = System.currentTimeMillis();
+PrintDebugIndent(); System.out.println(" That took " + ((nowTime-startTime)/1000) + " seconds to do.");
+if (DEBUG_SHANE_ShowStepsInTM) ShaneReportDD(covered,"~About DD for 'covered' after OR-ing guardDDs["+i+"] into it:",DEBUG_SHANE_ShowDD_Tree);
+	System.out.println("</CCN_ITER1_ConsidGuard commandNum='"+(i+1)+"/"+numCommands+"'>");
+}
+			}
+else System.out.println("Shane is skipping commandNum " + (i+1) +" due to its guardDDs[] being " + (guardDDs[i] == null ? "null" : "zero"));
 		}
 		
 if (DEBUG_CCN) {
+	System.out.println("\n</DetermineGuardOverlaps>\n");
+	PrintDebugIndent();
+	System.out.println("In CCN: Completed First Loop which considered guards for all commands.");
 	PrintDebugIndent();
 	System.out.println("In CCN: About to call 'FindMax' on the Overlaps JDD...");
 }
@@ -2445,14 +3171,14 @@ if (DEBUG_CCN) {
 		maxChoices = (int)Math.round(JDD.FindMax(overlaps));
 if (DEBUG_CCN) {
 	PrintDebugIndent();
-	System.out.println("IN CCN: The result (maxChoices) is " + maxChoices);
+	System.out.println("  IN CCN: The result of FindMax (stored in maxChoices) is " + maxChoices);
 }
 		
 		// if all the guards were false, we're done already
 		if (maxChoices == 0) {
 if (DEBUG_CCN) {
 	PrintDebugIndent();
-	System.out.println("        Since it is 0, that means \"All the guards were false\", and nothing more to process.");
+	System.out.println("    Since it is 0, that means \"THE GUARDS WERE ALL FALSE\", and there's nothing more to process.");
 }
 			compDDs.guards = covered;
 			compDDs.trans = transDD;
@@ -2463,16 +3189,21 @@ if (DEBUG_CCN) {
 if (DEBUG_CCN) {
 	DebugIndent--;
 	PrintDebugIndent();
-	System.out.println("</CombineCommandsNondet>");
+	System.out.println("</CombineCommandsNondet place='EARLY_MID_METHOD'>");
 }
 			return compDDs;
 		}
 		
+if (DEBUG_CCN) {
+  System.out.println("\n<BuildTransMatrixDD>");
+}
 		// likewise, if there are no overlaps, it's also pretty easy
 		if (maxChoices == 1) {
 if (DEBUG_CCN) {
 	PrintDebugIndent();
-	System.out.println("        Since it is 1, that means \"There are no overlaps\", so will just add up DDs for all commands.");
+	System.out.println("    Since it is 1, that means \"NO OVERLAPS\", - so will just Add-Up the DDs for all commands.");
+	PrintDebugIndent();
+	System.out.println("In CCN: Commencing 2nd Loop, to build the Transition Matrix DD, by combining guards and updates.");
 }
 			// add up dds for all commands
 			for (i = 0; i < numCommands; i++) {
@@ -2483,19 +3214,33 @@ if (DEBUG_CCN) {
 	PrintDebugIndent();
 	System.out.println("<CCN_ITER2 for_cmdNum='" + (i+1) + "'>");
 	PrintDebugIndent();
-	System.out.println("In CCN: Will apply TIMES to these two DDs\nguardDDs["+i+"]: " + guardDDs[i] + "\nupDDs["+i+"]: " + upDDs[i]);
+	System.out.println("In CCN_ITER2: Will apply TIMES to these two DDs\nguardDDs["+i+"]: " + guardDDs[i] + "\nupDDs["+i+"]: " + upDDs[i]);
 	PrintDebugIndent();
 	System.out.println("And will PLUS that, to transDD.");
 }
 
-				transDD = JDD.Apply(JDD.PLUS, transDD, JDD.Apply(JDD.TIMES, guardDDs[i], upDDs[i]));
+// ORIGINAL, KEEP:		transDD = JDD.Apply(JDD.PLUS, transDD, JDD.Apply(JDD.TIMES, guardDDs[i], upDDs[i]));
+// TEMPORARY BREAK-UP OF THE ABOVE:
+JDDNode curItem = JDD.Apply(JDD.TIMES, guardDDs[i],upDDs[i]);
+if (DEBUG_CCN && DEBUG_SHANE_ShowStepsInCCN2) {
+  ShaneReportDD(guardDDs[i],"~About: guardDD["+i+"] is:",true);
+  ShaneReportDD(upDDs[i],"~About: updateDD["+i+"] is:",true);
+  ShaneReportDD(curItem,"~About: The GuardDD["+i+"] TIMES the UpdateDD["+i+"] is the following DD:",true);
+}
+
+// SHANE THOUGHT:		if (!curItem.equals(JDD.ZERO)) { }		// No point processing it if it is zero, but maybe it is slow to do the 'equals', or negligbly quick to do the Apply of the original code...
+
+transDD = JDD.Apply(JDD.PLUS, transDD, curItem);
+
 				// add up rewards
 				//JDD.Ref(guardDDs[i]);
 				//JDD.Ref(rewDDs[i]);
 				//rewardsDD = JDD.Apply(JDD.PLUS, rewardsDD, JDD.Apply(JDD.TIMES, guardDDs[i], rewDDs[i]));
 if (DEBUG_CCN) {
-	PrintDebugIndent();
-	System.out.println("In CCN: transDD is now: " + transDD);
+	if (DEBUG_SHANE_ShowStepsInCCN2) ShaneReportDD(transDD,"~About: After including the above by PLUS it into the transition matrix DD, the transDD (for the current synch) is now:",true);
+
+//	PrintDebugIndent();
+//	System.out.println("In CCN2 transDD is now: " + transDD);
 	PrintDebugIndent();
 	System.out.println("</CCN_ITER2>");
 }
@@ -2509,7 +3254,9 @@ if (DEBUG_CCN) {
 if (DEBUG_CCN) {
 	DebugIndent--;
 	PrintDebugIndent();
-	System.out.println("</CombineCommandsNondet>");
+	System.out.println("In CCN: Finished Second Loop");
+  System.out.println("\n</BuildTransMatrixDD>");
+	System.out.println("</CombineCommandsNondet MID_METHOD_RETURN>");
 }
 			return compDDs;
 		}
@@ -2517,7 +3264,7 @@ if (DEBUG_CCN) {
 		// otherwise, it's a bit more complicated...
 if (DEBUG_CCN) {
 	PrintDebugIndent();
-	System.out.println("Since it is neither 0 nor 1, that means \"It's a bit more complicated\"");
+	System.out.println("Since maxChoices is neither 0 nor 1, that means \"THERE WERE OVERLAPS\" - so it's got more work to do...\"");
 }
 		
 		// first, calculate how many dd vars will be needed
@@ -2553,6 +3300,7 @@ if (DEBUG_CCN) { PrintDebugIndent(); System.out.println("There are no cases that
 				JDD.Deref(equalsi);
 				continue;
 			}
+if (DEBUG_SHANE_ShowStepsInTM) ShaneReportDD(equalsi,"~About equalsi: ",true);
 			
 			// create arrays of size i to store dds
 if (DEBUG_CCN) { PrintDebugIndent(); System.out.println("There are some cases that have exactly " + i + " non-deterministic choices.\nTherefore, making transDDbits be a array of " + i + " JDDNode objects"); }
@@ -2568,11 +3316,12 @@ if (DEBUG_CCN) { PrintDebugIndent(); System.out.println("There are some cases th
 			
 			// go thru each command of the module...
 			for (j = 0; j < numCommands; j++) {
-if (DEBUG_CCN) { PrintDebugIndent(); System.out.println("Check if command " + (j+1) + " matches criteria (of having " + i + " choices)."); }
+if (DEBUG_CCN) { PrintDebugIndent(); System.out.println("Check if command " + (j+1) + " (of the current batch) matches criteria (of having " + i + " choices)."); }
 				
 				// see if this command's guard overlaps with 'equalsi'
 				JDD.Ref(guardDDs[j]);
 				JDD.Ref(equalsi);
+if (DEBUG_SHANE_ShowStepsInTM) ShaneReportDD(guardDDs[j],"~About guardDDs["+j+"]",true);
 				tmp = JDD.And(guardDDs[j], equalsi);
 				// if it does...
 				if (!tmp.equals(JDD.ZERO)) {
@@ -2582,14 +3331,17 @@ if (DEBUG_CCN) { PrintDebugIndent(); System.out.println(" It does (apparently). 
 					
 					JDD.Ref(tmp);
 					tmp2 = tmp;
+if (DEBUG_SHANE_ShowStepsInTM) ShaneReportDD(tmp2,"~About tmp2: ",true);
 					
 					// for each possible nondet. choice (1...i) involved...
 					for (k = 0; k < i; k ++) {
-if (DEBUG_CCN) { PrintDebugIndent(); System.out.println("   Examining choice #" + (k+1) + " of command " + (j+1)); }
+if (DEBUG_CCN) { PrintDebugIndent(); System.out.println("   Examining choice #" + (k+1) + "/" + i + " of command " + (j+1)); }
 						// see how much of the command can go in nondet. choice k
 						JDD.Ref(tmp2);
 						JDD.Ref(frees[k]);
+if (DEBUG_SHANE_ShowStepsInTM) ShaneReportDD(frees[k],"~About frees["+k+"]",true);
 						tmp3 = JDD.And(tmp2, frees[k]);
+if (DEBUG_SHANE_ShowStepsInTM) ShaneReportDD(tmp3,"~About the AND of tmp2 and frees[k]",true);
 						// if some will fit in...
 						if (!tmp3.equals(JDD.ZERO)) {
 if (DEBUG_CCN) { PrintDebugIndent(); System.out.println("     Some will probably fit."); }
@@ -2598,7 +3350,15 @@ if (DEBUG_CCN) { PrintDebugIndent(); System.out.println("     Some will probably
 frees[k].setPurpose("% frees["+k+"] set in CCN%");
 							JDD.Ref(tmp3);
 							JDD.Ref(upDDs[j]);
-							transDDbits[k] = JDD.Apply(JDD.PLUS, transDDbits[k], JDD.Apply(JDD.TIMES, tmp3, upDDs[j]));
+
+// ORIGINAL, KEEP:					transDDbits[k] = JDD.Apply(JDD.PLUS, transDDbits[k], JDD.Apply(JDD.TIMES, tmp3, upDDs[j]));
+// TEMPORARY BREAK-UP OF THE ABOVE:
+JDDNode curItem = JDD.Apply(JDD.TIMES, tmp3,upDDs[j]);
+transDDbits[k] = JDD.Apply(JDD.PLUS, transDDbits[k], curItem);
+
+if (DEBUG_CCN && DEBUG_SHANE_ShowStepsInTM) {
+  ShaneReportDD(curItem,"~About: The result of TIMES between tmp3 and upDDs["+j+"]",true);
+}
 transDDbits[k].setPurpose("% transDDbits["+k+"] set during CCN %");
 							//JDD.Ref(tmp3);
 							//JDD.Ref(rewDDs[j]);
@@ -2606,6 +3366,7 @@ transDDbits[k].setPurpose("% transDDbits["+k+"] set during CCN %");
 						}
 						// take out the bit just put in this choice
 						tmp2 = JDD.And(tmp2, JDD.Not(tmp3));
+if (DEBUG_CCN && DEBUG_SHANE_ShowStepsInTM) ShaneReportDD(tmp2,"tmp2 after 'taking out the bit just put in this choice' is:",true);
 						if (tmp2.equals(JDD.ZERO)) {
 							break;
 						}
@@ -2621,12 +3382,9 @@ if (DEBUG_CCN) { PrintDebugIndent(); System.out.println("Finished checking all c
 			for (j = 0; j < i; j++) {
 
 				tmp = JDD.SetVectorElement(JDD.Constant(0), ddChoiceVarsUsed, j, 1);
-if (DEBUG_CCN) { PrintDebugIndent(); System.out.println(" in CCN, we do setVectorElement, with j of " + j + " on ddChoiceVarsUsed to obtain 'tmp': " + tmp + "\n and then do JDD.TIMES of tmp and transDDbits[j]: " + transDDbits[j] + "\nThen we PLUS that to transDD."); }
+if (DEBUG_CCN && DEBUG_SHANE_ShowStepsInTM) ShaneReportDD(tmp,"After SetVectorElement for j="+j,true);
 				transDD = JDD.Apply(JDD.PLUS, transDD, JDD.Apply(JDD.TIMES, tmp, transDDbits[j]));
-if (DEBUG_CCN) {
-	PrintDebugIndent();
-	System.out.println("transDD is now: " + transDD);
-}
+if (DEBUG_CCN && DEBUG_SHANE_ShowStepsInTM) ShaneReportDD(transDD,"~About transDD after TIMES and PLUS for iteration j="+j,true);
 				//JDD.Ref(tmp);
 				//rewardsDD = JDD.Apply(JDD.PLUS, rewardsDD, JDD.Apply(JDD.TIMES, tmp, rewardsDDbits[j]));
 				JDD.Deref(frees[j]);
@@ -2653,9 +3411,13 @@ compDDs.trans.setPurpose("% compDDs.trans as modified during CCN %");
 		compDDs.max = synchMin + numDDChoiceVarsUsed;
 		
 if (DEBUG_CCN) {
+  System.out.println("\n</BuildTransMatrixDD>");
+}
+
+if (DEBUG_CCN) {
 	DebugIndent--;
 	PrintDebugIndent();
-	System.out.println("</CombineCommandsNondet>");
+	System.out.println("</CombineCommandsNondet place='END of method'>");
 }
 		return compDDs;
 	}
@@ -2669,6 +3431,9 @@ if (DEBUG_CCN) {
 		JDDNode dd, udd, pdd;
 		boolean warned;
 		String msg;
+
+JDDNode rrr;	// Shane Debugging only
+
 if (DEBUG_TransUpd) System.out.println("<Mod2MTBDD_transUp_Pt1>");
 		
 		// sum up over possible updates
@@ -2679,8 +3444,9 @@ if (DEBUG_TransUpd) System.out.println("In Mod2MTBDD.transUpdates (First one - w
 if (DEBUG_TransUpd) System.out.println("In Mod2MTBDD.transUpdates (First version), Place A iteration i=" + (i+1) + " of " + n + " - about to call translateUpdate" );
 			// translate a single update
 			udd = translateUpdate(m, u.getUpdate(i), synch, guard, substitutions);
+if (DEBUG_SHANE_ShowStepsInTM) ShaneReportDD(udd,"~About the JDDNode which is the translation of this update: " + u.getUpdate(i) + " with substitutions: " + substitutions,true );
+
 if (DEBUG_TransUpd) System.out.println("In Mod2MTBDD.transUpdates (First version), Place B for iteration i=" + (i+1) + " of " + n + " - returned from call of translateUpdate" );
-// System.out.println("udd is: "); udd.ShaneShowChildren();
 if (DEBUG_TransUpd) System.out.println("Remember that the whole set of updates is: " + u + "\nWe just did update #" + (i + 1) + " which was " + u.getUpdate(i) );
 			// check for zero update
 			warned = false;
@@ -2700,8 +3466,15 @@ if (DEBUG_TransUpd) System.out.println("In Mod2MTBDD.transUpdates (First one), T
 
 			pdd = translateExpression(p);
 pdd.setPurpose("% DD of probability of update occurring. %");
+
+//if (DEBUG_SHANE_ShowStepsInTM) ShaneReportDD(pdd,"~About the JDDNode which represents probability of the update (" + p + "):",true );
+
+
 if (DEBUG_TransUpd) System.out.println("Back in Mod2MTBDD.transUpdates (First one), The DD for the probability is: " + pdd + "\nAbout to apply TIMES to the update's DD with that DD");
 			udd = JDD.Apply(JDD.TIMES, udd, pdd);
+
+if (DEBUG_SHANE_ShowStepsInTM) ShaneReportDD(udd,"~About the JDDNode which is the translation of this update after the probability is TIMESed: " + u.getUpdate(i),true );
+
 			// check (again) for zero update
 			if (!warned && udd.equals(JDD.ZERO)) {
 				// Use a PrismLangException to get line numbers displayed
@@ -2712,6 +3485,8 @@ if (DEBUG_TransUpd) System.out.println("Back in Mod2MTBDD.transUpdates (First on
 if (DEBUG_TransUpd) System.out.println("In Mod2MTBDD.transUpdates (First one), The resultant DD will be used to apply PLUS to the DD representing this command.");
 			dd = JDD.Apply(JDD.PLUS, dd, udd);
 dd.setPurpose("% DD representing command #" + (l+1) + " %");
+
+if (DEBUG_SHANE_ShowStepsInTM) ShaneReportDD(dd,"~About the JDDNode which is the interim translation of the command: " + u + " with substitutions: " + substitutions,true);
 		}
 		
 if (DEBUG_TransUpd) System.out.println("</Mod2MTBDD_transUp_Pt1>");
@@ -2726,6 +3501,7 @@ if (DEBUG_TransUpd) System.out.println("</Mod2MTBDD_transUp_Pt1>");
 		int i, j, n, v, l, h;
 		String s;
 		JDDNode dd, tmp1, tmp2, indAccTmp, cl;
+JDDNode rrr;	// Shane Debugging only
 		
 		// clear varsUsed flag array to indicate no vars used yet
 		for (i = 0; i < numVars; i++) {	
@@ -2831,11 +3607,15 @@ if (DEBUG_TransUpd) {
 	PrintDebugIndent();
 	System.out.println("   transUp (Second one) - PLACE 3A: Having determined the variable of update element " + (i+1) + ", now we will prepare it by setting its vector elements.");
 }
+// SHANE NOTE: This basically creates a JDD where all the leafs are corresponding to the range of values of the variable. The j-l simply designates the pathway.
+// and the varDDColVars tells it which JDD variables to utilise in constructing a pathway.
 			tmp1 = JDD.Constant(0);
 			for (j = l; j <= h; j++) {
-System.out.println("   will SetVectorElement on (tmp1, ColVars[" + v + "], " + (j-l) + ", " + j + ")");
 				tmp1 = JDD.SetVectorElement(tmp1, varDDColVars[v], j-l, j);
+if (DEBUG_SHANE_ShowStepsInTM) ShaneReportDD(tmp1,"~About DD after calling SetVector for j of " + j + " for variable '" + varList.getName(v) + "'",true);
 			}
+
+if (DEBUG_SHANE_ShowStepsInTM) ShaneReportDD(tmp1,"~After setting the vector elements for variable '"+ varList.getName(v) + "', the JDD (named 'tmp1') looks like this:",true);
 
 			Expression calcExpr = c.getExpression(i).deepCopy();		//make a copy, so we can preserve orig, but do substitutions for current.
 			
@@ -2861,7 +3641,10 @@ if (DEBUG_TransUpd) {
 			tmp2 = translateExpression(calcExpr);
 if (DEBUG_TransUpd) System.out.println("</TransCalcExpr during='translateUpdate()'>\n");
 
-tmp2.setPurpose("% Apparently the translation of " + calcExpr);
+tmp2.setPurpose("% Apparently the translation of the calcExpr: " + calcExpr);
+
+if (DEBUG_SHANE_ShowStepsInTM) ShaneReportDD(tmp2,"~About the resultant DD (called 'tmp2') from translating the calcExpression: " + calcExpr,true);
+
 if (DEBUG_TransUpd) {
 	PrintDebugIndent();
 	System.out.println("   Returned to transUp (Second one) - PLACE 4 (still dealing with this update element " + (i+1) + ": " + c.getElement(i) + " )");
@@ -2879,50 +3662,57 @@ if (DEBUG_TransUpd) {
 	System.out.println("<ThinkDeepAbout during='transUp (Second one)' >");
 }
 if (DEBUG_TransUpd) {
-//System.out.println("tmp2 is: "); tmp2.ShaneShowChildren();
-//System.out.println("guard is: "); guard.ShaneShowChildren();
 	PrintDebugIndent();
 	System.out.println("  will apply TIMES to tmp2: (the current update-element, translated) and guard (received from transCommand), to store as new 'tmp2'.");
 }
 			tmp2 = JDD.Apply(JDD.TIMES, tmp2, guard);
+if (DEBUG_SHANE_ShowStepsInTM) ShaneReportDD(tmp2,"~About the result of TIMES of the calculation expression and the guard (called 'tmp2'):",true);
+
 if (DEBUG_TransUpd) {
-//System.out.println("tmp2 is now: ");tmp2.ShaneShowChildren();
-//System.out.println("tmp1 is: ");tmp1.ShaneShowChildren();
 	PrintDebugIndent();
-	System.out.println("  cl will be the result of applying EQUALS to tmp1 (the blank JDD to which SetVectorElement was done) and tmp2.");
+	System.out.println("  cl will be the result of applying EQUALS to tmp1 (the JDD representing the variable to be updated) and tmp2 (calc expr).");
 }
 			cl = JDD.Apply(JDD.EQUALS, tmp1, tmp2);
+if (DEBUG_SHANE_ShowStepsInTM) ShaneReportDD(cl,"~About the result of EQUALS between the tmp1 and tmp2 (called 'cl'):",true);
+
 			JDD.Ref(guard);
 if (DEBUG_TransUpd) {
-//System.out.println("cl is now: ");cl.ShaneShowChildren();
 	PrintDebugIndent();
 	System.out.println("  cl will now be set to the result of applying TIMES to cl with guard.");
 }
 			cl = JDD.Apply(JDD.TIMES, cl, guard);
+if (DEBUG_SHANE_ShowStepsInTM) ShaneReportDD(cl,"~About the result of TIMES between the prior cl and the guard  (new 'cl' value):",true);
+
 			// filter out bits not in range
 			JDD.Ref(varColRangeDDs[v]);
 if (DEBUG_TransUpd) {
-//System.out.println("cl is now: ");cl.ShaneShowChildren();
 	PrintDebugIndent();
 	System.out.println("  cl will now be set to the result of applying TIMES to cl with varColRangeDDs[v="+v+"], which is currently: " + varColRangeDDs[v]);
 }
 			cl = JDD.Apply(JDD.TIMES, cl, varColRangeDDs[v]);
+if (DEBUG_SHANE_ShowStepsInTM) ShaneReportDD(cl,"~About the result of TIMES between the prior cl and varColRangeDDs for the variable '" + varList.getName(v) + "' (new 'cl'):",true);
+
 			JDD.Ref(range);
 if (DEBUG_TransUpd) {
-//System.out.println("cl is now: ");cl.ShaneShowChildren();
 	PrintDebugIndent();
 	System.out.println("  cl will now be set to the result of applying TIMES to cl with range, which is currently: " + range);
 }
 			cl = JDD.Apply(JDD.TIMES, cl, range);
+if (DEBUG_SHANE_ShowStepsInTM) ShaneReportDD(cl,"~About the result of TIMES between the prior cl and 'range' (new 'cl'):",true);
+
 if (DEBUG_TransUpd) {
-//System.out.println("cl is now: ");cl.ShaneShowChildren();
 	PrintDebugIndent();
 	System.out.println("  now the resultant cl is used to apply TIMES of dd with cl, to be new/final value of dd. dd is currently: " + dd);
 }
+
+if (DEBUG_SHANE_ShowStepsInTM) ShaneReportDD(dd,"~Re-display the DD representing the accumulation for each update element, before adding the above cl (old 'dd'):",true);
+
 			dd = JDD.Apply(JDD.TIMES, dd, cl);
+
+if (DEBUG_SHANE_ShowStepsInTM) ShaneReportDD(dd,"~About the DD representing the accumulation for each update element, after incorporating element " + (i+1) + " (new 'dd')",true);
+
 dd.setPurpose("Partially Translated version of " + c);
 if (DEBUG_TransUpd) {
-//System.out.println("dd is now: ");dd.ShaneShowChildren();
 	PrintDebugIndent();
 	System.out.println("</ThinkDeepAbout>");
 }
@@ -2940,33 +3730,44 @@ if (DEBUG_TransUpd) System.out.println("<AllUpdateElementsNowConsidered/>\n");
 		// if a variable from this module or a global variable
 		// does not appear in this update assume it does not change value
 		// so multiply by its identity matrix
+	// SHANE NOTE:  The Identity Matrix of a variable, is basically a JDD where each possible value of the variable is indicated by
+	// the presence of a 1 at the leaves for paths that are possible outcomes;
 if (DEBUG_TransUpd) {
 	PrintDebugIndent();
 	System.out.println("    transUp (Second one) - PLACE 6A: Remember, the Full Update is: " + c);
 	PrintDebugIndent();
 	System.out.println("    transUp (Second one) - PLACE 6B, about to loop i from 0 to numVars=" + numVars + ", to determine which identies to apply...");
 }
-		for (i = 0; i < numVars; i++) {	
+		for (i = numVars-1; i >= 0; i--) {	// SHANE IS EXPERIMENTING WITH REVERSING THE ORDER.
+//		for (i = 0; i < numVars; i++) {	
 			if ((varList.getModule(i) == m || varList.getModule(i) == -1) && !varsUsed[i]) {
-if (DEBUG_TransUpd) {
+if (DEBUG_TransUpd || DEBUG_ShowEXCL_INCL) 
+{
 	PrintDebugIndent();
-	System.out.print("    Including identity for i = " + i);
-System.out.print(", name of var is " + varList.getName(i) );
-System.out.println(", varsUsed[i] is " + varsUsed[i] + " by Applying TIMES with existing dd value");
+	System.out.print("    INCLUDING identity for i = " + i);
+System.out.print(", name of var is \"" + varList.getName(i) +"\"");
+System.out.println(", (varsUsed[i] is " + varsUsed[i] + ") by Applying TIMES with existing dd value");
+if (DEBUG_SHANE_ShowStepsInTM) ShaneReportDD(varIdentities[i],"~About JDD which is called 'varIdentities["+i+"]'",true);
 
 }
 
 				JDD.Ref(varIdentities[i]);
 				dd = JDD.Apply(JDD.TIMES, dd, varIdentities[i]);
+if (DEBUG_SHANE_ShowStepsInTM) ShaneReportDD(dd,"~About JDD for the DD after incorporating varIdentities["+i+"]",true);
 			}
-else if (DEBUG_TransUpd) {
+else 
+if (DEBUG_TransUpd || DEBUG_ShowEXCL_INCL) 
+{
 	PrintDebugIndent();
 	System.out.print("    EXCLUDING identity for i = " + i);
-System.out.print(", name of var is " + varList.getName(i) );
+System.out.print(", name of var is \"" + varList.getName(i) +"\"");
 System.out.println(", varsUsed[i] is " + varsUsed[i] + " by NOT applying TIMES - doing nothing");
 }
 		}
 dd.setPurpose("% Fully Translated version of " + c + " %");
+
+if (DEBUG_SHANE_ShowStepsInTM) ShaneReportDD(dd,"~About the DD representing the final set of updates (after identities added for ALL other variables) for substitutions: " + substitutions,true);
+
 
 if (DEBUG_TransUpd) {
 	PrintDebugIndent();
@@ -2998,7 +3799,7 @@ if (DEBUG_TransUpd) {
 	DebugIndent--;
 }
 
-result.setPurpose("Result of checkExpressionDD for " + e);
+//result.setPurpose("Result of checkExpressionDD for " + e);
 		return result;
 
 	}
@@ -3116,7 +3917,7 @@ if (DEBUG_SHANE) {
 			start = JDD.Constant(1);
 			for (i = 0; i < numVars; i++) {
 if (DEBUG_SHANE)
-	System.out.println("Setting initial-state value for this varDDRowVars: " + varDDRowVars[i]);
+	System.out.println("Setting initial-state value for this varDDRowVars: " + varDDRowVars[i] + " (which has all the JDD Nodes for variable: " + varList.getName(i)+")");
 				tmp = JDD.SetVectorElement(JDD.Constant(0), varDDRowVars[i], varList.getStart(i)-varList.getLow(i), 1);
 				start = JDD.And(start, tmp);
 			}

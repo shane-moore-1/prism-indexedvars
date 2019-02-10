@@ -48,6 +48,7 @@ import parser.visitor.ReplaceLabels;
 
 public class StateModelChecker extends PrismComponent implements ModelChecker
 {
+public static boolean DEBUG_ShowStatsForNodes = false;
 public static boolean DEBUG_HIDE_CHECK = true;
 public static boolean DEBUG_constr = true;		// Whether to show information during the constructor
 public static boolean DEBUG = true;			// Whether to show default/higher importance general debugging trace statements
@@ -55,13 +56,32 @@ public static boolean DEBUG2 = true;			// Whether to show lesser importance gene
 public static boolean DEBUG3_chkExprDD = true && !DEBUG_HIDE_CHECK;		// Whether to debug (trace) the checkExpressionDD() method
 public static boolean DEBUG_ChkExpr = true && !DEBUG_HIDE_CHECK;	// Whether to show the checkExpression()'s debug messages
 public static boolean DEBUG_CEF = true;			// Whether to debug (trace) the behaviours of checkExpressionFilter()
-public static boolean DEBUG_CheckIndSetAcc = true && !DEBUG_HIDE_CHECK;	// Whether to debug the checkIndexSetAccess() method.
+public static boolean DEBUG_CheckIndSetAcc = true ;//&& !DEBUG_HIDE_CHECK;	// Whether to debug the checkIndexSetAccess() method.
 public static boolean DEBUG_chkBinOp = true && !DEBUG_HIDE_CHECK;	// Whether to debug the checkIndexSetAccess() method.
 public static boolean DEBUG_ChkVar = true && !DEBUG_HIDE_CHECK;		// Whether to show checkExpressionVar() stages.
 public static boolean DEBUG_WHICH = true;		// Whether to show WHICH method we are doing.
 public static int DebugIndent = 0;
 public static void PrintDebugIndent() { if (DEBUG) { for (int i = 0; i < DebugIndent; i++) System.out.print(" "); } }
 public static int ChkExpCallSeqID = 0;			// A code to uniquely identify each call to CheckExpression()
+
+public static int MAX_TREE_TO_DISPLAY = 1200;
+
+public static void ShaneReportDD(String message, JDDNode toReport)
+{
+	System.out.println("======");
+	System.out.println(message);
+	System.out.println("  GetNumNodes():      " + JDD.GetNumNodes(toReport));
+	System.out.println("  GetNumTerminals():  " + JDD.GetNumTerminals(toReport));
+        System.out.println("  GetNumPaths():      " + JDD.GetNumPaths(toReport));
+	System.out.println(message);
+		if (JDD.GetNumPaths(toReport) > MAX_TREE_TO_DISPLAY)
+		   System.out.println("Tree would be too large to report"); 
+		else 
+		   toReport.ShaneShowChildren();
+}
+
+
+
 
 	// PRISM stuff
 	protected Prism prism;
@@ -151,6 +171,7 @@ if (DEBUG_constr) System.out.println("In the FIRST constructor of StateModelChec
 	 * {@code clearDummyModel()} later.
 	 * <br>[ REFS: <i>none</i>, DEREFS: <i>none</i> ]
 	 */
+// SHANE-NOTE:   The elements of varList must correspond to the same element position of varDDRowVars (which are sets of DDs, being those DDs needed for each original prism variable) 
 	public StateModelChecker(Prism prism, VarList varList, JDDVars allDDRowVars, JDDVars[] varDDRowVars, Values constantValues) throws PrismException
 	{
 		// Initialise PrismComponent
@@ -270,7 +291,7 @@ System.out.println("in prism.SMC::check() @~208 for expression: " + expr + " for
 
 		// Clean up
 		vals.clear();
-
+System.out.println("End of SMC.check()");
 		// Return result
 		return result;
 	}
@@ -366,6 +387,13 @@ if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("expr was not recogni
 		}
 
 if (DEBUG_ChkExpr) {System.out.println("\n"); PrintDebugIndent(); System.out.println("Back in 'SMC.checkExpr() callseq='" + myCallSeqID + "' for expression: " + expr + " we now have a value for 'res'.");}
+
+if (DEBUG_ShowStatsForNodes)
+{
+	JDDNode rrr = res.convertToStateValuesMTBDD().getJDDNode().copy();
+	ShaneReportDD("[in StateModelChecker] ~About the JDDNode created for this expression: " + expr, rrr);
+	JDD.Deref(rrr);
+}
 		// Filter out non-reachable states from solution
 		// (only necessary for symbolically stored vectors)
 		// (skip if reach is null, e.g. if just being used to convert arbitrary expressions)
@@ -377,7 +405,8 @@ if (DEBUG_ChkExpr) {
 }
 // The next line is ORIGINAL from the github version (i.e. not part of debugging):
 			res.filter(reach);
-}else if (res instanceof StateValuesMTBDD) {
+		}
+else if (res instanceof StateValuesMTBDD) {
   if (DEBUG_ChkExpr) { PrintDebugIndent(); System.out.println("RES-CASE 2: 'res' IS an instance of StateValuesMTBDD (i.e. symbolic),  BUT reach is null - not filtering.");
   }
 } else {
@@ -423,8 +452,11 @@ if (DEBUG3_chkExprDD) {PrintDebugIndent(); System.out.println("4. [In ChkDD for 
 	else System.out.println(" is null - nothing to print!");
 }
 
-//if (DEBUG3_chkExprDD) {PrintDebugIndent(); System.out.println("-Calling getJDDNode()");}
 		JDDNode result = sv.getJDDNode().copy();
+if (DEBUG_ShowStatsForNodes)
+{
+	ShaneReportDD("[in StateModelChecker] ~About the JDDNode created for this expression: " + expr, result);
+}
 		sv.clear();
 
 if (DEBUG3_chkExprDD) {
@@ -1313,7 +1345,7 @@ if (DEBUG_CheckIndSetAcc) System.out.println("Result of getIndex was: " + v + "\
 			// get some info on the variable
 			l = varList.getLow(v);
 			h = varList.getHigh(v);
-			// create dd
+			// create dd (which will simply be the range of all possible values, for the nominated element position.
 			dd = JDD.Constant(0);
 			for (i = l; i <= h; i++) {
 				dd = JDD.SetVectorElement(dd, varDDRowVars[v], i - l, i);
@@ -1322,7 +1354,8 @@ if (DEBUG_CheckIndSetAcc) System.out.println("Result of getIndex was: " + v + "\
 DebugIndent--;
 			return new StateValuesMTBDD(dd, model);
 		}
-		else if (accessExpr instanceof ExpressionVar) 
+// THE REMAINDER IS INCOMPLETE.
+		else if (accessExpr instanceof ExpressionVar) 		// THIS ONE CANNOT BE USED DURING MODEL-CONSTRUCTION; ONLY DURING ACTUAL MODEL-CHECKING
 		{
 if (DEBUG_CheckIndSetAcc) System.out.println("CASE 2: AccessExpression is a Var expression");
 		    if (accessExpr.getType() instanceof TypeInt)
@@ -1404,7 +1437,7 @@ if (DEBUG_CheckIndSetAcc)
 //System.out.println(d);
 	d.print(mainLog);
 
-/*				dd1 = ((StateValuesMTBDD) res1).getJDDNode();
+/* some other stuff		dd1 = ((StateValuesMTBDD) res1).getJDDNode();
 				dd2 = ((StateValuesMTBDD) res2).getJDDNode();
 				switch (op) {
 				case ExpressionFunc.MIN:
@@ -1909,6 +1942,7 @@ if (DEBUG_CEF) System.out.print("   In ChkExprFilter, @ Place 10: ddMatch != nul
 			JDD.Deref(ddMatch);
 		}
 
+if (DEBUG_CEF) System.out.println("   In ChkExprFilter, @ Place 11" );
 		// Store result
 		result.setResult(resObj);
 		// Set result explanation (if none or disabled, clear)
@@ -1917,15 +1951,19 @@ if (DEBUG_CEF) System.out.print("   In ChkExprFilter, @ Place 10: ddMatch != nul
 		} else {
 			result.setExplanation(null);
 		}
+if (DEBUG_CEF) System.out.println("   In ChkExprFilter, @ Place 12" );
 		// Store vector if requested (and if not, clear it)
 		if (storeVector) {
 			result.setVector(vals);
 		} else if (vals != null) {
 			vals.clear();
 		}
+if (DEBUG_CEF) System.out.println("   In ChkExprFilter, @ Place 13" );
 		// Other derefs
 		JDD.Deref(ddFilter);
+if (DEBUG_CEF) System.out.println("   In ChkExprFilter, @ Place 14" );
 		JDD.Deref(statesOfInterest);
+if (DEBUG_CEF) System.out.println("   In ChkExprFilter, @ Place 15" );
 
 if (DEBUG_CEF) System.out.println("</ChkExprFilter comment=\"ENDED. for expression: " + expr + "\">");
 		return resVals;
