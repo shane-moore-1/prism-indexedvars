@@ -11,7 +11,7 @@ import java.util.*;
  * It extends ExpressionIdent because it is meant to arise only in places where ExpressionIdent things would generally appear. 
  * It can occur both as a target of an update, or as an element in an expression (such as one specifying the way to calculate the value to be assigned to the target) 
  */
-public class ExpressionIndexedSetAccess extends ExpressionIdent implements Comparable<ExpressionIndexedSetAccess>
+public class ExpressionIndexedSetAccess extends ExpressionIdent implements Comparable<Expression>
 {	
 																	
 
@@ -24,6 +24,8 @@ public static boolean DEBUG_VISITOR = false;
 	private List<String> varIdents;		// A reference to the one provided during the FindAllVars visitor, so that
 							// the 'index' of the relevant variable can be found during evaluate()
 
+	private List<Expression> restrictionExpressions;	// Expressions that may restrict the scope of validity of the access expression
+
 	// Constructors
 	
 	public ExpressionIndexedSetAccess()
@@ -35,6 +37,7 @@ public static boolean DEBUG_VISITOR = false;
 	{
 		name = n;
 		indexExpression = null;
+		restrictionExpressions = new ArrayList<Expression>();
 	}
 
 	/** The parameters should be the name of the indexed-set being referenced, and an expression stating which index to access. */
@@ -43,6 +46,7 @@ public static boolean DEBUG_VISITOR = false;
 	{
 		name = n;
 		indexExpression = indexExpr;
+		restrictionExpressions = new ArrayList<Expression>();
 	}
 	
 	// Set methods
@@ -69,6 +73,24 @@ public static boolean DEBUG_VISITOR = false;
 	public Expression getIndexExpression()
 	{
 		return indexExpression;
+	}
+
+	public void addRestrictionExpression(Expression restrExpr)
+	{
+		restrictionExpressions.add(restrExpr);
+	}
+
+	public void replaceRestrictionExpression(Expression oldVersion, Expression newVersion)
+	{
+		if (restrictionExpressions.contains(oldVersion)) {
+			restrictionExpressions.remove(oldVersion);
+			restrictionExpressions.add(newVersion);
+		}
+	}
+
+	public List<Expression> getRestrictionExpressions()
+	{
+		return (List<Expression>) new ArrayList<Expression>(restrictionExpressions);		// Give a copy, not our actual list.
 	}
 
 	// Overrides the default one in Expression, to return THIS object, but only if the IndexExpression is not a constant value

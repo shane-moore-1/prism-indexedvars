@@ -120,6 +120,7 @@ public class ExpressionUnaryOp extends Expression
 	@Override
 	public Object evaluate(EvaluateContext ec) throws PrismLangException
 	{
+if (DEBUG) System.out.println("in ExprUnOp.evaluate for : " +ec + ", operand is: '"+operand+"'");
 		switch (op) {
 		case NOT:
 			return new Boolean(!operand.evaluateBoolean(ec));
@@ -138,6 +139,7 @@ public class ExpressionUnaryOp extends Expression
 	@Override
 	public BigRational evaluateExact(EvaluateContext ec) throws PrismLangException
 	{
+if (DEBUG) System.out.println("in ExprUnOp.evaluateExact for : " +ec + ", operand is: '"+operand+"'");
 		switch (op) {
 		case NOT:
 			return BigRational.from(!operand.evaluateExact(ec).toBoolean());

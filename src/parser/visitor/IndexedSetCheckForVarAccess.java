@@ -53,8 +53,14 @@ public class IndexedSetCheckForVarAccess extends ASTTraverseModify
 		this.modulesFile = modulesFile;
 	}
 
+	public void visitPre(Command e) throws PrismLangException
+	{
+System.out.println("\nNOTE\nvisitPre(Command) has occurred for this command:\n"+e+"\n(Exiting)\n");
+	}
+
 	public void visitPost(Command e) throws PrismLangException
 	{
+System.out.println("\nNOTE\nvisitPost(Command) has occurred for this command:\n"+e+"\n(Exiting)\n");
 	}
 
 	// We will check to see if the update access-expression 

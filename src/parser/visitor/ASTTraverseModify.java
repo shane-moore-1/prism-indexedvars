@@ -28,6 +28,7 @@ package parser.visitor;
 
 import parser.ast.*;
 import prism.PrismLangException;
+import java.util.List;
 
 // Variant of ASTTraverse.
 // Performs a depth-first traversal of an asbtract syntax tree (AST),
@@ -66,7 +67,7 @@ public static boolean DEBUG_ExpIndSetAcc = true && DEBUG_SHOW_ENABLED;
 		n = e.getNumGlobals();
 		for (i = 0; i < n; i++) {
 			if (e.getGlobal(i) != null) e.setGlobal(i, (Declaration)(e.getGlobal(i).accept(this)));
-			n = e.getNumGlobals();		// ADDED BY SHANE - because in dealing with IndexedSet declarations, it may adjust the number of 'globals', which could mean some later declarations are skipped over (particularly if more than 1 indexed set is decalared).
+			n = e.getNumGlobals();		// ADDED BY SHANE - because in dealing with IndexedSet declarations, the above line may adjust the number of 'globals', which could mean some later declarations are skipped over (particularly if more than 1 indexed set is decalared).
 		}
 		n = e.getNumModules();
 		for (i = 0; i < n; i++) {
@@ -214,13 +215,16 @@ if (DEBUG_Decl) System.out.println("The " + this.getClass().getName() + " visito
 	public void visitPre(DeclTypeIndexedSet e) throws PrismLangException { defaultVisitPre(e); }
 	public Object visit(DeclTypeIndexedSet e) throws PrismLangException
 	{
-if (DEBUG_DeclTypeIndS) System.out.println("The " + this.getClass().getName() + " visitor has reached ASTTravMod.visit(DeclTypeIndSet), for " + e + "\nAbout to call visitPre."); System.out.flush();
+if (DEBUG_DeclTypeIndS) System.out.println("The " + this.getClass().getName() + " visitor has reached ASTTravMod.visit(DeclTypeIndSet), for " + e + "\nAbout to call visitPre()."); System.out.flush();
 		visitPre(e);
-if (DEBUG_DeclTypeIndS) System.out.println("The " + this.getClass().getName() + " visitor in ASTTravMod.visit(DeclTypeIndSet), for " + e + "\nis about to call accept on its size..."); System.out.flush();
+if (DEBUG_DeclTypeIndS) System.out.println("The " + this.getClass().getName() + " visitor has finished the call to visitPre()."); System.out.flush();
+if (DEBUG_DeclTypeIndS) System.out.println("The " + this.getClass().getName() + " visitor in ASTTravMod.visit(DeclTypeIndSet), for " + e + "\nis about to call accept() on its 'size'..."); System.out.flush();
 		// Process the attributes of this Declaration of Indexed Set, in case they need to be modified as well:
 		if (e.getSize() != null) e.setSize((Expression)e.getSize().accept(this));
-if (DEBUG_DeclTypeIndS) System.out.println("The " + this.getClass().getName() + " visitor in ASTTravMod.visit(DeclTypeIndSet), for " + e + "\nis about to call accept on its elementsType..."); System.out.flush();
+if (DEBUG_DeclTypeIndS) System.out.println("The " + this.getClass().getName() + " visitor has finished the call to accept() on its 'size'..."); System.out.flush();
+if (DEBUG_DeclTypeIndS) System.out.println("The " + this.getClass().getName() + " visitor in ASTTravMod.visit(DeclTypeIndSet), for " + e + "\nis about to call accept on its 'elementsType'..."); System.out.flush();
 		if (e.getElementsType() != null) e.setElementsType((DeclarationType)e.getElementsType().accept(this));
+if (DEBUG_DeclTypeIndS) System.out.println("The " + this.getClass().getName() + " visitor has finished the call to accept on its 'elementsType'..."); System.out.flush();
 		visitPost(e);
 if (DEBUG_DeclTypeIndS) System.out.println("The " + this.getClass().getName() + " visitor in ASTTravMod.visit(DeclTypeIndSet), for " + e +"\nis about to return."); System.out.flush();
 		return e;
@@ -262,22 +266,22 @@ if (DEBUG_Module)
  System.out.println("\nIn ASTTravMod.visit(Module) [" /*+ this.getClass().getName()*/ + "] for module " + e.getName() + 
  "\n Considering declaration #" + (i+1) + " of " + n + " (" + e.getDeclaration(i) +")"); 
 			if (e.getDeclaration(i) != null) e.setDeclaration(i, (Declaration)(e.getDeclaration(i).accept(this)));
-			n = e.getNumDeclarations();		// This could have changed, due to IndexedSet declarations being expanded.
+			n = e.getNumDeclarations();		// This could have changed, due to IndexedSet declarations being expanded by above line.
 		}
 		if (e.getInvariant() != null) {
 if (DEBUG_Module)
- System.out.println("\nASTTM.visit(MOD) [" /*+ this.getClass().getName()*/ + "] for module " + e.getName() +
+ System.out.println("\nASTTM.visit(Module) [" /*+ this.getClass().getName()*/ + "] for module " + e.getName() +
  ".\n Considering Module invariant: i" + e.getInvariant());
 			e.setInvariant((Expression)(e.getInvariant().accept(this)));
 		}
 		n = e.getNumCommands();
 		for (i = 0; i < n; i++) {
 if (DEBUG_Module)
- System.out.println("\nin ASTTM.visit(MOD) [" /*+ this.getClass().getName()*/ + "] for module " + e.getName() + 
+ System.out.println("\nin ASTTM.visit(Module) [" /*+ this.getClass().getName()*/ + "] for module " + e.getName() + 
  "\n now considering command #" + (i+1) + "/" + n +":  " + e.getCommand(i) );
 			if (e.getCommand(i) != null) e.setCommand(i, (Command)(e.getCommand(i).accept(this)));
 if (DEBUG_Module)
- System.out.println("\nin ASTTM.visit(MOD) [" /*+ this.getClass().getName()*/ + "] for module " + e.getName() + 
+ System.out.println("\nin ASTTM.visit(Module) [" /*+ this.getClass().getName()*/ + "] for module " + e.getName() + 
  "\n finished considering command #" + (i+1) + "/" + n +":  " + e.getCommand(i) );
 		}
 if (DEBUG_Module)
@@ -354,7 +358,10 @@ if (DEBUG_Update) System.out.println(" This update is targeting this variable: "
 if (DEBUG_Update) System.out.println(" The variable's underlying Java class type is [" + targetOfUpdate.getClass().getName() + "]" );	
 			if (targetOfUpdate instanceof ExpressionIndexedSetAccess)
 			{
-				ExpressionIndexedSetAccess detail = (ExpressionIndexedSetAccess) targetOfUpdate;
+// TEMPORARILY Trying to simply call 'accept' on the ExpressionIndexedSetAccess, instead of the commented-out code which duplicates what is in visit(EISA) anyway.
+				e.setVarIdent(i,(ExpressionIdent)targetOfUpdate.accept(this));
+
+/*				ExpressionIndexedSetAccess detail = (ExpressionIndexedSetAccess) targetOfUpdate;
 				// Consider the Access part's validity - is it an int value.
 				Expression indexExp = detail.getIndexExpression();
 if (DEBUG_Update) System.out.println("  Because it is targeting an element of an indexed-set, ASTTravMod.visit(Update) is going to call accept() on the\nfollowing access expression: " + indexExp);
@@ -369,6 +376,19 @@ if (DEBUG_Update) {
 	
 				//refresh it (in case it just got changed by above line)
 				indexExp = detail.getIndexExpression();
+
+				// Delve into any restrictions that are specified for it:
+				List<Expression> restrictions = detail.getRestrictionExpressions();
+				if (restrictions != null && restrictions.size() > 0) {
+					for (Expression curRestriction : restrictions)
+					{
+if (DEBUG_Update) {
+	System.out.println("  ASTTravMod.visit(Upd) about to invoke accept on the following Restriction Expression: " + curRestriction);
+}
+						detail.replaceRestrictionExpression(curRestriction,(Expression)curRestriction.accept(this) );	// Visit it
+					}
+				}
+*/
 			}
 else if (DEBUG_Update) System.out.println("  It was not accessing an indexed set, so no further special processing is needed");
 
@@ -641,6 +661,23 @@ Expression prior = e.getIndexExpression();
 			e.setIndexExpression(newIndExpr);
 if (DEBUG_ExpIndSetAcc) System.out.println("The " + this.getClass().getName() + " visitor in ASTTravMod.visit(EISA) has finished calling accept() on indexExpr,\n and the returned IndexExpression is : " + newIndExpr + " which is " + (prior==newIndExpr ? "the same object" : "a different (new) object") );
 		}
+		// Delve into any restrictions that are specified for it:
+		List<Expression> restrictions = e.getRestrictionExpressions();
+		if (restrictions != null && restrictions.size() > 0) {
+			for (Expression curRestriction : restrictions)
+			{
+if (DEBUG_ExpIndSetAcc) {
+	System.out.println("  ASTTravMod.visit(EISA) is about to invoke accept() on the following Restriction Expression: " + curRestriction);
+}
+				e.replaceRestrictionExpression(curRestriction,(Expression)curRestriction.accept(this) );	// Visit it
+if (DEBUG_ExpIndSetAcc) {
+	System.out.println("  ASTTravMod.visit(EISA) has finished calling accept() on the following Restriction Expression: " + curRestriction);
+}
+			}
+		}
+else if (DEBUG_ExpIndSetAcc) {
+	System.out.println("  ASTTravMod.visit(EISA) has no Restriction Expressions to delve into.");
+}
 if (DEBUG_ExpIndSetAcc) System.out.println("The " + this.getClass().getName() + " visitor is now about to call visitPost()"); System.out.flush();
 		visitPost(e);
 if (DEBUG_ExpIndSetAcc) System.out.println("The " + this.getClass().getName() + " visitor is now concluding ASTTravMod.visit(ExprIndSetAcc), returning: " + e); System.out.flush();

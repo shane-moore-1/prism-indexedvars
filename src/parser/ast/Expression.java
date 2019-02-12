@@ -40,8 +40,11 @@ import java.util.*;
 
 public abstract class Expression extends ASTElement implements Comparable<Expression>
 {
-public static boolean DEBUG_VPEISA = false;		// Debug the getVarPosEISAs and their overrides in the subclasses?
-private static boolean DEBUG = false;		// Any other debugging Shane has added here.
+public static boolean DEBUG_VPEISA = true;		// Debug the getVarPosEISAs and their overrides in the subclasses?
+protected static boolean DEBUG = false;		// Any other debugging Shane has added here.
+
+protected static int DEBUG_INDENT = 0;	// How much to indent some of the debug messages
+
 	/**
 	 * Is this expression constant?
 	 */
@@ -247,15 +250,30 @@ private static boolean DEBUG = false;		// Any other debugging Shane has added he
 		return evaluate(new EvaluateContextSubstate(constantValues, substate, varMap));
 	}
 
+static int NEXT_callOccurrence = 0;
 	/**
 	 * Evaluate this expression as an integer.
 	 * Any typing issues cause an exception (but: we do allow conversion of boolean to 0/1).
 	 */
 	public int evaluateInt(EvaluateContext ec) throws PrismLangException
 	{
-if (DEBUG) System.out.println("in base-class\' evaluateInt(EC) for expression \'" + this.toString() + "\', about to call 'evaluate'");
-if (DEBUG) System.out.println("[The class itself is an instance of: " + getClass().getName() +"]");
+int callOccurrence = ++NEXT_callOccurrence;
+if (DEBUG) {
+  printDebugIndent(); System.out.println("OCC #" + callOccurrence + " in base-class\' evaluateInt(EC) for expression \'" + this.toString() + "\', about to call 'evaluate'");
+  printDebugIndent(); System.out.println("[The class itself is an instance of: " + getClass().getName() +"]");
+  DEBUG_INDENT++;
+}
 		Object o = evaluate(ec);
+if (DEBUG) {
+  DEBUG_INDENT--;
+  printDebugIndent(); System.out.print("OCC #" + callOccurrence + "back in base-class\' evaluateInt(EC) for expression \'" + this.toString() + "\', result from 'evaluate' is " + o );
+  if (o != null) System.out.println(", which is a " + o.getClass().getName());
+  else {
+    System.out.println(" *** ERROR *** ");
+    Exception e = new Exception();
+    e.printStackTrace(System.out);
+  }
+}
 		if (o instanceof Integer) {
 			return ((Integer) o).intValue();
 		}
@@ -264,6 +282,11 @@ if (DEBUG) System.out.println("[The class itself is an instance of: " + getClass
 		}
 		throw new PrismLangException("Cannot evaluate to an integer", this);
 	}
+
+protected void printDebugIndent()
+{
+   for (int i = 0; i < DEBUG_INDENT; i++) System.out.print(" ");
+}
 
 	/**
 	 * Evaluate this expression as an integer, using no constant or variable values.
@@ -1109,6 +1132,7 @@ if (DEBUG) System.out.println("[The class itself is an instance of: " + getClass
 	*/
 	public List<ExpressionIndexedSetAccess> getVariablePosEISAs()
 	{
+if (DEBUG_VPEISA) System.out.println("  getVariablePosEISAs not overridden by " + this.getClass().getName() + " - returning null");
 		return null;
 	}
 
@@ -1118,6 +1142,7 @@ if (DEBUG) System.out.println("[The class itself is an instance of: " + getClass
 	*/
 	public Set<ExpressionVar> extractVarExprs()
 	{
+if (DEBUG_VPEISA) System.out.println("  extractVarExprs not overridden by " + this.getClass().getName());
 		return null;
 	}
 

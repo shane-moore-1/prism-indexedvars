@@ -147,6 +147,11 @@ public class ExpressionBinaryOp extends Expression
 	@Override
 	public Object evaluate(EvaluateContext ec) throws PrismLangException
 	{
+if (DEBUG) {
+  printDebugIndent(); System.out.println("In evaluate(EC) for ExprBinOp for " + this);
+  printDebugIndent();  System.out.println("operand1's getType is: " +operand1.getType() + " which is " + operand1.getType().getClass().getName() );
+  printDebugIndent();  System.out.println("operand2's getType is: " +operand2.getType() + " which is " + operand2.getType().getClass().getName() );
+}
 		switch (op) {
 		case IMPLIES:
 			return new Boolean(!operand1.evaluateBoolean(ec) || operand2.evaluateBoolean(ec));
@@ -269,16 +274,23 @@ public class ExpressionBinaryOp extends Expression
 		// Recurse into both operands, then return the results
 		List<ExpressionIndexedSetAccess> result, tmp;
 		result = new ArrayList<ExpressionIndexedSetAccess>();
-if (DEBUG_VPEISA) System.out.println("   Considering op1: " + operand1);
+if (DEBUG_VPEISA) System.out.println("   in ExprBinOp.gvpEs for " + this + " - Considering op1: " + operand1);
 		tmp = operand1.getVariablePosEISAs();
 		if ((tmp != null) && tmp.size() > 0)
 			result.addAll(tmp);
+if (DEBUG_VPEISA) System.out.println("   in ExprBinOp.gvpEs for " + this + " - Finished Considering op1: " + operand1);
 
-if (DEBUG_VPEISA) System.out.println("   Considering op2: " + operand2);
+if (DEBUG_VPEISA) {
+	if (op ==OR) System.out.println("      NOTE: This is an OR, and should possibly be treated differently.");
+	else if (op == AND) System.out.println("      NOTE: This is an AND, and may lead to contradictions.");
+}
+
+if (DEBUG_VPEISA) System.out.println("   in ExprBinOp.gvpEs for " + this + " - Considering op2: " + operand2);
 		tmp = operand2.getVariablePosEISAs();
 		if ((tmp != null) && tmp.size() > 0)
 			result.addAll(tmp);
 
+if (DEBUG_VPEISA) System.out.println("   in ExprBinOp.gvpEs for " + this + " - Finished Considering op2: " + operand2);
 		return result;		
 	}
 
@@ -288,15 +300,15 @@ if (DEBUG_VPEISA) System.out.println("   Considering op2: " + operand2);
 		Set<ExpressionVar> result, tmp;
 		result = new TreeSet<ExpressionVar>();
 		tmp = operand1.extractVarExprs();
-if (DEBUG_VPEISA) System.out.println("   ExpBinOp First Considering op1: " + operand1 + " its java-type is " + operand1.getClass().getName());
+if (DEBUG_VPEISA) System.out.println("   in ExpBinOp.extract for " + this + " - First Considering op1: " + operand1 + " its java-type is " + operand1.getClass().getName());
 		if ((tmp != null) && tmp.size() > 0)
 			result.addAll(tmp);
-if (DEBUG_VPEISA) System.out.println("   ExpBinOp Considered op1: " + operand1);
-if (DEBUG_VPEISA) System.out.println("   ExpBinOp Now Considering op2: " + operand2 + " its java-type is " + operand2.getClass().getName());
+if (DEBUG_VPEISA) System.out.println("   in ExpBinOp.extract for " + this + " - Considered op1: " + operand1);
+if (DEBUG_VPEISA) System.out.println("   in ExpBinOp.extract for " + this + " - Now Considering op2: " + operand2 + " its java-type is " + operand2.getClass().getName());
 		tmp = operand2.extractVarExprs();
 		if ((tmp != null) && tmp.size() > 0)
 			result.addAll(tmp);
-if (DEBUG_VPEISA) System.out.println("   ExpBinOp Considered op2: " + operand2);
+if (DEBUG_VPEISA) System.out.println("   in ExpBinOp.extract for " + this + " - Considered op2: " + operand2);
 		return result;
 	}
 

@@ -124,16 +124,22 @@ public class Command extends ASTElement
 	*/
 	public Set<ExpressionIndexedSetAccess> getVariablePosEISAs()
 	{
+System.out.println("<GetVP_EISAs invokedOnCommand='" + synch + "'>");
 		Set<ExpressionIndexedSetAccess> varPosEISAs = new TreeSet<ExpressionIndexedSetAccess>();
+System.out.println("Invoking getVP_EISAs on the guard...");
 		List<ExpressionIndexedSetAccess> guardEISAs = guard.getVariablePosEISAs();
 		if (guardEISAs != null && guardEISAs.size() > 0)
 			varPosEISAs.addAll(guardEISAs);
+System.out.println("Returned from invoking getVP_EISAs on the guard...");
 
 		// Note that some updates in a command may not even make reference to indexed sets; but we need to know any that are present...
+System.out.println("Invoking getVP_EISAs on the updates...");
 		List<ExpressionIndexedSetAccess> updateEISAs = updates.getVariablePosEISAs();
 		if (updateEISAs != null && updateEISAs.size() > 0)
 			varPosEISAs.addAll(updateEISAs);
 
+System.out.println("returned from invoking getVP_EISAs on the updates...");
+System.out.println("</GetVP_EISAs invokedOnCommand='" + synch + "'>");
 		return varPosEISAs;
 	}
 	

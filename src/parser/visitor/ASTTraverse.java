@@ -292,7 +292,7 @@ System.out.flush();
 	public void visitPre(Update e) throws PrismLangException { defaultVisitPre(e); }
 	public Object visit(Update e) throws PrismLangException
 	{ 
-if (DEBUG_Update) System.out.println("\nThe " + this.getClass().getName() + " visitor has reached ASTTraverse.visit(Update) for update: " + e);
+if (DEBUG_Update) System.out.println("\nThe " + this.getClass().getName() + " visitor has reached ASTTraverse[ONLY].visit(Update) for update: " + e);
 if (DEBUG_Update) System.out.println(" (so it has not been overridden by the Visitor class, and the default will be done...)");
 System.out.flush();
  		visitPre(e);
@@ -301,7 +301,7 @@ System.out.flush();
 if (DEBUG_Update) System.out.println(" (The update has "+n+ " elements)");
 System.out.flush();
 		for (i = 0; i < n; i++) {
-if (DEBUG_Update) System.out.println("  in ASTTraverse.visit(Update): Considering Update-Expression #" + (i+1) + "/"+n+", which is: " + e.getExpression(i));
+if (DEBUG_Update) System.out.println("  in ASTTraverse[ONLY].visit(Update): Considering Update-Expression #" + (i+1) + "/"+n+", which is: " + e.getExpression(i));
 System.out.flush();
 			ExpressionIdent targetOfUpdate = e.getVarIdent(i);
 			if (targetOfUpdate instanceof ExpressionIndexedSetAccess)
@@ -314,7 +314,7 @@ if (DEBUG_Update) System.out.println(" It is an indexed-set access");
 if (DEBUG_Update) System.out.println("  So I am going to call visit() on the access expression: " + indexExp);
 				// Delve in so that the expression might be resolved.
 				Expression res = (Expression) indexExp.accept(this);
-if (DEBUG_Update) System.out.println("  in ASTTraverse.visit(Update): Completed call visit() on the access expression: " + indexExp);
+if (DEBUG_Update) System.out.println("  in ASTTraverse[ONLY].visit(Update): Completed call visit() on the access expression: " + indexExp);
 // DON'T DO THIS LINE, it will break things:	detail.setIndexExpression(res);
 // NOTE: This whole class (ASTTraverse) always returns null; so the results should not be "used" in any way. Otherwise you should
 // be dealing with the ASTTraverseModify class instead.
@@ -324,15 +324,15 @@ if (DEBUG_Update) System.out.println("  in ASTTraverse.visit(Update): Completed 
 			}
 else if (DEBUG_Update) System.out.println(" It was not accessing an indexed set, so no special processing of it.");
 
-if (DEBUG_Update) System.out.println("\n  in ASTTraverse.visit(Update): PART 2 of Considering update-element " + (i+1) + "/"+n +" - About to call the accept() method on the expression: " + e.getExpression(i) );
+if (DEBUG_Update) System.out.println("\n  in ASTTraverse[ONLY].visit(Update): PART 2 of Considering update-element " + (i+1) + "/"+n +" - About to call the accept() method on the expression: " + e.getExpression(i) );
 			
 			if (e.getExpression(i) != null) e.getExpression(i).accept(this);
-if (DEBUG_Update) System.out.println("  in ASTTraverse.visit(Update): Finished call of the accept() method on the expression: " + e.getExpression(i) );
+if (DEBUG_Update) System.out.println("  in ASTTraverse[ONLY].visit(Update): Finished call of the accept() method on the expression: " + e.getExpression(i) );
 System.out.flush();
 		}
-if (DEBUG_Update) System.out.println("  in ASTTraverse.visit(Update): The " + this.getClass().getName() + " visitor is about to call visitPost(Update)");
+if (DEBUG_Update) System.out.println("  in ASTTraverse[ONLY].visit(Update): The " + this.getClass().getName() + " visitor is about to call visitPost(Update)");
 		visitPost(e);
-if (DEBUG_Update) System.out.println("  in ASTTraverse.visit(Update): The " + this.getClass().getName() + " visitor has now returned from visitPost(), and has concluded visit(Update)");
+if (DEBUG_Update) System.out.println("  in ASTTraverse[ONLY].visit(Update): The " + this.getClass().getName() + " visitor has now returned from visitPost(), and has concluded visit(Update)");
 System.out.flush();
 		return null;
 	}
@@ -568,11 +568,18 @@ if (DEBUG_Ident)	System.out.println("The " + this.getClass().getName() + " visit
 	public void visitPre(ExpressionIndexedSetAccess e) throws PrismLangException { defaultVisitPre(e); }
 	public Object visit(ExpressionIndexedSetAccess e) throws PrismLangException
 	{
-if (DEBUG_ExpIndSetAcc) System.out.println(" The " + this.getClass().getName() + " visitor has reached ASTTraverse.visit(ExprIndSetAcc) for expression: " + e);
+if (DEBUG_ExpIndSetAcc) System.out.println(" The " + this.getClass().getName() + " visitor has reached ASTTraverse[ONLY].visit(ExprIndSetAcc) for expression: " + e);
 		visitPre(e);
+if (DEBUG_ExpIndSetAcc) System.out.println(" The " + this.getClass().getName() + " visitor in ASTTraverse[ONLY].visit(ExprIndSetAcc) will call accept() on the index expression...");
 		if (e.getIndexExpression() != null) e.getIndexExpression().accept(this);
 		visitPost(e);
-if (DEBUG_ExpIndSetAcc) System.out.println(" Ending ASTTraverse.visit(ExprIndSetAcc) [" + this.getClass().getName() + "] for expression: " + e);
+		List<Expression> restrExprs = e.getRstrictionExpressions();
+		if (restrExprs != null && restrExprs.size() > 0)
+		 for (Expression curRestrExp : restrExprs) {		// Visit each of the restriction expressions.
+if (DEBUG_ExpIndSetAcc) System.out.println(" The " + this.getClass().getName() + " visitor in ASTTraverse[ONLY].visit(ExprIndSetAcc) will call accept() on the restriction expression: " + curRestrExp);
+			curRestrExp.accept(this);
+		 }
+if (DEBUG_ExpIndSetAcc) System.out.println(" Ending ASTTraverse[ONLY].visit(ExprIndSetAcc) [" + this.getClass().getName() + "] for expression: " + e);
 		return null;
 	}
 	public void visitPost(ExpressionIndexedSetAccess e) throws PrismLangException { defaultVisitPost(e); }

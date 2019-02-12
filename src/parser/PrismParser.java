@@ -1046,12 +1046,12 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
       jj_consume_token(SEMICOLON);
 
       break;
-    case 92:
-      jj_consume_token(92);
-                             getToken(0); /*KungFu*/
-      break;
     case 93:
       jj_consume_token(93);
+                             getToken(0); /*KungFu*/
+      break;
+    case 94:
+      jj_consume_token(94);
                                                                    getToken(0); /*Bamboo*/
           {if (true) return null;}  /* INVALID PORDUCTION - SHOULD NOT HAVE BEEN PARSED!! */
       break;
@@ -2449,7 +2449,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
 // (see the relevant productions for details)
 // we allow two or more successive expressions resulting in potential ambiguities
 // e.g. "a(b)" = "a" "(b)"
-// Ignoring the warning results in the largest match being taken.
+// Ignoring the warning, results in the largest match being taken.
 // SHANE has altered this to cater for allowing attempted accesses of elements in an indexed set (Reading only. See elsewhere for Updating.)
   static final public Expression ExpressionFuncOrIdent(boolean prop, boolean pathprop) throws ParseException {
         String s = null;
@@ -2575,6 +2575,30 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
     // I (SHANE) wonder if we can limit it to something like ExpressionTimesDivide, rather than mere Expression, to restrict the types of expressions we accept here.
             expr = Expression(prop, pathprop);
                                             indSetAcc.setIndexExpression(expr);
+    switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
+    case RESTRICT:
+      jj_consume_token(RESTRICT);
+      expr = ExpressionRelop(prop,pathprop);
+                                                               indSetAcc.addRestrictionExpression(expr);
+      label_27:
+      while (true) {
+        switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
+        case COMMA:
+          ;
+          break;
+        default:
+          jj_la1[72] = jj_gen;
+          break label_27;
+        }
+        jj_consume_token(COMMA);
+        expr = ExpressionRelop(prop,pathprop);
+                                                                  indSetAcc.addRestrictionExpression(expr);
+      }
+      break;
+    default:
+      jj_la1[73] = jj_gen;
+      ;
+    }
   }
 
 // Expression: literal
@@ -2617,7 +2641,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
                   ret = new ExpressionLiteral(TypeBool.getInstance(), new Boolean(false));
       break;
     default:
-      jj_la1[72] = jj_gen;
+      jj_la1[74] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -2662,7 +2686,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
         jj_consume_token(RPARENTH);
         break;
       default:
-        jj_la1[73] = jj_gen;
+        jj_la1[75] = jj_gen;
         ;
       }
       switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
@@ -2692,7 +2716,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
                                        relOp = "max="; isBool = false;
         break;
       default:
-        jj_la1[74] = jj_gen;
+        jj_la1[76] = jj_gen;
         jj_consume_token(-1);
         throw new ParseException();
       }
@@ -2710,7 +2734,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
                                          relOp = "max="; isBool = false;
       break;
     default:
-      jj_la1[75] = jj_gen;
+      jj_la1[77] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -2721,7 +2745,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
       filter = Filter();
       break;
     default:
-      jj_la1[76] = jj_gen;
+      jj_la1[78] = jj_gen;
       ;
     }
     jj_consume_token(RBRACKET);
@@ -2752,15 +2776,15 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
     expr = Expression(true, false);
                                                           filter = new Filter(expr);
     jj_consume_token(RBRACE);
-    label_27:
+    label_28:
     while (true) {
       switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
       case LBRACE:
         ;
         break;
       default:
-        jj_la1[77] = jj_gen;
-        break label_27;
+        jj_la1[79] = jj_gen;
+        break label_28;
       }
       jj_consume_token(LBRACE);
       switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
@@ -2773,7 +2797,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
                           filter.setMaxRequested(true);
         break;
       default:
-        jj_la1[78] = jj_gen;
+        jj_la1[80] = jj_gen;
         jj_consume_token(-1);
         throw new ParseException();
       }
@@ -2810,7 +2834,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
         jj_consume_token(RPARENTH);
         break;
       default:
-        jj_la1[79] = jj_gen;
+        jj_la1[81] = jj_gen;
         ;
       }
       r = LtGt();
@@ -2823,7 +2847,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
                                  relOp = "="; isBool = false;
       break;
     default:
-      jj_la1[80] = jj_gen;
+      jj_la1[82] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -2834,7 +2858,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
       filter = Filter();
       break;
     default:
-      jj_la1[81] = jj_gen;
+      jj_la1[83] = jj_gen;
       ;
     }
     jj_consume_token(RBRACKET);
@@ -2878,7 +2902,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
         jj_consume_token(RPARENTH);
         break;
       default:
-        jj_la1[82] = jj_gen;
+        jj_la1[84] = jj_gen;
         ;
       }
       switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
@@ -2886,7 +2910,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
         RewardIndex(ret);
         break;
       default:
-        jj_la1[83] = jj_gen;
+        jj_la1[85] = jj_gen;
         ;
       }
       switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
@@ -2916,7 +2940,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
                                    relOp = "max="; isBool = false;
         break;
       default:
-        jj_la1[84] = jj_gen;
+        jj_la1[86] = jj_gen;
         jj_consume_token(-1);
         throw new ParseException();
       }
@@ -2934,7 +2958,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
                                          relOp = "max="; isBool = false;
       break;
     default:
-      jj_la1[85] = jj_gen;
+      jj_la1[87] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -2945,7 +2969,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
       filter = Filter();
       break;
     default:
-      jj_la1[86] = jj_gen;
+      jj_la1[88] = jj_gen;
       ;
     }
     jj_consume_token(RBRACKET);
@@ -3008,7 +3032,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
         index = Expression(false, false);
         break;
       default:
-        jj_la1[87] = jj_gen;
+        jj_la1[89] = jj_gen;
         jj_consume_token(-1);
         throw new ParseException();
       }
@@ -3054,7 +3078,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
           indexDiv = Expression(false, false);
           break;
         default:
-          jj_la1[88] = jj_gen;
+          jj_la1[90] = jj_gen;
           jj_consume_token(-1);
           throw new ParseException();
         }
@@ -3062,7 +3086,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
       jj_consume_token(RBRACE);
       break;
     default:
-      jj_la1[89] = jj_gen;
+      jj_la1[91] = jj_gen;
       ;
     }
                 exprRew.setRewardStructIndex(index);
@@ -3092,7 +3116,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
                 ret = new ExpressionTemporal(ExpressionTemporal.R_S, null, null);
         break;
       default:
-        jj_la1[90] = jj_gen;
+        jj_la1[92] = jj_gen;
         if (jj_2_18(2147483647)) {
           begin = jj_consume_token(C);
           jj_consume_token(LE);
@@ -3141,7 +3165,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
                                           ret = expr;
             break;
           default:
-            jj_la1[91] = jj_gen;
+            jj_la1[93] = jj_gen;
             jj_consume_token(-1);
             throw new ParseException();
           }
@@ -3204,7 +3228,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
       jj_consume_token(DRBRACKET);
       break;
     default:
-      jj_la1[92] = jj_gen;
+      jj_la1[94] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -3227,7 +3251,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
         expr = ExpressionReward(prop, pathprop);
         break;
       default:
-        jj_la1[93] = jj_gen;
+        jj_la1[95] = jj_gen;
         jj_consume_token(-1);
         throw new ParseException();
       }
@@ -3238,7 +3262,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
           ret.addOperand(expr);
       break;
     default:
-      jj_la1[94] = jj_gen;
+      jj_la1[96] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -3257,21 +3281,21 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
                       exprStrat.setCoalitionAllPlayers();
       break;
     default:
-      jj_la1[97] = jj_gen;
+      jj_la1[99] = jj_gen;
       switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
       case REG_INT:
       case REG_IDENT:
         s = ExpressionStrategyCoalitionPlayer();
                                                     coalition.add(s);
-        label_28:
+        label_29:
         while (true) {
           switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
           case COMMA:
             ;
             break;
           default:
-            jj_la1[95] = jj_gen;
-            break label_28;
+            jj_la1[97] = jj_gen;
+            break label_29;
           }
           jj_consume_token(COMMA);
           s = ExpressionStrategyCoalitionPlayer();
@@ -3279,7 +3303,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
         }
         break;
       default:
-        jj_la1[96] = jj_gen;
+        jj_la1[98] = jj_gen;
         ;
       }
           exprStrat.setCoalition(coalition);
@@ -3297,7 +3321,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
       jj_consume_token(REG_IDENT);
       break;
     default:
-      jj_la1[98] = jj_gen;
+      jj_la1[100] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -3322,7 +3346,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
                                                        s = "init";
       break;
     default:
-      jj_la1[99] = jj_gen;
+      jj_la1[101] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -3367,7 +3391,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
       op = Identifier();
       break;
     default:
-      jj_la1[100] = jj_gen;
+      jj_la1[102] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -3379,7 +3403,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
       filter = Expression(prop, pathprop);
       break;
     default:
-      jj_la1[101] = jj_gen;
+      jj_la1[103] = jj_gen;
       ;
     }
     jj_consume_token(RPARENTH);
@@ -3425,7 +3449,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
                                                                   ident="max";
       break;
     default:
-      jj_la1[102] = jj_gen;
+      jj_la1[104] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -3462,7 +3486,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
       jj_consume_token(RBRACKET);
       break;
     default:
-      jj_la1[103] = jj_gen;
+      jj_la1[105] = jj_gen;
       ;
     }
     jj_consume_token(PRIME);
@@ -3484,7 +3508,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
               {if (true) return ExpressionBinaryOp.NE;}
       break;
     default:
-      jj_la1[104] = jj_gen;
+      jj_la1[106] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -3511,7 +3535,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
               {if (true) return ExpressionBinaryOp.LE;}
       break;
     default:
-      jj_la1[105] = jj_gen;
+      jj_la1[107] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -3536,7 +3560,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
       step = Expression(false, false);
       break;
     default:
-      jj_la1[106] = jj_gen;
+      jj_la1[108] = jj_gen;
       ;
     }
     jj_consume_token(0);
@@ -3675,72 +3699,69 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
     finally { jj_save(17, xla); }
   }
 
-  static private boolean jj_3R_138() {
-    if (jj_3R_150()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_137() {
-    if (jj_3R_33()) return true;
-    return false;
-  }
-
   static private boolean jj_3R_136() {
-    if (jj_3R_149()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_152() {
-    if (jj_scan_token(A)) return true;
-    if (jj_scan_token(LBRACKET)) return true;
-    if (jj_3R_38()) return true;
-    if (jj_scan_token(RBRACKET)) return true;
+    if (jj_3R_34()) return true;
     return false;
   }
 
   static private boolean jj_3R_135() {
-    if (jj_3R_148()) return true;
+    if (jj_3R_149()) return true;
     return false;
   }
 
   static private boolean jj_3R_134() {
-    if (jj_3R_147()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_42() {
-    if (jj_3R_49()) return true;
-    Token xsp;
-    while (true) {
-      xsp = jj_scanpos;
-      if (jj_3R_50()) { jj_scanpos = xsp; break; }
-    }
+    if (jj_3R_148()) return true;
     return false;
   }
 
   static private boolean jj_3R_133() {
-    if (jj_3R_146()) return true;
+    if (jj_3R_147()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_43() {
+    if (jj_3R_50()) return true;
+    Token xsp;
+    while (true) {
+      xsp = jj_scanpos;
+      if (jj_3R_51()) { jj_scanpos = xsp; break; }
+    }
     return false;
   }
 
   static private boolean jj_3R_132() {
-    if (jj_3R_145()) return true;
+    if (jj_3R_146()) return true;
     return false;
   }
 
   static private boolean jj_3R_131() {
-    if (jj_3R_144()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_125() {
-    if (jj_scan_token(MINUS)) return true;
+    if (jj_3R_145()) return true;
     return false;
   }
 
   static private boolean jj_3R_130() {
+    if (jj_3R_144()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_119() {
+    if (jj_scan_token(MINUS)) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_151() {
+    if (jj_scan_token(E)) return true;
+    if (jj_scan_token(LBRACKET)) return true;
+    if (jj_3R_39()) return true;
+    if (jj_scan_token(RBRACKET)) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_128() {
     Token xsp;
     xsp = jj_scanpos;
+    if (jj_3R_130()) {
+    jj_scanpos = xsp;
     if (jj_3R_131()) {
     jj_scanpos = xsp;
     if (jj_3R_132()) {
@@ -3763,9 +3784,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
     jj_scanpos = xsp;
     if (jj_3R_141()) {
     jj_scanpos = xsp;
-    if (jj_3R_142()) {
-    jj_scanpos = xsp;
-    if (jj_3R_143()) return true;
+    if (jj_3R_142()) return true;
     }
     }
     }
@@ -3778,30 +3797,6 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
     }
     }
     }
-    return false;
-  }
-
-  static private boolean jj_3R_151() {
-    if (jj_scan_token(E)) return true;
-    if (jj_scan_token(LBRACKET)) return true;
-    if (jj_3R_38()) return true;
-    if (jj_scan_token(RBRACKET)) return true;
-    return false;
-  }
-
-  static private boolean jj_3_4() {
-    if (jj_scan_token(LABEL)) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_127() {
-    if (jj_3R_130()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_126() {
-    if (jj_scan_token(MINUS)) return true;
-    if (jj_3R_122()) return true;
     return false;
   }
 
@@ -3811,46 +3806,52 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
     return false;
   }
 
+  static private boolean jj_3_4() {
+    if (jj_scan_token(LABEL)) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_123() {
+    if (jj_3R_128()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_211() {
+    if (jj_3R_39()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_122() {
+    if (jj_scan_token(MINUS)) return true;
+    if (jj_3R_116()) return true;
+    return false;
+  }
+
+  static private boolean jj_3_17() {
+    if (jj_3R_34()) return true;
+    return false;
+  }
+
   static private boolean jj_3_3() {
     if (jj_scan_token(LABEL)) return true;
     if (jj_scan_token(DQUOTE)) return true;
     return false;
   }
 
-  static private boolean jj_3R_35() {
-    if (jj_3R_42()) return true;
+  static private boolean jj_3R_36() {
+    if (jj_3R_43()) return true;
     Token xsp;
     while (true) {
       xsp = jj_scanpos;
-      if (jj_3R_43()) { jj_scanpos = xsp; break; }
+      if (jj_3R_44()) { jj_scanpos = xsp; break; }
     }
     return false;
   }
 
-  static private boolean jj_3R_208() {
-    if (jj_3R_38()) return true;
-    return false;
-  }
-
-  static private boolean jj_3_17() {
-    if (jj_3R_33()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_207() {
+  static private boolean jj_3R_210() {
     if (jj_scan_token(I)) return true;
     if (jj_scan_token(EQ)) return true;
-    if (jj_3R_38()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_122() {
-    Token xsp;
-    xsp = jj_scanpos;
-    if (jj_3R_126()) {
-    jj_scanpos = xsp;
-    if (jj_3R_127()) return true;
-    }
+    if (jj_3R_39()) return true;
     return false;
   }
 
@@ -3859,88 +3860,90 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
     return false;
   }
 
-  static private boolean jj_3R_206() {
+  static private boolean jj_3R_209() {
     if (jj_scan_token(C)) return true;
     return false;
   }
 
-  static private boolean jj_3R_205() {
+  static private boolean jj_3R_208() {
     if (jj_scan_token(C)) return true;
     if (jj_scan_token(LE)) return true;
-    if (jj_3R_38()) return true;
+    if (jj_3R_39()) return true;
     return false;
   }
 
-  static private boolean jj_3R_128() {
-    if (jj_scan_token(TIMES)) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_204() {
+  static private boolean jj_3R_207() {
     if (jj_scan_token(S)) return true;
     return false;
   }
 
-  static private boolean jj_3R_175() {
-    if (jj_3R_47()) return true;
+  static private boolean jj_3R_176() {
+    if (jj_3R_48()) return true;
     return false;
   }
 
-  static private boolean jj_3R_31() {
-    if (jj_3R_35()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_123() {
+  static private boolean jj_3R_116() {
     Token xsp;
     xsp = jj_scanpos;
-    if (jj_3R_128()) {
+    if (jj_3R_122()) {
     jj_scanpos = xsp;
-    if (jj_3R_129()) return true;
+    if (jj_3R_123()) return true;
     }
-    if (jj_3R_122()) return true;
     return false;
   }
 
-  static private boolean jj_3R_203() {
-    if (jj_3R_33()) return true;
+  static private boolean jj_3R_206() {
+    if (jj_3R_34()) return true;
     return false;
   }
 
-  static private boolean jj_3R_219() {
+  static private boolean jj_3R_222() {
     if (jj_scan_token(DQUOTE)) return true;
-    if (jj_3R_29()) return true;
+    if (jj_3R_30()) return true;
     if (jj_scan_token(DQUOTE)) return true;
     return false;
   }
 
-  static private boolean jj_3_7() {
-    if (jj_scan_token(DQUOTE)) return true;
-    if (jj_3R_29()) return true;
-    if (jj_scan_token(DQUOTE)) return true;
-    if (jj_3R_31()) return true;
+  static private boolean jj_3R_124() {
+    if (jj_scan_token(TIMES)) return true;
     return false;
   }
 
-  static private boolean jj_3R_174() {
+  static private boolean jj_3R_175() {
     Token xsp;
     xsp = jj_scanpos;
-    if (jj_3R_203()) {
-    jj_scanpos = xsp;
-    if (jj_3R_204()) {
-    jj_scanpos = xsp;
-    if (jj_3R_205()) {
-    jj_scanpos = xsp;
     if (jj_3R_206()) {
     jj_scanpos = xsp;
     if (jj_3R_207()) {
     jj_scanpos = xsp;
-    if (jj_3R_208()) return true;
+    if (jj_3R_208()) {
+    jj_scanpos = xsp;
+    if (jj_3R_209()) {
+    jj_scanpos = xsp;
+    if (jj_3R_210()) {
+    jj_scanpos = xsp;
+    if (jj_3R_211()) return true;
     }
     }
     }
     }
     }
+    return false;
+  }
+
+  static private boolean jj_3R_32() {
+    if (jj_3R_36()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_117() {
+    Token xsp;
+    xsp = jj_scanpos;
+    if (jj_3R_124()) {
+    jj_scanpos = xsp;
+    if (jj_3R_125()) return true;
+    }
+    if (jj_3R_116()) return true;
     return false;
   }
 
@@ -3949,73 +3952,81 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
     return false;
   }
 
-  static private boolean jj_3R_118() {
-    if (jj_3R_122()) return true;
+  static private boolean jj_3_7() {
+    if (jj_scan_token(DQUOTE)) return true;
+    if (jj_3R_30()) return true;
+    if (jj_scan_token(DQUOTE)) return true;
+    if (jj_3R_32()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_112() {
+    if (jj_3R_116()) return true;
     Token xsp;
     while (true) {
       xsp = jj_scanpos;
-      if (jj_3R_123()) { jj_scanpos = xsp; break; }
+      if (jj_3R_117()) { jj_scanpos = xsp; break; }
     }
     return false;
   }
 
-  static private boolean jj_3R_124() {
+  static private boolean jj_3R_218() {
+    if (jj_scan_token(DQUOTE)) return true;
+    if (jj_3R_30()) return true;
+    if (jj_scan_token(DQUOTE)) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_118() {
     if (jj_scan_token(PLUS)) return true;
     return false;
   }
 
-  static private boolean jj_3R_215() {
-    if (jj_scan_token(DQUOTE)) return true;
-    if (jj_3R_29()) return true;
-    if (jj_scan_token(DQUOTE)) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_119() {
+  static private boolean jj_3R_113() {
     Token xsp;
     xsp = jj_scanpos;
-    if (jj_3R_124()) {
+    if (jj_3R_118()) {
     jj_scanpos = xsp;
-    if (jj_3R_125()) return true;
+    if (jj_3R_119()) return true;
     }
-    if (jj_3R_118()) return true;
+    if (jj_3R_112()) return true;
     return false;
   }
 
-  static private boolean jj_3R_217() {
+  static private boolean jj_3R_220() {
     if (jj_scan_token(DIVIDE)) return true;
     if (jj_scan_token(LBRACE)) return true;
     Token xsp;
     xsp = jj_scanpos;
-    if (jj_3R_219()) {
+    if (jj_3R_222()) {
     jj_scanpos = xsp;
-    if (jj_3R_220()) return true;
+    if (jj_3R_223()) return true;
     }
     if (jj_scan_token(RBRACE)) return true;
     return false;
   }
 
-  static private boolean jj_3R_115() {
-    if (jj_3R_118()) return true;
-    Token xsp;
-    while (true) {
-      xsp = jj_scanpos;
-      if (jj_3R_119()) { jj_scanpos = xsp; break; }
-    }
-    return false;
-  }
-
-  static private boolean jj_3R_212() {
+  static private boolean jj_3R_215() {
     if (jj_scan_token(LBRACE)) return true;
     Token xsp;
     xsp = jj_scanpos;
-    if (jj_3R_215()) {
+    if (jj_3R_218()) {
     jj_scanpos = xsp;
-    if (jj_3R_216()) return true;
+    if (jj_3R_219()) return true;
     }
     if (jj_scan_token(RBRACE)) return true;
     xsp = jj_scanpos;
-    if (jj_3R_217()) jj_scanpos = xsp;
+    if (jj_3R_220()) jj_scanpos = xsp;
+    return false;
+  }
+
+  static private boolean jj_3R_108() {
+    if (jj_3R_112()) return true;
+    Token xsp;
+    while (true) {
+      xsp = jj_scanpos;
+      if (jj_3R_113()) { jj_scanpos = xsp; break; }
+    }
     return false;
   }
 
@@ -4024,205 +4035,13 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
     return false;
   }
 
-  static private boolean jj_3R_116() {
-    if (jj_3R_45()) return true;
-    if (jj_3R_115()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_113() {
-    if (jj_3R_115()) return true;
-    Token xsp;
-    while (true) {
-      xsp = jj_scanpos;
-      if (jj_3R_116()) { jj_scanpos = xsp; break; }
-    }
-    return false;
-  }
-
-  static private boolean jj_3_2() {
-    if (jj_scan_token(DQUOTE)) return true;
-    if (jj_3R_29()) return true;
-    if (jj_scan_token(DQUOTE)) return true;
-    if (jj_scan_token(COLON)) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_199() {
-    if (jj_3R_45()) return true;
-    if (jj_3R_38()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_198() {
-    if (jj_3R_212()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_197() {
-    if (jj_scan_token(LPARENTH)) return true;
-    if (jj_3R_32()) return true;
-    if (jj_scan_token(RPARENTH)) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_114() {
-    if (jj_3R_117()) return true;
-    if (jj_3R_113()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_202() {
-    if (jj_scan_token(MAX)) return true;
-    if (jj_scan_token(EQ)) return true;
-    if (jj_scan_token(QMARK)) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_173() {
-    if (jj_scan_token(RMAX)) return true;
-    if (jj_scan_token(EQ)) return true;
-    if (jj_scan_token(QMARK)) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_201() {
-    if (jj_scan_token(MIN)) return true;
-    if (jj_scan_token(EQ)) return true;
-    if (jj_scan_token(QMARK)) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_172() {
-    if (jj_scan_token(RMIN)) return true;
-    if (jj_scan_token(EQ)) return true;
-    if (jj_scan_token(QMARK)) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_200() {
-    if (jj_scan_token(EQ)) return true;
-    if (jj_scan_token(QMARK)) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_112() {
-    if (jj_3R_113()) return true;
-    Token xsp;
-    while (true) {
-      xsp = jj_scanpos;
-      if (jj_3R_114()) { jj_scanpos = xsp; break; }
-    }
-    return false;
-  }
-
-  static private boolean jj_3R_39() {
-    if (jj_3R_47()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_111() {
-    if (jj_3R_112()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_171() {
-    if (jj_scan_token(R)) return true;
-    Token xsp;
-    xsp = jj_scanpos;
-    if (jj_3R_197()) jj_scanpos = xsp;
-    xsp = jj_scanpos;
-    if (jj_3R_198()) jj_scanpos = xsp;
-    xsp = jj_scanpos;
-    if (jj_3R_199()) {
-    jj_scanpos = xsp;
-    if (jj_3R_200()) {
-    jj_scanpos = xsp;
-    if (jj_3R_201()) {
-    jj_scanpos = xsp;
-    if (jj_3R_202()) return true;
-    }
-    }
-    }
-    return false;
-  }
-
-  static private boolean jj_3R_110() {
-    if (jj_scan_token(NOT)) return true;
-    if (jj_3R_108()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_103() {
-    if (jj_3R_38()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_101() {
-    if (jj_3R_38()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_150() {
-    Token xsp;
-    xsp = jj_scanpos;
-    if (jj_3R_171()) {
-    jj_scanpos = xsp;
-    if (jj_3R_172()) {
-    jj_scanpos = xsp;
-    if (jj_3R_173()) return true;
-    }
-    }
-    if (jj_scan_token(LBRACKET)) return true;
-    if (jj_3R_174()) return true;
-    xsp = jj_scanpos;
-    if (jj_3R_175()) jj_scanpos = xsp;
-    if (jj_scan_token(RBRACKET)) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_99() {
-    if (jj_3R_38()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_97() {
-    if (jj_3R_38()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_41() {
-    if (jj_scan_token(AND)) return true;
-    if (jj_3R_40()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_108() {
-    Token xsp;
-    xsp = jj_scanpos;
-    if (jj_3R_110()) {
-    jj_scanpos = xsp;
-    if (jj_3R_111()) return true;
-    }
-    return false;
-  }
-
   static private boolean jj_3R_109() {
-    if (jj_scan_token(AND)) return true;
+    if (jj_3R_46()) return true;
     if (jj_3R_108()) return true;
     return false;
   }
 
-  static private boolean jj_3R_40() {
-    if (jj_scan_token(LPARENTH)) return true;
-    if (jj_3R_48()) return true;
-    if (jj_scan_token(EQ)) return true;
-    if (jj_3R_38()) return true;
-    if (jj_scan_token(RPARENTH)) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_106() {
+  static private boolean jj_3R_94() {
     if (jj_3R_108()) return true;
     Token xsp;
     while (true) {
@@ -4232,296 +4051,537 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
     return false;
   }
 
-  static private boolean jj_3R_107() {
-    if (jj_scan_token(OR)) return true;
-    if (jj_3R_106()) return true;
+  static private boolean jj_3R_202() {
+    if (jj_3R_46()) return true;
+    if (jj_3R_39()) return true;
     return false;
   }
 
-  static private boolean jj_3R_34() {
-    if (jj_3R_40()) return true;
-    Token xsp;
-    while (true) {
-      xsp = jj_scanpos;
-      if (jj_3R_41()) { jj_scanpos = xsp; break; }
-    }
+  static private boolean jj_3_2() {
+    if (jj_scan_token(DQUOTE)) return true;
+    if (jj_3R_30()) return true;
+    if (jj_scan_token(DQUOTE)) return true;
+    if (jj_scan_token(COLON)) return true;
     return false;
   }
 
-  static private boolean jj_3R_37() {
-    if (jj_scan_token(EQ)) return true;
-    if (jj_scan_token(QMARK)) return true;
+  static private boolean jj_3R_201() {
+    if (jj_3R_215()) return true;
     return false;
   }
 
-  static private boolean jj_3R_44() {
+  static private boolean jj_3R_200() {
     if (jj_scan_token(LPARENTH)) return true;
-    if (jj_3R_32()) return true;
+    if (jj_3R_33()) return true;
     if (jj_scan_token(RPARENTH)) return true;
     return false;
   }
 
-  static private boolean jj_3_5() {
-    if (jj_3R_30()) return true;
+  static private boolean jj_3R_205() {
+    if (jj_scan_token(MAX)) return true;
+    if (jj_scan_token(EQ)) return true;
+    if (jj_scan_token(QMARK)) return true;
     return false;
   }
 
-  static private boolean jj_3R_104() {
-    if (jj_3R_106()) return true;
+  static private boolean jj_3R_174() {
+    if (jj_scan_token(RMAX)) return true;
+    if (jj_scan_token(EQ)) return true;
+    if (jj_scan_token(QMARK)) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_204() {
+    if (jj_scan_token(MIN)) return true;
+    if (jj_scan_token(EQ)) return true;
+    if (jj_scan_token(QMARK)) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_173() {
+    if (jj_scan_token(RMIN)) return true;
+    if (jj_scan_token(EQ)) return true;
+    if (jj_scan_token(QMARK)) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_203() {
+    if (jj_scan_token(EQ)) return true;
+    if (jj_scan_token(QMARK)) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_40() {
+    if (jj_3R_48()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_143() {
+    if (jj_3R_156()) return true;
+    if (jj_3R_94()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_129() {
+    if (jj_3R_94()) return true;
     Token xsp;
     while (true) {
       xsp = jj_scanpos;
-      if (jj_3R_107()) { jj_scanpos = xsp; break; }
+      if (jj_3R_143()) { jj_scanpos = xsp; break; }
     }
     return false;
   }
 
-  static private boolean jj_3R_36() {
+  static private boolean jj_3R_172() {
+    if (jj_scan_token(R)) return true;
     Token xsp;
     xsp = jj_scanpos;
-    if (jj_3R_44()) jj_scanpos = xsp;
-    if (jj_3R_45()) return true;
-    if (jj_3R_38()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_30() {
-    Token xsp;
+    if (jj_3R_200()) jj_scanpos = xsp;
     xsp = jj_scanpos;
-    if (jj_3R_34()) {
+    if (jj_3R_201()) jj_scanpos = xsp;
+    xsp = jj_scanpos;
+    if (jj_3R_202()) {
     jj_scanpos = xsp;
-    if (jj_scan_token(50)) return true;
+    if (jj_3R_203()) {
+    jj_scanpos = xsp;
+    if (jj_3R_204()) {
+    jj_scanpos = xsp;
+    if (jj_3R_205()) return true;
+    }
+    }
     }
     return false;
   }
 
-  static private boolean jj_3R_105() {
-    if (jj_scan_token(IFF)) return true;
-    if (jj_3R_104()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_33() {
-    if (jj_scan_token(S)) return true;
+  static private boolean jj_3R_150() {
     Token xsp;
     xsp = jj_scanpos;
-    if (jj_3R_36()) {
+    if (jj_3R_172()) {
     jj_scanpos = xsp;
-    if (jj_3R_37()) return true;
+    if (jj_3R_173()) {
+    jj_scanpos = xsp;
+    if (jj_3R_174()) return true;
+    }
     }
     if (jj_scan_token(LBRACKET)) return true;
-    if (jj_3R_38()) return true;
+    if (jj_3R_175()) return true;
     xsp = jj_scanpos;
-    if (jj_3R_39()) jj_scanpos = xsp;
+    if (jj_3R_176()) jj_scanpos = xsp;
     if (jj_scan_token(RBRACKET)) return true;
     return false;
   }
 
-  static private boolean jj_3R_94() {
-    if (jj_3R_104()) return true;
-    Token xsp;
-    while (true) {
-      xsp = jj_scanpos;
-      if (jj_3R_105()) { jj_scanpos = xsp; break; }
-    }
+  static private boolean jj_3R_127() {
+    if (jj_3R_129()) return true;
     return false;
   }
 
-  static private boolean jj_3R_54() {
-    if (jj_scan_token(LE)) return true;
+  static private boolean jj_3R_126() {
+    if (jj_scan_token(NOT)) return true;
+    if (jj_3R_120()) return true;
     return false;
   }
 
-  static private boolean jj_3R_53() {
-    if (jj_scan_token(GE)) return true;
+  static private boolean jj_3R_107() {
+    if (jj_3R_39()) return true;
     return false;
   }
 
-  static private boolean jj_3R_52() {
-    if (jj_scan_token(LT)) return true;
+  static private boolean jj_3R_105() {
+    if (jj_3R_39()) return true;
     return false;
   }
 
-  static private boolean jj_3R_51() {
-    if (jj_scan_token(GT)) return true;
+  static private boolean jj_3R_103() {
+    if (jj_3R_39()) return true;
     return false;
   }
 
-  static private boolean jj_3R_45() {
-    Token xsp;
-    xsp = jj_scanpos;
-    if (jj_3R_51()) {
-    jj_scanpos = xsp;
-    if (jj_3R_52()) {
-    jj_scanpos = xsp;
-    if (jj_3R_53()) {
-    jj_scanpos = xsp;
-    if (jj_3R_54()) return true;
-    }
-    }
-    }
+  static private boolean jj_3R_101() {
+    if (jj_3R_39()) return true;
     return false;
   }
 
-  static private boolean jj_3R_170() {
-    if (jj_3R_47()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_68() {
-    if (jj_scan_token(MAX)) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_95() {
-    if (jj_scan_token(IMPLIES)) return true;
-    if (jj_3R_94()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_67() {
-    if (jj_scan_token(MIN)) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_121() {
-    if (jj_scan_token(NE)) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_84() {
-    if (jj_3R_94()) return true;
-    Token xsp;
-    while (true) {
-      xsp = jj_scanpos;
-      if (jj_3R_95()) { jj_scanpos = xsp; break; }
-    }
-    return false;
-  }
-
-  static private boolean jj_3R_117() {
-    Token xsp;
-    xsp = jj_scanpos;
-    if (jj_3R_120()) {
-    jj_scanpos = xsp;
-    if (jj_3R_121()) return true;
-    }
+  static private boolean jj_3R_42() {
+    if (jj_scan_token(AND)) return true;
+    if (jj_3R_41()) return true;
     return false;
   }
 
   static private boolean jj_3R_120() {
+    Token xsp;
+    xsp = jj_scanpos;
+    if (jj_3R_126()) {
+    jj_scanpos = xsp;
+    if (jj_3R_127()) return true;
+    }
+    return false;
+  }
+
+  static private boolean jj_3R_121() {
+    if (jj_scan_token(AND)) return true;
+    if (jj_3R_120()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_41() {
+    if (jj_scan_token(LPARENTH)) return true;
+    if (jj_3R_49()) return true;
+    if (jj_scan_token(EQ)) return true;
+    if (jj_3R_39()) return true;
+    if (jj_scan_token(RPARENTH)) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_114() {
+    if (jj_3R_120()) return true;
+    Token xsp;
+    while (true) {
+      xsp = jj_scanpos;
+      if (jj_3R_121()) { jj_scanpos = xsp; break; }
+    }
+    return false;
+  }
+
+  static private boolean jj_3R_38() {
+    if (jj_scan_token(EQ)) return true;
+    if (jj_scan_token(QMARK)) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_45() {
+    if (jj_scan_token(LPARENTH)) return true;
+    if (jj_3R_33()) return true;
+    if (jj_scan_token(RPARENTH)) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_37() {
+    Token xsp;
+    xsp = jj_scanpos;
+    if (jj_3R_45()) jj_scanpos = xsp;
+    if (jj_3R_46()) return true;
+    if (jj_3R_39()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_115() {
+    if (jj_scan_token(OR)) return true;
+    if (jj_3R_114()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_35() {
+    if (jj_3R_41()) return true;
+    Token xsp;
+    while (true) {
+      xsp = jj_scanpos;
+      if (jj_3R_42()) { jj_scanpos = xsp; break; }
+    }
+    return false;
+  }
+
+  static private boolean jj_3_5() {
+    if (jj_3R_31()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_110() {
+    if (jj_3R_114()) return true;
+    Token xsp;
+    while (true) {
+      xsp = jj_scanpos;
+      if (jj_3R_115()) { jj_scanpos = xsp; break; }
+    }
+    return false;
+  }
+
+  static private boolean jj_3R_31() {
+    Token xsp;
+    xsp = jj_scanpos;
+    if (jj_3R_35()) {
+    jj_scanpos = xsp;
+    if (jj_scan_token(51)) return true;
+    }
+    return false;
+  }
+
+  static private boolean jj_3R_34() {
+    if (jj_scan_token(S)) return true;
+    Token xsp;
+    xsp = jj_scanpos;
+    if (jj_3R_37()) {
+    jj_scanpos = xsp;
+    if (jj_3R_38()) return true;
+    }
+    if (jj_scan_token(LBRACKET)) return true;
+    if (jj_3R_39()) return true;
+    xsp = jj_scanpos;
+    if (jj_3R_40()) jj_scanpos = xsp;
+    if (jj_scan_token(RBRACKET)) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_55() {
+    if (jj_scan_token(LE)) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_54() {
+    if (jj_scan_token(GE)) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_53() {
+    if (jj_scan_token(LT)) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_111() {
+    if (jj_scan_token(IFF)) return true;
+    if (jj_3R_110()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_52() {
+    if (jj_scan_token(GT)) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_46() {
+    Token xsp;
+    xsp = jj_scanpos;
+    if (jj_3R_52()) {
+    jj_scanpos = xsp;
+    if (jj_3R_53()) {
+    jj_scanpos = xsp;
+    if (jj_3R_54()) {
+    jj_scanpos = xsp;
+    if (jj_3R_55()) return true;
+    }
+    }
+    }
+    return false;
+  }
+
+  static private boolean jj_3R_98() {
+    if (jj_3R_110()) return true;
+    Token xsp;
+    while (true) {
+      xsp = jj_scanpos;
+      if (jj_3R_111()) { jj_scanpos = xsp; break; }
+    }
+    return false;
+  }
+
+  static private boolean jj_3R_171() {
+    if (jj_3R_48()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_69() {
+    if (jj_scan_token(MAX)) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_68() {
+    if (jj_scan_token(MIN)) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_191() {
+    if (jj_scan_token(NE)) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_190() {
     if (jj_scan_token(EQ)) return true;
     return false;
   }
 
-  static private boolean jj_3R_85() {
-    if (jj_scan_token(QMARK)) return true;
-    if (jj_3R_84()) return true;
-    if (jj_scan_token(COLON)) return true;
-    if (jj_3R_77()) return true;
+  static private boolean jj_3R_156() {
+    Token xsp;
+    xsp = jj_scanpos;
+    if (jj_3R_190()) {
+    jj_scanpos = xsp;
+    if (jj_3R_191()) return true;
+    }
     return false;
   }
 
-  static private boolean jj_3R_57() {
+  static private boolean jj_3R_99() {
+    if (jj_scan_token(IMPLIES)) return true;
+    if (jj_3R_98()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_86() {
+    if (jj_3R_98()) return true;
+    Token xsp;
+    while (true) {
+      xsp = jj_scanpos;
+      if (jj_3R_99()) { jj_scanpos = xsp; break; }
+    }
+    return false;
+  }
+
+  static private boolean jj_3R_58() {
     if (jj_scan_token(LBRACE)) return true;
     Token xsp;
     xsp = jj_scanpos;
-    if (jj_3R_67()) {
+    if (jj_3R_68()) {
     jj_scanpos = xsp;
-    if (jj_3R_68()) return true;
+    if (jj_3R_69()) return true;
     }
     if (jj_scan_token(RBRACE)) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_48() {
+    if (jj_scan_token(LBRACE)) return true;
+    if (jj_3R_39()) return true;
+    if (jj_scan_token(RBRACE)) return true;
+    Token xsp;
+    while (true) {
+      xsp = jj_scanpos;
+      if (jj_3R_58()) { jj_scanpos = xsp; break; }
+    }
+    return false;
+  }
+
+  static private boolean jj_3R_87() {
+    if (jj_scan_token(QMARK)) return true;
+    if (jj_3R_86()) return true;
+    if (jj_scan_token(COLON)) return true;
+    if (jj_3R_78()) return true;
     return false;
   }
 
   static private boolean jj_3_1() {
     if (jj_scan_token(MODULE)) return true;
-    if (jj_3R_29()) return true;
+    if (jj_3R_30()) return true;
     if (jj_scan_token(EQ)) return true;
     return false;
   }
 
   static private boolean jj_3_14() {
-    if (jj_3R_32()) return true;
+    if (jj_3R_33()) return true;
     if (jj_scan_token(LPARENTH)) return true;
     return false;
   }
 
-  static private boolean jj_3R_47() {
-    if (jj_scan_token(LBRACE)) return true;
-    if (jj_3R_38()) return true;
-    if (jj_scan_token(RBRACE)) return true;
-    Token xsp;
-    while (true) {
-      xsp = jj_scanpos;
-      if (jj_3R_57()) { jj_scanpos = xsp; break; }
-    }
-    return false;
-  }
-
   static private boolean jj_3_13() {
-    if (jj_3R_32()) return true;
+    if (jj_3R_33()) return true;
     if (jj_scan_token(LPARENTH)) return true;
     return false;
   }
 
   static private boolean jj_3_12() {
-    if (jj_3R_32()) return true;
+    if (jj_3R_33()) return true;
     if (jj_scan_token(LPARENTH)) return true;
     return false;
   }
 
   static private boolean jj_3_11() {
-    if (jj_3R_32()) return true;
+    if (jj_3R_33()) return true;
     if (jj_scan_token(LPARENTH)) return true;
     return false;
   }
 
-  static private boolean jj_3R_77() {
-    if (jj_3R_84()) return true;
+  static private boolean jj_3R_78() {
+    if (jj_3R_86()) return true;
     Token xsp;
     xsp = jj_scanpos;
-    if (jj_3R_85()) jj_scanpos = xsp;
+    if (jj_3R_87()) jj_scanpos = xsp;
+    return false;
+  }
+
+  static private boolean jj_3R_106() {
+    if (jj_3R_33()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_104() {
+    if (jj_3R_33()) return true;
     return false;
   }
 
   static private boolean jj_3R_102() {
-    if (jj_3R_32()) return true;
+    if (jj_3R_33()) return true;
     return false;
   }
 
   static private boolean jj_3R_100() {
-    if (jj_3R_32()) return true;
+    if (jj_3R_33()) return true;
     return false;
   }
 
-  static private boolean jj_3R_98() {
-    if (jj_3R_32()) return true;
+  static private boolean jj_3R_196() {
+    if (jj_3R_46()) return true;
+    if (jj_3R_39()) return true;
     return false;
   }
 
-  static private boolean jj_3R_96() {
-    if (jj_3R_32()) return true;
+  static private boolean jj_3R_195() {
+    if (jj_scan_token(LPARENTH)) return true;
+    if (jj_3R_33()) return true;
+    if (jj_scan_token(RPARENTH)) return true;
     return false;
   }
 
-  static private boolean jj_3R_91() {
+  static private boolean jj_3R_93() {
     if (jj_scan_token(EQ)) return true;
-    if (jj_3R_38()) return true;
+    if (jj_3R_39()) return true;
     return false;
   }
 
-  static private boolean jj_3R_90() {
+  static private boolean jj_3R_92() {
     if (jj_scan_token(LBRACKET)) return true;
-    if (jj_3R_38()) return true;
+    if (jj_3R_39()) return true;
     if (jj_scan_token(COMMA)) return true;
-    if (jj_3R_38()) return true;
+    if (jj_3R_39()) return true;
     if (jj_scan_token(RBRACKET)) return true;
     return false;
   }
 
-  static private boolean jj_3R_89() {
+  static private boolean jj_3R_91() {
     if (jj_scan_token(GT)) return true;
+    Token xsp;
+    xsp = jj_scanpos;
+    if (jj_3R_106()) {
+    jj_scanpos = xsp;
+    if (jj_3R_107()) return true;
+    }
+    return false;
+  }
+
+  static private boolean jj_3R_199() {
+    if (jj_scan_token(MAX)) return true;
+    if (jj_scan_token(EQ)) return true;
+    if (jj_scan_token(QMARK)) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_90() {
+    if (jj_scan_token(GE)) return true;
+    Token xsp;
+    xsp = jj_scanpos;
+    if (jj_3R_104()) {
+    jj_scanpos = xsp;
+    if (jj_3R_105()) return true;
+    }
+    return false;
+  }
+
+  static private boolean jj_3R_198() {
+    if (jj_scan_token(MIN)) return true;
+    if (jj_scan_token(EQ)) return true;
+    if (jj_scan_token(QMARK)) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_89() {
+    if (jj_scan_token(LT)) return true;
     Token xsp;
     xsp = jj_scanpos;
     if (jj_3R_102()) {
@@ -4531,8 +4591,14 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
     return false;
   }
 
+  static private boolean jj_3R_197() {
+    if (jj_scan_token(EQ)) return true;
+    if (jj_scan_token(QMARK)) return true;
+    return false;
+  }
+
   static private boolean jj_3R_88() {
-    if (jj_scan_token(GE)) return true;
+    if (jj_scan_token(LE)) return true;
     Token xsp;
     xsp = jj_scanpos;
     if (jj_3R_100()) {
@@ -4542,346 +4608,286 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
     return false;
   }
 
-  static private boolean jj_3R_193() {
-    if (jj_3R_45()) return true;
-    if (jj_3R_38()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_192() {
-    if (jj_scan_token(LPARENTH)) return true;
-    if (jj_3R_32()) return true;
-    if (jj_scan_token(RPARENTH)) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_87() {
-    if (jj_scan_token(LT)) return true;
-    Token xsp;
-    xsp = jj_scanpos;
-    if (jj_3R_98()) {
-    jj_scanpos = xsp;
-    if (jj_3R_99()) return true;
-    }
-    return false;
-  }
-
-  static private boolean jj_3R_86() {
-    if (jj_scan_token(LE)) return true;
-    Token xsp;
-    xsp = jj_scanpos;
-    if (jj_3R_96()) {
-    jj_scanpos = xsp;
-    if (jj_3R_97()) return true;
-    }
-    return false;
-  }
-
-  static private boolean jj_3R_78() {
-    Token xsp;
-    xsp = jj_scanpos;
-    if (jj_3R_86()) {
-    jj_scanpos = xsp;
-    if (jj_3R_87()) {
-    jj_scanpos = xsp;
-    if (jj_3R_88()) {
-    jj_scanpos = xsp;
-    if (jj_3R_89()) {
-    jj_scanpos = xsp;
-    if (jj_3R_90()) {
-    jj_scanpos = xsp;
-    if (jj_3R_91()) return true;
-    }
-    }
-    }
-    }
-    }
-    return false;
-  }
-
-  static private boolean jj_3R_196() {
-    if (jj_scan_token(MAX)) return true;
-    if (jj_scan_token(EQ)) return true;
-    if (jj_scan_token(QMARK)) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_195() {
-    if (jj_scan_token(MIN)) return true;
-    if (jj_scan_token(EQ)) return true;
-    if (jj_scan_token(QMARK)) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_194() {
-    if (jj_scan_token(EQ)) return true;
-    if (jj_scan_token(QMARK)) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_62() {
-    if (jj_3R_77()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_169() {
+  static private boolean jj_3R_170() {
     if (jj_scan_token(PMAX)) return true;
     if (jj_scan_token(EQ)) return true;
     if (jj_scan_token(QMARK)) return true;
     return false;
   }
 
-  static private boolean jj_3R_168() {
+  static private boolean jj_3R_79() {
+    Token xsp;
+    xsp = jj_scanpos;
+    if (jj_3R_88()) {
+    jj_scanpos = xsp;
+    if (jj_3R_89()) {
+    jj_scanpos = xsp;
+    if (jj_3R_90()) {
+    jj_scanpos = xsp;
+    if (jj_3R_91()) {
+    jj_scanpos = xsp;
+    if (jj_3R_92()) {
+    jj_scanpos = xsp;
+    if (jj_3R_93()) return true;
+    }
+    }
+    }
+    }
+    }
+    return false;
+  }
+
+  static private boolean jj_3R_169() {
     if (jj_scan_token(PMIN)) return true;
     if (jj_scan_token(EQ)) return true;
     if (jj_scan_token(QMARK)) return true;
     return false;
   }
 
-  static private boolean jj_3R_76() {
-    if (jj_3R_78()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_75() {
-    if (jj_scan_token(G)) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_74() {
-    if (jj_scan_token(F)) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_58() {
+  static private boolean jj_3R_59() {
     if (jj_scan_token(LBRACKET)) return true;
-    if (jj_3R_69()) return true;
+    if (jj_3R_70()) return true;
     if (jj_scan_token(RBRACKET)) return true;
     return false;
   }
 
-  static private boolean jj_3R_73() {
-    if (jj_scan_token(X)) return true;
+  static private boolean jj_3R_63() {
+    if (jj_3R_78()) return true;
     return false;
   }
 
-  static private boolean jj_3R_167() {
+  static private boolean jj_3R_168() {
     if (jj_scan_token(P)) return true;
     Token xsp;
     xsp = jj_scanpos;
-    if (jj_3R_192()) jj_scanpos = xsp;
+    if (jj_3R_195()) jj_scanpos = xsp;
     xsp = jj_scanpos;
-    if (jj_3R_193()) {
+    if (jj_3R_196()) {
     jj_scanpos = xsp;
-    if (jj_3R_194()) {
+    if (jj_3R_197()) {
     jj_scanpos = xsp;
-    if (jj_3R_195()) {
+    if (jj_3R_198()) {
     jj_scanpos = xsp;
-    if (jj_3R_196()) return true;
+    if (jj_3R_199()) return true;
     }
     }
     }
     return false;
   }
 
-  static private boolean jj_3R_61() {
-    Token xsp;
-    xsp = jj_scanpos;
-    if (jj_3R_73()) {
-    jj_scanpos = xsp;
-    if (jj_3R_74()) {
-    jj_scanpos = xsp;
-    if (jj_3R_75()) return true;
-    }
-    }
-    xsp = jj_scanpos;
-    if (jj_3R_76()) jj_scanpos = xsp;
-    if (jj_3R_55()) return true;
+  static private boolean jj_3R_77() {
+    if (jj_3R_79()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_76() {
+    if (jj_scan_token(G)) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_75() {
+    if (jj_scan_token(F)) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_74() {
+    if (jj_scan_token(X)) return true;
     return false;
   }
 
   static private boolean jj_3R_149() {
     Token xsp;
     xsp = jj_scanpos;
-    if (jj_3R_167()) {
-    jj_scanpos = xsp;
     if (jj_3R_168()) {
     jj_scanpos = xsp;
-    if (jj_3R_169()) return true;
+    if (jj_3R_169()) {
+    jj_scanpos = xsp;
+    if (jj_3R_170()) return true;
     }
     }
     if (jj_scan_token(LBRACKET)) return true;
-    if (jj_3R_38()) return true;
+    if (jj_3R_39()) return true;
     xsp = jj_scanpos;
-    if (jj_3R_170()) jj_scanpos = xsp;
+    if (jj_3R_171()) jj_scanpos = xsp;
     if (jj_scan_token(RBRACKET)) return true;
     return false;
   }
 
-  static private boolean jj_3R_48() {
+  static private boolean jj_3R_62() {
+    Token xsp;
+    xsp = jj_scanpos;
+    if (jj_3R_74()) {
+    jj_scanpos = xsp;
+    if (jj_3R_75()) {
+    jj_scanpos = xsp;
+    if (jj_3R_76()) return true;
+    }
+    }
+    xsp = jj_scanpos;
+    if (jj_3R_77()) jj_scanpos = xsp;
+    if (jj_3R_56()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_49() {
     if (jj_scan_token(REG_IDENT)) return true;
     Token xsp;
     xsp = jj_scanpos;
-    if (jj_3R_58()) jj_scanpos = xsp;
+    if (jj_3R_59()) jj_scanpos = xsp;
     if (jj_scan_token(PRIME)) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_55() {
-    Token xsp;
-    xsp = jj_scanpos;
-    if (jj_3R_61()) {
-    jj_scanpos = xsp;
-    if (jj_3R_62()) return true;
-    }
-    return false;
-  }
-
-  static private boolean jj_3R_66() {
-    if (jj_3R_78()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_65() {
-    if (jj_scan_token(R)) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_64() {
-    if (jj_scan_token(W)) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_63() {
-    if (jj_scan_token(U)) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_186() {
-    if (jj_scan_token(OR)) return true;
     return false;
   }
 
   static private boolean jj_3R_56() {
     Token xsp;
     xsp = jj_scanpos;
-    if (jj_3R_63()) {
+    if (jj_3R_62()) {
     jj_scanpos = xsp;
-    if (jj_3R_64()) {
-    jj_scanpos = xsp;
-    if (jj_3R_65()) return true;
+    if (jj_3R_63()) return true;
     }
-    }
-    xsp = jj_scanpos;
-    if (jj_3R_66()) jj_scanpos = xsp;
-    if (jj_3R_55()) return true;
     return false;
   }
 
-  static private boolean jj_3R_191() {
-    if (jj_scan_token(COMMA)) return true;
-    if (jj_3R_38()) return true;
+  static private boolean jj_3R_187() {
+    if (jj_scan_token(OR)) return true;
     return false;
   }
 
-  static private boolean jj_3R_166() {
-    if (jj_3R_29()) return true;
+  static private boolean jj_3R_67() {
+    if (jj_3R_79()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_66() {
+    if (jj_scan_token(R)) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_65() {
+    if (jj_scan_token(W)) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_64() {
+    if (jj_scan_token(U)) return true;
     return false;
   }
 
   static private boolean jj_3R_148() {
     if (jj_scan_token(LPARENTH)) return true;
-    if (jj_3R_38()) return true;
+    if (jj_3R_39()) return true;
     if (jj_scan_token(RPARENTH)) return true;
     return false;
   }
 
-  static private boolean jj_3R_46() {
-    if (jj_3R_55()) return true;
+  static private boolean jj_3R_57() {
     Token xsp;
     xsp = jj_scanpos;
-    if (jj_3R_56()) jj_scanpos = xsp;
+    if (jj_3R_64()) {
+    jj_scanpos = xsp;
+    if (jj_3R_65()) {
+    jj_scanpos = xsp;
+    if (jj_3R_66()) return true;
+    }
+    }
+    xsp = jj_scanpos;
+    if (jj_3R_67()) jj_scanpos = xsp;
+    if (jj_3R_56()) return true;
     return false;
   }
 
-  static private boolean jj_3R_32() {
-    if (jj_3R_29()) return true;
+  static private boolean jj_3R_194() {
+    if (jj_scan_token(COMMA)) return true;
+    if (jj_3R_39()) return true;
     return false;
   }
 
-  static private boolean jj_3R_159() {
+  static private boolean jj_3R_167() {
+    if (jj_3R_30()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_33() {
+    if (jj_3R_30()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_47() {
+    if (jj_3R_56()) return true;
+    Token xsp;
+    xsp = jj_scanpos;
+    if (jj_3R_57()) jj_scanpos = xsp;
+    return false;
+  }
+
+  static private boolean jj_3R_160() {
     if (jj_scan_token(FALSE)) return true;
     return false;
   }
 
-  static private boolean jj_3R_92() {
-    if (jj_scan_token(COMMA)) return true;
-    if (jj_3R_29()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_158() {
+  static private boolean jj_3R_159() {
     if (jj_scan_token(TRUE)) return true;
     return false;
   }
 
-  static private boolean jj_3R_185() {
+  static private boolean jj_3R_186() {
     if (jj_scan_token(AND)) return true;
     return false;
   }
 
-  static private boolean jj_3R_183() {
+  static private boolean jj_3R_184() {
     if (jj_scan_token(MAX)) return true;
     return false;
   }
 
-  static private boolean jj_3R_29() {
+  static private boolean jj_3R_96() {
+    if (jj_scan_token(COMMA)) return true;
+    if (jj_3R_30()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_30() {
     if (jj_scan_token(REG_IDENT)) return true;
     return false;
   }
 
-  static private boolean jj_3R_165() {
-    if (jj_scan_token(MAX)) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_181() {
+  static private boolean jj_3R_182() {
     if (jj_scan_token(INIT)) return true;
     return false;
   }
 
-  static private boolean jj_3R_157() {
+  static private boolean jj_3R_158() {
     if (jj_scan_token(REG_DOUBLE)) return true;
     return false;
   }
 
-  static private boolean jj_3R_188() {
+  static private boolean jj_3R_166() {
+    if (jj_scan_token(MAX)) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_189() {
     if (jj_scan_token(COMMA)) return true;
-    if (jj_3R_38()) return true;
+    if (jj_3R_39()) return true;
     return false;
   }
 
-  static private boolean jj_3R_38() {
-    if (jj_3R_46()) return true;
+  static private boolean jj_3R_188() {
+    if (jj_3R_30()) return true;
     return false;
   }
 
-  static private boolean jj_3R_187() {
-    if (jj_3R_29()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_184() {
+  static private boolean jj_3R_185() {
     if (jj_scan_token(PLUS)) return true;
     return false;
   }
 
-  static private boolean jj_3R_182() {
+  static private boolean jj_3R_183() {
     if (jj_scan_token(MIN)) return true;
     return false;
   }
 
-  static private boolean jj_3R_156() {
+  static private boolean jj_3R_157() {
     if (jj_scan_token(REG_INT)) return true;
     return false;
   }
@@ -4889,26 +4895,32 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
   static private boolean jj_3R_144() {
     Token xsp;
     xsp = jj_scanpos;
-    if (jj_3R_156()) {
-    jj_scanpos = xsp;
     if (jj_3R_157()) {
     jj_scanpos = xsp;
     if (jj_3R_158()) {
     jj_scanpos = xsp;
-    if (jj_3R_159()) return true;
+    if (jj_3R_159()) {
+    jj_scanpos = xsp;
+    if (jj_3R_160()) return true;
     }
     }
     }
     return false;
   }
 
-  static private boolean jj_3R_180() {
-    if (jj_3R_29()) return true;
+  static private boolean jj_3R_181() {
+    if (jj_3R_30()) return true;
     return false;
   }
 
-  static private boolean jj_3R_164() {
-    if (jj_scan_token(MIN)) return true;
+  static private boolean jj_3R_39() {
+    if (jj_3R_47()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_95() {
+    if (jj_scan_token(COMMA)) return true;
+    if (jj_3R_94()) return true;
     return false;
   }
 
@@ -4917,8 +4929,6 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
     if (jj_scan_token(LPARENTH)) return true;
     Token xsp;
     xsp = jj_scanpos;
-    if (jj_3R_182()) {
-    jj_scanpos = xsp;
     if (jj_3R_183()) {
     jj_scanpos = xsp;
     if (jj_3R_184()) {
@@ -4927,75 +4937,62 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
     jj_scanpos = xsp;
     if (jj_3R_186()) {
     jj_scanpos = xsp;
-    if (jj_3R_187()) return true;
+    if (jj_3R_187()) {
+    jj_scanpos = xsp;
+    if (jj_3R_188()) return true;
     }
     }
     }
     }
     }
     if (jj_scan_token(COMMA)) return true;
-    if (jj_3R_38()) return true;
+    if (jj_3R_39()) return true;
     xsp = jj_scanpos;
-    if (jj_3R_188()) jj_scanpos = xsp;
-    if (jj_scan_token(RPARENTH)) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_69() {
-    if (jj_3R_38()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_162() {
-    if (jj_scan_token(MAX)) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_81() {
-    if (jj_scan_token(LPARENTH)) return true;
-    if (jj_3R_31()) return true;
+    if (jj_3R_189()) jj_scanpos = xsp;
     if (jj_scan_token(RPARENTH)) return true;
     return false;
   }
 
   static private boolean jj_3R_80() {
-    if (jj_scan_token(DQUOTE)) return true;
-    if (jj_3R_29()) return true;
-    if (jj_scan_token(DQUOTE)) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_79() {
-    if (jj_3R_29()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_72() {
-    if (jj_scan_token(COMMA)) return true;
-    if (jj_3R_29()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_163() {
-    if (jj_3R_38()) return true;
+    if (jj_scan_token(RESTRICT)) return true;
+    if (jj_3R_94()) return true;
     Token xsp;
     while (true) {
       xsp = jj_scanpos;
-      if (jj_3R_191()) { jj_scanpos = xsp; break; }
+      if (jj_3R_95()) { jj_scanpos = xsp; break; }
     }
+    return false;
+  }
+
+  static private boolean jj_3R_165() {
+    if (jj_scan_token(MIN)) return true;
     return false;
   }
 
   static private boolean jj_3R_70() {
+    if (jj_3R_39()) return true;
     Token xsp;
     xsp = jj_scanpos;
-    if (jj_3R_79()) {
-    jj_scanpos = xsp;
-    if (jj_3R_80()) {
-    jj_scanpos = xsp;
-    if (jj_3R_81()) return true;
-    }
-    }
+    if (jj_3R_80()) jj_scanpos = xsp;
+    return false;
+  }
+
+  static private boolean jj_3R_163() {
+    if (jj_scan_token(MAX)) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_83() {
+    if (jj_scan_token(LPARENTH)) return true;
+    if (jj_3R_32()) return true;
+    if (jj_scan_token(RPARENTH)) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_82() {
+    if (jj_scan_token(DQUOTE)) return true;
+    if (jj_3R_30()) return true;
+    if (jj_scan_token(DQUOTE)) return true;
     return false;
   }
 
@@ -5003,24 +5000,58 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
     if (jj_scan_token(DQUOTE)) return true;
     Token xsp;
     xsp = jj_scanpos;
-    if (jj_3R_180()) {
+    if (jj_3R_181()) {
     jj_scanpos = xsp;
-    if (jj_3R_181()) return true;
+    if (jj_3R_182()) return true;
     }
     if (jj_scan_token(DQUOTE)) return true;
     return false;
   }
 
-  static private boolean jj_3R_93() {
-    if (jj_scan_token(COMMA)) return true;
-    if (jj_3R_29()) return true;
-    if (jj_scan_token(RENAME)) return true;
-    if (jj_3R_29()) return true;
+  static private boolean jj_3R_81() {
+    if (jj_3R_30()) return true;
     return false;
   }
 
-  static private boolean jj_3R_211() {
+  static private boolean jj_3R_73() {
+    if (jj_scan_token(COMMA)) return true;
+    if (jj_3R_30()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_164() {
+    if (jj_3R_39()) return true;
+    Token xsp;
+    while (true) {
+      xsp = jj_scanpos;
+      if (jj_3R_194()) { jj_scanpos = xsp; break; }
+    }
+    return false;
+  }
+
+  static private boolean jj_3R_71() {
+    Token xsp;
+    xsp = jj_scanpos;
+    if (jj_3R_81()) {
+    jj_scanpos = xsp;
+    if (jj_3R_82()) {
+    jj_scanpos = xsp;
+    if (jj_3R_83()) return true;
+    }
+    }
+    return false;
+  }
+
+  static private boolean jj_3R_214() {
     if (jj_3R_150()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_97() {
+    if (jj_scan_token(COMMA)) return true;
+    if (jj_3R_30()) return true;
+    if (jj_scan_token(RENAME)) return true;
+    if (jj_3R_30()) return true;
     return false;
   }
 
@@ -5031,126 +5062,141 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
     return false;
   }
 
+  static private boolean jj_3R_224() {
+    Token xsp;
+    xsp = jj_scanpos;
+    if (jj_scan_token(88)) {
+    jj_scanpos = xsp;
+    if (jj_scan_token(90)) return true;
+    }
+    return false;
+  }
+
   static private boolean jj_3R_147() {
     if (jj_scan_token(FUNC)) return true;
     if (jj_scan_token(LPARENTH)) return true;
     Token xsp;
     xsp = jj_scanpos;
-    if (jj_3R_164()) {
-    jj_scanpos = xsp;
     if (jj_3R_165()) {
     jj_scanpos = xsp;
-    if (jj_3R_166()) return true;
+    if (jj_3R_166()) {
+    jj_scanpos = xsp;
+    if (jj_3R_167()) return true;
     }
     }
     if (jj_scan_token(COMMA)) return true;
-    if (jj_3R_163()) return true;
+    if (jj_3R_164()) return true;
     if (jj_scan_token(RPARENTH)) return true;
     return false;
   }
 
-  static private boolean jj_3R_221() {
-    Token xsp;
-    xsp = jj_scanpos;
-    if (jj_scan_token(87)) {
-    jj_scanpos = xsp;
-    if (jj_scan_token(89)) return true;
-    }
+  static private boolean jj_3R_51() {
+    if (jj_scan_token(OR)) return true;
+    if (jj_scan_token(OR)) return true;
+    if (jj_scan_token(OR)) return true;
+    if (jj_3R_36()) return true;
     return false;
   }
 
-  static private boolean jj_3R_50() {
-    if (jj_scan_token(OR)) return true;
-    if (jj_scan_token(OR)) return true;
-    if (jj_scan_token(OR)) return true;
-    if (jj_3R_35()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_83() {
+  static private boolean jj_3R_85() {
     if (jj_scan_token(LBRACE)) return true;
-    if (jj_3R_29()) return true;
+    if (jj_3R_30()) return true;
     if (jj_scan_token(RENAME)) return true;
-    if (jj_3R_29()) return true;
+    if (jj_3R_30()) return true;
     Token xsp;
     while (true) {
       xsp = jj_scanpos;
-      if (jj_3R_93()) { jj_scanpos = xsp; break; }
+      if (jj_3R_97()) { jj_scanpos = xsp; break; }
     }
     if (jj_scan_token(RBRACE)) return true;
     return false;
   }
 
-  static private boolean jj_3R_161() {
+  static private boolean jj_3R_225() {
+    if (jj_scan_token(COMMA)) return true;
+    if (jj_3R_224()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_221() {
+    if (jj_3R_224()) return true;
+    Token xsp;
+    while (true) {
+      xsp = jj_scanpos;
+      if (jj_3R_225()) { jj_scanpos = xsp; break; }
+    }
+    return false;
+  }
+
+  static private boolean jj_3R_217() {
+    Token xsp;
+    xsp = jj_scanpos;
+    if (jj_3R_221()) jj_scanpos = xsp;
+    return false;
+  }
+
+  static private boolean jj_3R_162() {
     if (jj_scan_token(MIN)) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_216() {
+    if (jj_scan_token(TIMES)) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_212() {
+    Token xsp;
+    xsp = jj_scanpos;
+    if (jj_3R_216()) {
+    jj_scanpos = xsp;
+    if (jj_3R_217()) return true;
+    }
     return false;
   }
 
   static private boolean jj_3R_146() {
     Token xsp;
     xsp = jj_scanpos;
-    if (jj_3R_161()) {
+    if (jj_3R_162()) {
     jj_scanpos = xsp;
-    if (jj_3R_162()) return true;
+    if (jj_3R_163()) return true;
     }
     if (jj_scan_token(LPARENTH)) return true;
-    if (jj_3R_163()) return true;
+    if (jj_3R_164()) return true;
     if (jj_scan_token(RPARENTH)) return true;
     return false;
   }
 
-  static private boolean jj_3R_222() {
-    if (jj_scan_token(COMMA)) return true;
-    if (jj_3R_221()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_71() {
+  static private boolean jj_3R_72() {
     Token xsp;
     xsp = jj_scanpos;
-    if (jj_3R_82()) {
+    if (jj_3R_84()) {
     jj_scanpos = xsp;
-    if (jj_3R_83()) return true;
+    if (jj_3R_85()) return true;
     }
     return false;
   }
 
-  static private boolean jj_3R_82() {
+  static private boolean jj_3R_84() {
     if (jj_scan_token(DIVIDE)) return true;
     if (jj_scan_token(LBRACE)) return true;
-    if (jj_3R_29()) return true;
+    if (jj_3R_30()) return true;
     Token xsp;
     while (true) {
       xsp = jj_scanpos;
-      if (jj_3R_92()) { jj_scanpos = xsp; break; }
+      if (jj_3R_96()) { jj_scanpos = xsp; break; }
     }
     if (jj_scan_token(RBRACE)) return true;
     return false;
   }
 
-  static private boolean jj_3R_218() {
-    if (jj_3R_221()) return true;
+  static private boolean jj_3R_60() {
+    if (jj_3R_71()) return true;
     Token xsp;
     while (true) {
       xsp = jj_scanpos;
-      if (jj_3R_222()) { jj_scanpos = xsp; break; }
-    }
-    return false;
-  }
-
-  static private boolean jj_3R_214() {
-    Token xsp;
-    xsp = jj_scanpos;
-    if (jj_3R_218()) jj_scanpos = xsp;
-    return false;
-  }
-
-  static private boolean jj_3R_59() {
-    if (jj_3R_70()) return true;
-    Token xsp;
-    while (true) {
-      xsp = jj_scanpos;
-      if (jj_3R_71()) { jj_scanpos = xsp; break; }
+      if (jj_3R_72()) { jj_scanpos = xsp; break; }
     }
     return false;
   }
@@ -5161,49 +5207,44 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
     return false;
   }
 
-  static private boolean jj_3R_213() {
-    if (jj_scan_token(TIMES)) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_209() {
-    Token xsp;
-    xsp = jj_scanpos;
-    if (jj_3R_213()) {
-    jj_scanpos = xsp;
-    if (jj_3R_214()) return true;
-    }
-    return false;
-  }
-
-  static private boolean jj_3R_190() {
+  static private boolean jj_3R_193() {
     if (jj_scan_token(LBRACKET)) return true;
-    if (jj_3R_69()) return true;
+    if (jj_3R_70()) return true;
     if (jj_scan_token(RBRACKET)) return true;
     return false;
   }
 
-  static private boolean jj_3R_189() {
+  static private boolean jj_3R_192() {
     if (jj_scan_token(LPARENTH)) return true;
-    if (jj_3R_163()) return true;
+    if (jj_3R_164()) return true;
     if (jj_scan_token(RPARENTH)) return true;
     return false;
   }
 
-  static private boolean jj_3R_160() {
+  static private boolean jj_3R_180() {
+    if (jj_3R_148()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_161() {
     Token xsp;
     xsp = jj_scanpos;
-    if (jj_3R_189()) {
+    if (jj_3R_192()) {
     jj_scanpos = xsp;
-    if (jj_3R_190()) return true;
+    if (jj_3R_193()) return true;
     }
     return false;
   }
 
-  static private boolean jj_3R_43() {
+  static private boolean jj_3R_44() {
     if (jj_scan_token(OR)) return true;
     if (jj_scan_token(OR)) return true;
-    if (jj_3R_49()) return true;
+    if (jj_3R_50()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_213() {
+    if (jj_3R_149()) return true;
     return false;
   }
 
@@ -5214,122 +5255,125 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
   }
 
   static private boolean jj_3R_179() {
-    if (jj_3R_148()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_145() {
-    if (jj_3R_29()) return true;
     Token xsp;
     xsp = jj_scanpos;
-    if (jj_3R_160()) jj_scanpos = xsp;
-    return false;
-  }
-
-  static private boolean jj_3R_210() {
-    if (jj_3R_149()) return true;
+    if (jj_3R_213()) {
+    jj_scanpos = xsp;
+    if (jj_3R_214()) return true;
+    }
     return false;
   }
 
   static private boolean jj_3R_178() {
-    Token xsp;
-    xsp = jj_scanpos;
-    if (jj_3R_210()) {
-    jj_scanpos = xsp;
-    if (jj_3R_211()) return true;
-    }
-    return false;
-  }
-
-  static private boolean jj_3R_177() {
     if (jj_scan_token(DLBRACKET)) return true;
-    if (jj_3R_209()) return true;
+    if (jj_3R_212()) return true;
     if (jj_scan_token(DRBRACKET)) return true;
     return false;
   }
 
-  static private boolean jj_3R_220() {
-    if (jj_3R_38()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_176() {
-    if (jj_scan_token(DLT)) return true;
-    if (jj_3R_209()) return true;
-    if (jj_scan_token(DGT)) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_60() {
-    if (jj_scan_token(OR)) return true;
-    if (jj_scan_token(LBRACKET)) return true;
-    if (jj_3R_29()) return true;
-    Token xsp;
-    while (true) {
-      xsp = jj_scanpos;
-      if (jj_3R_72()) { jj_scanpos = xsp; break; }
-    }
-    if (jj_scan_token(RBRACKET)) return true;
-    if (jj_scan_token(OR)) return true;
-    if (jj_3R_59()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_49() {
-    if (jj_3R_59()) return true;
+  static private boolean jj_3R_145() {
+    if (jj_3R_30()) return true;
     Token xsp;
     xsp = jj_scanpos;
-    if (jj_3R_60()) jj_scanpos = xsp;
+    if (jj_3R_161()) jj_scanpos = xsp;
+    return false;
+  }
+
+  static private boolean jj_3R_223() {
+    if (jj_3R_39()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_177() {
+    if (jj_scan_token(DLT)) return true;
+    if (jj_3R_212()) return true;
+    if (jj_scan_token(DGT)) return true;
     return false;
   }
 
   static private boolean jj_3R_153() {
     Token xsp;
     xsp = jj_scanpos;
-    if (jj_3R_176()) {
+    if (jj_3R_177()) {
     jj_scanpos = xsp;
-    if (jj_3R_177()) return true;
+    if (jj_3R_178()) return true;
     }
     xsp = jj_scanpos;
-    if (jj_3R_178()) {
+    if (jj_3R_179()) {
     jj_scanpos = xsp;
-    if (jj_3R_179()) return true;
+    if (jj_3R_180()) return true;
     }
     return false;
   }
 
-  static private boolean jj_3R_143() {
-    if (jj_3R_155()) return true;
+  static private boolean jj_3R_61() {
+    if (jj_scan_token(OR)) return true;
+    if (jj_scan_token(LBRACKET)) return true;
+    if (jj_3R_30()) return true;
+    Token xsp;
+    while (true) {
+      xsp = jj_scanpos;
+      if (jj_3R_73()) { jj_scanpos = xsp; break; }
+    }
+    if (jj_scan_token(RBRACKET)) return true;
+    if (jj_scan_token(OR)) return true;
+    if (jj_3R_60()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_50() {
+    if (jj_3R_60()) return true;
+    Token xsp;
+    xsp = jj_scanpos;
+    if (jj_3R_61()) jj_scanpos = xsp;
     return false;
   }
 
   static private boolean jj_3R_142() {
-    if (jj_3R_154()) return true;
+    if (jj_3R_155()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_219() {
+    if (jj_3R_39()) return true;
     return false;
   }
 
   static private boolean jj_3R_141() {
-    if (jj_3R_153()) return true;
+    if (jj_3R_154()) return true;
     return false;
   }
 
   static private boolean jj_3R_140() {
-    if (jj_3R_152()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_216() {
-    if (jj_3R_38()) return true;
+    if (jj_3R_153()) return true;
     return false;
   }
 
   static private boolean jj_3R_139() {
+    if (jj_3R_152()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_138() {
     if (jj_3R_151()) return true;
     return false;
   }
 
-  static private boolean jj_3R_129() {
+  static private boolean jj_3R_125() {
     if (jj_scan_token(DIVIDE)) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_152() {
+    if (jj_scan_token(A)) return true;
+    if (jj_scan_token(LBRACKET)) return true;
+    if (jj_3R_39()) return true;
+    if (jj_scan_token(RBRACKET)) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_137() {
+    if (jj_3R_150()) return true;
     return false;
   }
 
@@ -5345,7 +5389,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
   static private Token jj_scanpos, jj_lastpos;
   static private int jj_la;
   static private int jj_gen;
-  static final private int[] jj_la1 = new int[107];
+  static final private int[] jj_la1 = new int[109];
   static private int[] jj_la1_0;
   static private int[] jj_la1_1;
   static private int[] jj_la1_2;
@@ -5355,13 +5399,13 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
       jj_la1_init_2();
    }
    private static void jj_la1_init_0() {
-      jj_la1_0 = new int[] {0xa28808c0,0xa08808c0,0x2000000,0x60341048,0x0,0x60341048,0x60341048,0x0,0x60341048,0x800,0x80000000,0x80,0x80000880,0x10000410,0x10000410,0x0,0x40,0x0,0x0,0x200,0x2000000,0x2000000,0x0,0x10000030,0x0,0x4000000,0x0,0x0,0x0,0x41741008,0x0,0x0,0x0,0x41741008,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x1400000,0x0,0x41741008,0x41741008,0x41741008,0x41741008,0x41741008,0x0,0x0,0x0,0x0,0x0,0x0,0x40341008,0x0,0x0,0x0,0x0,0x0,0x0,0x40341008,0x40341008,0x0,0x0,0x40000000,0x40000000,0x0,0x40000,0x0,0x40000000,0x0,0x0,0x0,0x40000000,0x0,0x0,0x0,0x0,0x0,0x40000000,0x0,0x0,0x41741008,0x41741008,0x0,0x0,0x49741108,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x2000000,0x40000000,0x0,0x40000000,0x0,0x0,0x0,0x0,};
+      jj_la1_0 = new int[] {0xa28808c0,0xa08808c0,0x2000000,0x60341048,0x0,0x60341048,0x60341048,0x0,0x60341048,0x800,0x80000000,0x80,0x80000880,0x10000410,0x10000410,0x0,0x40,0x0,0x0,0x200,0x2000000,0x2000000,0x0,0x10000030,0x0,0x4000000,0x0,0x0,0x0,0x41741008,0x0,0x0,0x0,0x41741008,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x1400000,0x0,0x41741008,0x41741008,0x41741008,0x41741008,0x41741008,0x0,0x0,0x0,0x0,0x0,0x0,0x40341008,0x0,0x0,0x0,0x0,0x0,0x0,0x40341008,0x40341008,0x0,0x0,0x40000000,0x40000000,0x0,0x0,0x0,0x40000,0x0,0x40000000,0x0,0x0,0x0,0x40000000,0x0,0x0,0x0,0x0,0x0,0x40000000,0x0,0x0,0x41741008,0x41741008,0x0,0x0,0x49741108,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x2000000,0x40000000,0x0,0x40000000,0x0,0x0,0x0,0x0,};
    }
    private static void jj_la1_init_1() {
-      jj_la1_1 = new int[] {0x30f8a,0x10788,0x20802,0x8024f571,0x10000000,0x8024f571,0x8024f571,0x10000000,0x8024f571,0x80,0x8,0x10000,0x10288,0x0,0x0,0x500,0x500,0x0,0x8000000,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x8024f075,0x400000,0x80040000,0x20000000,0x8024f075,0x0,0x0,0x20000000,0x0,0x20000000,0x20000000,0x0,0x80000000,0x184000,0x0,0x184000,0x4,0x0,0x8024f075,0x8024f075,0x8024f075,0x8024f075,0x8024f075,0x0,0x0,0x1000000,0x2000000,0x800000,0x400000,0x8024f071,0x0,0x0,0x0,0x0,0x0,0x0,0x8004f071,0x8004f071,0x80000000,0x80000000,0x1,0x1,0x20000000,0x40000,0x80000000,0x1,0x70,0x0,0x0,0x1,0x80000000,0x80000000,0x0,0x80000000,0x0,0x1,0x7000,0x0,0x8024f075,0x8024f075,0x0,0x8000,0x8024f075,0x0,0x7070,0x80007070,0x20000000,0x0,0x0,0x0,0x0,0xc00001,0x20000000,0x1,0x0,0x0,0x0,0x8000000,};
+      jj_la1_1 = new int[] {0x60f8a,0x20788,0x40802,0x49e571,0x20000000,0x49e571,0x49e571,0x20000000,0x49e571,0x80,0x8,0x20000,0x20288,0x0,0x0,0x500,0x500,0x0,0x10000000,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x49e075,0x800000,0x80000,0x40000000,0x49e075,0x0,0x0,0x40000000,0x0,0x40000000,0x40000000,0x0,0x0,0x308000,0x0,0x308000,0x4,0x0,0x49e075,0x49e075,0x49e075,0x49e075,0x49e075,0x0,0x0,0x2000000,0x4000000,0x1000000,0x800000,0x49e071,0x0,0x0,0x0,0x0,0x0,0x0,0x9e071,0x9e071,0x0,0x0,0x1,0x1,0x40000000,0x40000000,0x1000,0x80000,0x0,0x1,0x70,0x0,0x0,0x1,0x0,0x0,0x0,0x0,0x0,0x1,0xe000,0x0,0x49e075,0x49e075,0x0,0x10000,0x49e075,0x0,0xe070,0xe070,0x40000000,0x0,0x0,0x0,0x0,0x1800001,0x40000000,0x1,0x0,0x0,0x0,0x10000000,};
    }
    private static void jj_la1_init_2() {
-      jj_la1_2 = new int[] {0x0,0x0,0x0,0x3c10808,0x0,0x3c10808,0x3c10808,0x0,0x3c10808,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x80,0x2,0x0,0x0,0x0,0x32000002,0x2,0x2000000,0x0,0x2,0x2000000,0x8000,0x3c10808,0x0,0x0,0x0,0x3c1080a,0x2000000,0x2,0x0,0x40020,0x0,0x0,0x40020,0x2400000,0x0,0x6682,0x0,0x0,0x6682,0x3c10808,0x3c10808,0x3c10808,0x3c10808,0x3c10808,0x6682,0x200000,0x0,0x0,0x0,0x0,0x3c10808,0x180,0x6600,0x18000,0x18000,0x60000,0x60000,0x3c10808,0x3c00808,0x2,0x2,0x0,0x2000000,0x0,0x1800000,0x0,0x6680,0x0,0x20,0x20,0x0,0x0,0x6680,0x20,0x0,0x20,0x6680,0x0,0x20,0x3c10808,0x3c10808,0x40000,0x0,0x3c10808,0x808,0x0,0x0,0x0,0x2800000,0x20000,0x2800000,0x2000000,0x2008000,0x0,0x2000000,0x2,0x180,0x6600,0x0,};
+      jj_la1_2 = new int[] {0x0,0x0,0x0,0x7821011,0x0,0x7821011,0x7821011,0x0,0x7821011,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x100,0x4,0x0,0x0,0x0,0x64000004,0x4,0x4000000,0x0,0x4,0x4000000,0x10000,0x7821011,0x0,0x1,0x0,0x7821015,0x4000000,0x4,0x0,0x80040,0x0,0x0,0x80040,0x4800001,0x0,0xcd04,0x0,0x0,0xcd04,0x7821011,0x7821011,0x7821011,0x7821011,0x7821011,0xcd04,0x400000,0x0,0x0,0x0,0x0,0x7821011,0x300,0xcc00,0x30000,0x30000,0xc0000,0xc0000,0x7821011,0x7801011,0x5,0x5,0x0,0x4000000,0x0,0x0,0x0,0x3000000,0x1,0xcd00,0x0,0x40,0x40,0x0,0x1,0xcd01,0x40,0x1,0x40,0xcd00,0x0,0x40,0x7821011,0x7821011,0x80000,0x0,0x7821011,0x1010,0x0,0x1,0x0,0x5000000,0x40000,0x5000000,0x4000000,0x4010000,0x0,0x4000000,0x4,0x300,0xcc00,0x0,};
    }
   static final private JJCalls[] jj_2_rtns = new JJCalls[18];
   static private boolean jj_rescan = false;
@@ -5385,7 +5429,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
     token = new Token();
     jj_ntk = -1;
     jj_gen = 0;
-    for (int i = 0; i < 107; i++) jj_la1[i] = -1;
+    for (int i = 0; i < 109; i++) jj_la1[i] = -1;
     for (int i = 0; i < jj_2_rtns.length; i++) jj_2_rtns[i] = new JJCalls();
   }
 
@@ -5400,7 +5444,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
     token = new Token();
     jj_ntk = -1;
     jj_gen = 0;
-    for (int i = 0; i < 107; i++) jj_la1[i] = -1;
+    for (int i = 0; i < 109; i++) jj_la1[i] = -1;
     for (int i = 0; i < jj_2_rtns.length; i++) jj_2_rtns[i] = new JJCalls();
   }
 
@@ -5418,7 +5462,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
     token = new Token();
     jj_ntk = -1;
     jj_gen = 0;
-    for (int i = 0; i < 107; i++) jj_la1[i] = -1;
+    for (int i = 0; i < 109; i++) jj_la1[i] = -1;
     for (int i = 0; i < jj_2_rtns.length; i++) jj_2_rtns[i] = new JJCalls();
   }
 
@@ -5429,7 +5473,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
     token = new Token();
     jj_ntk = -1;
     jj_gen = 0;
-    for (int i = 0; i < 107; i++) jj_la1[i] = -1;
+    for (int i = 0; i < 109; i++) jj_la1[i] = -1;
     for (int i = 0; i < jj_2_rtns.length; i++) jj_2_rtns[i] = new JJCalls();
   }
 
@@ -5446,7 +5490,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
     token = new Token();
     jj_ntk = -1;
     jj_gen = 0;
-    for (int i = 0; i < 107; i++) jj_la1[i] = -1;
+    for (int i = 0; i < 109; i++) jj_la1[i] = -1;
     for (int i = 0; i < jj_2_rtns.length; i++) jj_2_rtns[i] = new JJCalls();
   }
 
@@ -5456,7 +5500,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
     token = new Token();
     jj_ntk = -1;
     jj_gen = 0;
-    for (int i = 0; i < 107; i++) jj_la1[i] = -1;
+    for (int i = 0; i < 109; i++) jj_la1[i] = -1;
     for (int i = 0; i < jj_2_rtns.length; i++) jj_2_rtns[i] = new JJCalls();
   }
 
@@ -5571,12 +5615,12 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
   /** Generate ParseException. */
   static public ParseException generateParseException() {
     jj_expentries.clear();
-    boolean[] la1tokens = new boolean[94];
+    boolean[] la1tokens = new boolean[95];
     if (jj_kind >= 0) {
       la1tokens[jj_kind] = true;
       jj_kind = -1;
     }
-    for (int i = 0; i < 107; i++) {
+    for (int i = 0; i < 109; i++) {
       if (jj_la1[i] == jj_gen) {
         for (int j = 0; j < 32; j++) {
           if ((jj_la1_0[i] & (1<<j)) != 0) {
@@ -5591,7 +5635,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
         }
       }
     }
-    for (int i = 0; i < 94; i++) {
+    for (int i = 0; i < 95; i++) {
       if (la1tokens[i]) {
         jj_expentry = new int[1];
         jj_expentry[0] = i;

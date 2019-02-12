@@ -470,6 +470,7 @@ TOKEN :
 |	< PTA:				"pta" >
 |	< RATE:				"rate" >
 |	< REWARDS:			"rewards" >
+|       < RESTRICT:			"restrict" >
 |	< RMAX:				"Rmax" >
 |	< RMIN:				"Rmin" >
 |	< R:				"R" >
@@ -1533,7 +1534,7 @@ Expression ExpressionBasic(boolean prop, boolean pathprop) :
 // (see the relevant productions for details)
 // we allow two or more successive expressions resulting in potential ambiguities
 // e.g. "a(b)" = "a" "(b)"
-// Ignoring the warning results in the largest match being taken.
+// Ignoring the warning, results in the largest match being taken.
 // SHANE has altered this to cater for allowing attempted accesses of elements in an indexed set (Reading only. See elsewhere for Updating.)
 
 Expression ExpressionFuncOrIdent(boolean prop, boolean pathprop) :
@@ -1602,6 +1603,12 @@ void ExpressionIndexedSetAccArgs(boolean prop, boolean pathprop, ExpressionIndex
 }
 {   // I (SHANE) wonder if we can limit it to something like ExpressionTimesDivide, rather than mere Expression, to restrict the types of expressions we accept here.
 	expr = Expression(prop, pathprop) { indSetAcc.setIndexExpression(expr); } 
+        ( // optional restriction-expression can follow the access-expression
+//          <RESTRICT> expr = Expression(prop,pathprop) { indSetAcc.setRestrictionExpression(expr); } 
+	    <RESTRICT> expr = ExpressionRelop(prop,pathprop) { indSetAcc.addRestrictionExpression(expr); } 
+                ( 	// Optional 2nd and subsequent restrictions are separated by commas..
+		  <COMMA> expr = ExpressionRelop(prop,pathprop) { indSetAcc.addRestrictionExpression(expr); } )*
+        )?
 }
 
 // Expression: literal

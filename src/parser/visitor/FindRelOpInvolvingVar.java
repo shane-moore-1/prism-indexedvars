@@ -41,7 +41,7 @@ import java.util.List;
 // way of determining rather than extracting out from other guards? (If I can't get this one to work in all cases...)
 public class FindRelOpInvolvingVar extends ASTTraverse
 {
-public static boolean DEBUG = false;
+public static boolean DEBUG = true;
 	private String varNameToFind;
 	private ArrayList<ExpressionBinaryOp> expressionsThatInvolve = new ArrayList<ExpressionBinaryOp>();
 
@@ -58,7 +58,7 @@ public static boolean DEBUG = false;
 	@Override
 	public Object visit(ExpressionBinaryOp e) throws PrismLangException
 	{
-if (DEBUG) System.out.println("FindRelOp.visit(ExprBinOp) called on this rel op expr: \'"+ e + "\' [" + e.getClass().getName() + "]");
+if (DEBUG) System.out.println("FindRelOp.visit(ExprBinOp) for '"+varNameToFind+"' called on this rel op expr: \'"+ e + "\' [" + e.getClass().getName() + "]");
 		int whichOp = e.getOperator();
 		// If it is an AND we need to delve into both operands, in case one of them involves a relational. (ORs don't have to be true, so can't be checked)
 		if (whichOp == ExpressionBinaryOp.AND) {
@@ -70,19 +70,34 @@ if (DEBUG) System.out.println("FindRelOp.visit(ExprBinOp) will check second oper
 if (DEBUG) System.out.println("FindRelOp.visit(ExprBinOp) has checked second operand: " + e.getOperand2());
 		}
 		// If it is a relational operator, rather than some other binary operator...
-		else if ((whichOp == ExpressionBinaryOp.EQ ||whichOp == ExpressionBinaryOp.NE ||	// Could have said e.isRelOp(whichOp)
+		else if (whichOp == ExpressionBinaryOp.EQ ||whichOp == ExpressionBinaryOp.NE ||	// Could have said e.isRelOp(whichOp)
 		     whichOp == ExpressionBinaryOp.LT ||whichOp == ExpressionBinaryOp.LE ||
 		     whichOp == ExpressionBinaryOp.GT ||whichOp == ExpressionBinaryOp.GE)
-		// We require the variable to be on the LEFT side of relational expressions.
-		 && (e.getOperand1() instanceof ExpressionVar) )
 		{
-			// If the var has the name we are looking for, then put it into our result list.
-			if (((ExpressionVar) e.getOperand1()).getName().equals(varNameToFind))
+			// We require the variable to be on the LEFT side of relational expressions.
+		 	if (e.getOperand1() instanceof ExpressionVar) 
+			{
+				// If the var has the name we are looking for, then put it into our result list.
+				if (((ExpressionVar) e.getOperand1()).getName().equals(varNameToFind))
 {
 if (DEBUG) System.out.println("  It is relational, and matches the desired variable, so was added to the results list.");
-			  expressionsThatInvolve.add(e);		// The current RelOp will be put in results, and don't go deeper.
+				  expressionsThatInvolve.add(e);		// The current RelOp will be put in results, and don't go deeper.
 } else if (DEBUG) System.out.println("  Whilst relational, it doesn't involve varName " + varNameToFind+ " on left-side so WON'T be added to the results list.");
+			}
+			else if (e.getOperand1() instanceof ExpressionIdent)
+			{
+				// If the identifier is for the name we are looking for, then put it into our result list.
+				if (((ExpressionIdent) e.getOperand1()).getName().equals(varNameToFind))
+{
+if (DEBUG) System.out.println("  It is relational, and matches the desired variable, so was added to the results list.");
+				  expressionsThatInvolve.add(e);		// The current RelOp will be put in results, and don't go deeper.
+} else if (DEBUG) System.out.println("  Whilst relational, it doesn't involve varName " + varNameToFind+ " on left-side so WON'T be added to the results list.");
+
+				
+			}
+else System.out.println("The operand1 is an: " + e.getOperand1().getClass().getName());
 		}
+else System.out.println("The whichOp value is: " + whichOp);
 
 		// We do not need to delve any deeper for other cases.
 
