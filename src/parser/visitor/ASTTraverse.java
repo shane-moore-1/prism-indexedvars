@@ -306,6 +306,9 @@ System.out.flush();
 			ExpressionIdent targetOfUpdate = e.getVarIdent(i);
 			if (targetOfUpdate instanceof ExpressionIndexedSetAccess)
 			{
+if (DEBUG_UPDATE) System.out.println("  Since the target of update is an IndexedSet, recursing by calling accept() on this ExpressionIndexedSetAccess: " + targetOfUpdate);
+				targetOfUpdate.accept(this);
+/* I BELIEVE THAT BY THE SINGLE-LINE NOW ABOVE THIS LINE, MAKES THE FOLLOWING COMMENTED BLOCK REDUNDANT, since the visit for EISA do these anyway...
 				ExpressionIndexedSetAccess detail = (ExpressionIndexedSetAccess) targetOfUpdate;
 if (DEBUG_Update) System.out.println(" It is an indexed-set access"); 
 				// Consider the Access part's validity - is it an int value.
@@ -321,6 +324,7 @@ if (DEBUG_Update) System.out.println("  in ASTTraverse[ONLY].visit(Update): Comp
 	
 				//refresh it (in case it just got changed by above line)
 				indexExp = detail.getIndexExpression();
+*/
 			}
 else if (DEBUG_Update) System.out.println(" It was not accessing an indexed set, so no special processing of it.");
 
@@ -570,9 +574,11 @@ if (DEBUG_Ident)	System.out.println("The " + this.getClass().getName() + " visit
 	{
 if (DEBUG_ExpIndSetAcc) System.out.println(" The " + this.getClass().getName() + " visitor has reached ASTTraverse[ONLY].visit(ExprIndSetAcc) for expression: " + e);
 		visitPre(e);
+		// Consider the index expression...
 if (DEBUG_ExpIndSetAcc) System.out.println(" The " + this.getClass().getName() + " visitor in ASTTraverse[ONLY].visit(ExprIndSetAcc) will call accept() on the index expression...");
 		if (e.getIndexExpression() != null) e.getIndexExpression().accept(this);
 		visitPost(e);
+		// Consider the restriction expressions (if any) that apply to this accessing of the indexed set...
 		List<Expression> restrExprs = e.getRstrictionExpressions();
 		if (restrExprs != null && restrExprs.size() > 0)
 		 for (Expression curRestrExp : restrExprs) {		// Visit each of the restriction expressions.
