@@ -462,6 +462,7 @@ TOKEN :
 |	< X:				"X" >
 |	< NONDETERMINISTIC:	"nondeterministic" >
 //|	< OF:				"of" >
+|	< OTHERWISE:			"otherwise" >
 |	< PMAX:				"Pmax" >
 |	< PMIN:				"Pmin" >
 |	< P:				"P" >
@@ -470,6 +471,7 @@ TOKEN :
 |	< PTA:				"pta" >
 |	< RATE:				"rate" >
 |	< REWARDS:			"rewards" >
+// ADDED BY SHANE:
 |       < RESTRICT:			"restrict" >
 |	< RMAX:				"Rmax" >
 |	< RMIN:				"Rmin" >
@@ -477,6 +479,8 @@ TOKEN :
 |	< S:				"S" >
 |	< STOCHASTIC:		"stochastic" >
 |	< SYSTEM:			"system" >
+// ADDED BY SHANE
+|       < TILDE:			"~" >
 |	< TRUE:				"true" >
 |	< U:				"U" >
 |	< W:				"W" >
@@ -1653,14 +1657,36 @@ Expression ExpressionLiteral(boolean prop, boolean pathprop) :
 
 // Expression: parentheses
 
+// Modified by SHANE - to allow use as a scoping for a restricted circumstances of applicability, with a default value when outside of circumstances
 Expression ExpressionParenth(boolean prop, boolean pathprop) : 
 {
-	Expression expr, ret;
+	Expression restrExpr, ret, underlying, otherwise;
+	RestrictedScopeExpression rse;
 	Token begin = null;
 }
 {
-	begin = <LPARENTH> expr = Expression(prop, pathprop) <RPARENTH>
-	{ ret = new ExpressionUnaryOp(ExpressionUnaryOp.PARENTH, expr); ret.setPosition(begin, getToken(0)); return ret;}
+	begin = <LPARENTH> underlying = Expression(prop, pathprop) <RPARENTH>
+	{ ret = new ExpressionUnaryOp(ExpressionUnaryOp.PARENTH, underlying); ret.setPosition(begin, getToken(0)); }
+        ( <TILDE> ret = RestrictedScopeExpression(prop,pathprop,ret) ) ?// optional restriction-expression (with default) can follow the parenthesised expression:
+	{ return ret; }
+}
+
+Expression RestrictedScopeExpression(boolean prop, boolean pathprop, Expression underlying) :
+{
+	Expression restrExpr, ret, otherwise;
+	RestrictedScopeExpression rse;
+	Token begin = null;
+}
+{
+	begin = <LBRACKET> restrExpr = ExpressionRelop(prop,pathprop) { 
+			ret = rse = new RestrictedScopeExpression(underlying);	// Put the usual parenthesised expression into the RestrictredScopeExpression.
+			rse.addRestrictionExpression(restrExpr); 		// Establish the first/only restriction
+		} 
+                ( 	// Optional 2nd and subsequent restrictions are separated by commas..
+		  <COMMA> restrExpr = ExpressionRelop(prop,pathprop) { rse.addRestrictionExpression(restrExpr); } )*
+	    <OTHERWISE> otherwise = Expression(prop,pathprop) { rse.setDefaultExpression(otherwise); }
+	<RBRACKET>
+       { return ret; }
 }
 
 //-----------------------------------------------------------------------------------

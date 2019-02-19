@@ -42,6 +42,7 @@ public class FindAllVars extends ASTTraverseModify
 public static boolean DEBUG_Basic = false ; //true && DEBUG_SHOW_ENABLED;		// The most high-level (i.e. minimal) types of debug messages
 public static boolean DEBUG = false ; //true && DEBUG_SHOW_ENABLED;			// The majority of debug messages
 public static boolean DEBUG_OrdinVar = false ; //true && DEBUG_SHOW_ENABLED;		// Whether to show details for ordinary variables (as opposed to indexed ones).
+public static boolean DEBUG_EISA = true;
 
 	private List<String> varIdents;
 	private List<Type> varTypes;
@@ -74,6 +75,7 @@ public static boolean DEBUG_OrdinVar = false ; //true && DEBUG_SHOW_ENABLED;		//
 	 // If the target of any ElementOfUpdate is an element of an indexed-set, the only time we could possibly
 	 // determine the position (in ModulesFile.vars) is if the index is a literal or constant. (NOT YET ACTUALLY DONE).
 	 // (The index will often need to be computed at update-run-time [i.e. check-time], if an expression is given instead).
+
 	public void visitPost(Update e) throws PrismLangException
 	{
 if (DEBUG_Basic)
@@ -94,6 +96,9 @@ if (DEBUG) System.out.println("\nConsidering update-element " + (i+1) + "/"+n+",
 			{
 
 				ExpressionIndexedSetAccess detail = (ExpressionIndexedSetAccess) targetOfUpdate;
+if (DEBUG) System.out.println("The target of the update-element is an IndexedSet element. Calling accept on it.");
+// THE FOLLOWING WAS TRIED (by commenting out the bulk of what comes below it); but it caused problems due to the element-of-update not having its type set.
+//				detail.accept(this);		// 2019-2-14 hoping that it will proceed to the method below for EISAs.
 if (DEBUG) System.out.println(" The target variable being updated IS AN ELEMENT within an indexed-set."); 
 
 				// Consider the Access part's validity - is it an int value.
@@ -148,6 +153,9 @@ if (DEBUG) System.out.println("  BUT UNLIKE normal variables, the j-position is 
 //System.out.println("but its type is reported to be: " + e.getTypeForElement(i));
 //if (e.getTypeForElement(i) != null) System.out.println(  " (" + e.getTypeForElement(i).getClass().getName() +")");
 //Exception eexx = new Exception(); eexx.printStackTrace(System.out);
+
+
+
 				// We can know the name of the indexed set, and could derive the type for the element,
 				// but there isn't much else we can really do at this point.
 				sawAnIndexedSet = true;		// It means the setVarIndex will be wrong, staying at -1
@@ -186,7 +194,7 @@ if (DEBUG_Basic)
 	}
 
 
-
+// The comment in this javadoc may be outdated now...
 	/** This would signify a node in the AST whereat is an expression attempting to access 
 	 *  an indexed set, or rather, a specific position within the indexed set, for READING purposes.
          *  (e.g. if used in a calculation. Or maybe even as specification of a probability?)).
@@ -198,17 +206,18 @@ if (DEBUG_Basic)
 	public Object visit(ExpressionIndexedSetAccess e) throws PrismLangException
 	{
 		String s;
-if (DEBUG) System.out.println("<Visit_EISA visitor='FAV'>");
+if (DEBUG_EISA) System.out.println("<Visit_EISA visitor='FAV'>");
 		// COPIED FROM ABOVE METHOD (at an earlier point in time)
-if (DEBUG) System.out.println("\nReached FindAllVars.visit(ExprIndSetAcc) [overrides ASTTravMod] for this access expression: " + e );
+	// NOTE, perhaps this override is not needed (now that I think I have correctly modified the ASTTraverse and ASTTraverseModify)
+if (DEBUG_EISA) System.out.println("\nReached FindAllVars.visit(ExprIndSetAcc) [overrides ASTTravMod] for this access expression: " + e );
 				ExpressionIndexedSetAccess detail = e;
 				// Consider the Access part's validity - is it an int value.
 				Expression indexExp = detail.getIndexExpression();
 
-if (DEBUG) System.out.println(" FAV.v(EISA): Going to call visit() on the access expression: " + indexExp);
+if (DEBUG_EISA) System.out.println(" FAV.v(EISA): Going to call visit() on the access expression: " + indexExp);
 				// Delve in so that the expression might be resolved.
 				Expression resolve = (Expression) indexExp.accept(this);
-if (DEBUG) System.out.println(" FAV.v(EISA): Completed call visit() on the access expression: " + indexExp + " - its type is " + resolve.getType());
+if (DEBUG_EISA) System.out.println(" FAV.v(EISA): Completed call visit() on the access expression: " + indexExp + " - its type is " + resolve.getType());
 				detail.setIndexExpression(resolve);
 	
 				//refresh it (in case it just got changed by above line)
@@ -220,31 +229,44 @@ if (DEBUG) System.out.println(" FAV.v(EISA): Completed call visit() on the acces
 						+ indexExp.getType();
 s += "[During FAV.visit(ExpIndSetAcc), and the object is actually a " + indexExp.getClass().getName() +"]";
 					PrismLangException ple = new PrismLangException(s, e);	
-if (DEBUG) ple.printStackTrace(System.out); else
+if (DEBUG_EISA) ple.printStackTrace(System.out); else
 					throw ple;
 				}
-else if (DEBUG) System.out.println(" FAV.v(EISA):Type of the argument used to access indexed-set is acceptable (int)");
+else if (DEBUG_EISA) System.out.println(" FAV.v(EISA):Type of the argument used to access indexed-set is acceptable (int)");
 
 				// Consider if it is out-of-bounds:
 					// not done yet.
 
 				// Consider the type that the result ought to be:
-if (DEBUG) System.out.println(" FAV.v(EISA): Looking for "+ e.getName() + "[0]");
+if (DEBUG_EISA) System.out.println(" FAV.v(EISA): Looking for "+ e.getName() + "[0]");
 				int j = varIdents.indexOf(e.getName()+"[0]");		// the first element's type is all we need
 				if (j == -1) {
 					s = "Unknown indexed-set \"" + e.getName() + "\"";
 					throw new PrismLangException(s, e);	
 				}
-if (DEBUG) System.out.println(" FAV.v(EISA) j for first element of indexed set is: " + j);
+if (DEBUG_EISA) System.out.println(" FAV.v(EISA) j for first element of indexed set is: " + j);
  
 				Type targetType = varTypes.get(j);
-if (DEBUG) System.out.println(" Determined its type: " + targetType + ", but LEAVING its j-position FOR RUN-TIME determination.");
+if (DEBUG_EISA) System.out.println(" Determined its type: " + targetType + ", but LEAVING its j-position FOR RUN-TIME determination.");
 				e.setType(targetType);
 
 				// Tell it of the varIdents vector, to allow the specific element to be found at later time.
 				e.setVarIdentsList(varIdents);	// enable run-time resolution of whichever index is to be accessed.
 
-if (DEBUG) System.out.println("</Visit_EISA visitor='FAV'>");
+
+		// Consider the restriction expressions (if any) that apply to this accessing of the indexed set...
+		List<Expression> restrExprs = e.getRestrictionExpressions();
+		if (restrExprs != null && restrExprs.size() > 0) {
+if (DEBUG_EISA) System.out.println(" FAV.v(EISA) - Delving into the restriction expressions...");
+		    for (Expression curRestrExp : restrExprs) {		// Visit each of the restriction expressions.
+if (DEBUG_ExpIndSetAcc) System.out.println(" The " + this.getClass().getName() + " visitor in ASTTraverse[ONLY].visit(ExprIndSetAcc) will call accept() on the restriction expression: " + curRestrExp);
+			e.replaceRestrictionExpression(curRestrExp, (Expression) curRestrExp.accept(this));
+		    }
+		}
+if (DEBUG_EISA) System.out.println(" FAV.v(EISA) - Finished delving into the restriction expressions.");
+
+
+if (DEBUG_EISA) System.out.println("</Visit_EISA visitor='FAV'>");
 		return detail;
 	}		// End of method visit(ExprIndAccSet)
 

@@ -158,7 +158,7 @@ if (DEBUG_MSG) System.out.println("Added update element for varIdent: " + v + " 
 	 * @param i - update element's position within the update command
 	 * @param t - the type of value needed for assigning to the relevant variable.
 	 */
-// SHANE has altered - and wishes to further alter it from setType, to setTypeForElement, but isn't sure if other code will fail to compile
+// SHANE has altered - and wishes to further alter it from being named setType, to setTypeForElement, but isn't sure if other code files will fail to compile
 	public void setType(int i, Type t)
 	{
 		ElementOfUpdate ue = elements.get(i);
@@ -226,7 +226,7 @@ if (DEBUG_MSG) System.out.println("Added update element for varIdent: " + v + " 
 		if (getTypeForElement(i) instanceof TypeIndexedSet)		// Should not usually occur, because it would have been replaced by individuals before now.
 		{
 //if (DEBUG_MSG) System.out.println("But returning null, because this is an TypeIndexedSet");
-			return null;
+			return elements.get(i).var + "[??]";
 		} 
 		else
 		return elements.get(i).var;

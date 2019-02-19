@@ -33,7 +33,6 @@ import prism.PrismLangException;
 
 public class SystemModule extends SystemDefn
 {
-public static boolean DEBUG_SHANE = true;
 	// Module name
 	private 		// SHANE ADDED this 'private' specification.
 	String name;
@@ -53,10 +52,6 @@ public static boolean DEBUG_SHANE = true;
 	
 	public void setName(String n)
 	{
-if (DEBUG_SHANE) {
-Exception e = new Exception("WHAT CALLED THIS? Setting it to "+ n);
-e.printStackTrace(System.out);
-}
 		name = n;
 	}
 	

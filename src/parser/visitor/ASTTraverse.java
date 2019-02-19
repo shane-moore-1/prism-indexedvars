@@ -28,6 +28,7 @@ package parser.visitor;
 
 import parser.ast.*;
 import prism.PrismLangException;
+import java.util.List;
 
 /** Performs a depth-first traversal of an abstract syntax tree (AST).
 Many traversal-based tasks can be implemented by extending and either:
@@ -48,6 +49,7 @@ public static boolean DEBUG_Commands = false && DEBUG_SHOW_ENABLED;
 public static boolean DEBUG_Update = true && DEBUG_SHOW_ENABLED;
 public static boolean DEBUG_Ident = false && DEBUG_SHOW_ENABLED;
 public static boolean DEBUG_ExpIndSetAcc = false && DEBUG_SHOW_ENABLED;
+public static boolean DEBUG_RSE = true ;// && DEBUG_SHOW_ENABLED;
 
 	public void defaultVisitPre(ASTElement e) throws PrismLangException {}
 	public void defaultVisitPost(ASTElement e) throws PrismLangException {}
@@ -251,7 +253,7 @@ System.out.flush();
 		// Note: a few classes override this method (e.g. SemanticCheck)
 		// so take care to update those versions if changing this method
 if (DEBUG_Update) {
-    System.out.println("\nASTTraverse.visit(Command) has been invoked by the " + this.getClass().getName() + " visitor\n for command: " + e);
+    System.out.println("\nASTTraverse.visit(Command) DEFAULT version has been invoked by the " + this.getClass().getName() + " visitor\n for command: " + e);
 	if (e.getSynch().length() > 0) System.out.println(" which has synch: e.getSynch()");
 	else System.out.println(" (which has no synch)");
 }
@@ -292,8 +294,8 @@ System.out.flush();
 	public void visitPre(Update e) throws PrismLangException { defaultVisitPre(e); }
 	public Object visit(Update e) throws PrismLangException
 	{ 
-if (DEBUG_Update) System.out.println("\nThe " + this.getClass().getName() + " visitor has reached ASTTraverse[ONLY].visit(Update) for update: " + e);
-if (DEBUG_Update) System.out.println(" (so it has not been overridden by the Visitor class, and the default will be done...)");
+if (DEBUG_Update) System.out.println("\nThe " + this.getClass().getName() + " visitor has reached the DEFAULT ASTTraverse[ONLY].visit(Update) for update: " + e);
+if (DEBUG_Update) System.out.println(" (so it has not been overridden by the Visitor class, and the default work will be done...)");
 System.out.flush();
  		visitPre(e);
 		int i, n;
@@ -306,7 +308,7 @@ System.out.flush();
 			ExpressionIdent targetOfUpdate = e.getVarIdent(i);
 			if (targetOfUpdate instanceof ExpressionIndexedSetAccess)
 			{
-if (DEBUG_UPDATE) System.out.println("  Since the target of update is an IndexedSet, recursing by calling accept() on this ExpressionIndexedSetAccess: " + targetOfUpdate);
+if (DEBUG_Update) System.out.println("  Since the target of update is an IndexedSet, recursing by calling accept() on this ExpressionIndexedSetAccess: " + targetOfUpdate);
 				targetOfUpdate.accept(this);
 /* I BELIEVE THAT BY THE SINGLE-LINE NOW ABOVE THIS LINE, MAKES THE FOLLOWING COMMENTED BLOCK REDUNDANT, since the visit for EISA do these anyway...
 				ExpressionIndexedSetAccess detail = (ExpressionIndexedSetAccess) targetOfUpdate;
@@ -572,23 +574,50 @@ if (DEBUG_Ident)	System.out.println("The " + this.getClass().getName() + " visit
 	public void visitPre(ExpressionIndexedSetAccess e) throws PrismLangException { defaultVisitPre(e); }
 	public Object visit(ExpressionIndexedSetAccess e) throws PrismLangException
 	{
-if (DEBUG_ExpIndSetAcc) System.out.println(" The " + this.getClass().getName() + " visitor has reached ASTTraverse[ONLY].visit(ExprIndSetAcc) for expression: " + e);
+if (DEBUG_ExpIndSetAcc) System.out.println(" The " + this.getClass().getName() + " visitor has reached DEFAULT version of ASTTraverse[ONLY].visit(ExprIndSetAcc) for expression: " + e);
 		visitPre(e);
 		// Consider the index expression...
 if (DEBUG_ExpIndSetAcc) System.out.println(" The " + this.getClass().getName() + " visitor in ASTTraverse[ONLY].visit(ExprIndSetAcc) will call accept() on the index expression...");
 		if (e.getIndexExpression() != null) e.getIndexExpression().accept(this);
-		visitPost(e);
 		// Consider the restriction expressions (if any) that apply to this accessing of the indexed set...
-		List<Expression> restrExprs = e.getRstrictionExpressions();
+		List<Expression> restrExprs = e.getRestrictionExpressions();
 		if (restrExprs != null && restrExprs.size() > 0)
 		 for (Expression curRestrExp : restrExprs) {		// Visit each of the restriction expressions.
 if (DEBUG_ExpIndSetAcc) System.out.println(" The " + this.getClass().getName() + " visitor in ASTTraverse[ONLY].visit(ExprIndSetAcc) will call accept() on the restriction expression: " + curRestrExp);
 			curRestrExp.accept(this);
 		 }
 if (DEBUG_ExpIndSetAcc) System.out.println(" Ending ASTTraverse[ONLY].visit(ExprIndSetAcc) [" + this.getClass().getName() + "] for expression: " + e);
+
+		visitPost(e);
 		return null;
 	}
 	public void visitPost(ExpressionIndexedSetAccess e) throws PrismLangException { defaultVisitPost(e); }
+// ALSO ADDED BY SHANE
+	public void visitPre(RestrictedScopeExpression e) throws PrismLangException { defaultVisitPre(e); }
+	public Object visit(RestrictedScopeExpression e) throws PrismLangException
+	{
+		visitPre(e);
+		// Consider first the restriction expressions (if any) that apply to this scoping expressioni...
+		List<Expression> restrExprs = e.getRestrictionExpressions();
+		if (restrExprs != null && restrExprs.size() > 0)
+		 for (Expression curRestrExp : restrExprs) {		// Visit each of the restriction expressions.
+if (DEBUG_RSE) System.out.println(" The " + this.getClass().getName() + " visitor in DEFAULT version of ASTTraverse[ONLY].visit(RSE) will call accept() on the restriction expression: " + curRestrExp);
+			curRestrExp.accept(this);
+		 }
+		// Consider next the default expression...
+if (DEBUG_RSE) System.out.println(" The " + this.getClass().getName() + " visitor in ASTTraverse[ONLY].visit(RSE) will call accept() on the default (out-of-scope) expression: " + e.getDefaultExpression());
+		if (e.getDefaultExpression() != null) e.getDefaultExpression().accept(this);
+
+		// And finally, consider the underlying actaul expression that is being restricted by this RestrictedScope...
+if (DEBUG_RSE) System.out.println(" The " + this.getClass().getName() + " visitor in ASTTraverse[ONLY].visit(RSE) will call accept() on the underlying expression: " + e.getUnderlyingExpression());
+		if (e.getUnderlyingExpression() != null) e.getUnderlyingExpression().accept(this);
+
+if (DEBUG_RSE) System.out.println(" Ending ASTTraverse[ONLY].visit(RSE) [" + this.getClass().getName() + "] for expression: " + e);
+		visitPost(e);
+		return null;
+	}
+	public void visitPost(RestrictedScopeExpression e) throws PrismLangException { defaultVisitPost(e); }
+
 // END of ADDED BY SHANE
 // -----------------------------------------------------------------------------------
 	public void visitPre(ExpressionProb e) throws PrismLangException { defaultVisitPre(e); }

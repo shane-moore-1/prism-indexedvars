@@ -16,7 +16,7 @@ public class ExpressionIndexedSetAccess extends ExpressionIdent implements Compa
 																	
 
 public static boolean DEBUG = false;
-public static boolean DEBUG_VISITOR = false;
+public static boolean DEBUG_VISITOR = true;
 
 //	String name; <<-- inherited, no need to redeclare;
 	Expression indexExpression;			// The expression which specifies (evaluates to) an index
@@ -237,7 +237,21 @@ if (DEBUG_VISITOR) System.out.println("The " + v.getClass().getName() + " visito
 	@Override
 	public String toString()
 	{
-		return name + "[" + indexExpression + "]";
+		boolean shownAnyRestr = false;
+
+		StringBuffer buf = new StringBuffer();
+		buf.append(name + "[" + indexExpression);
+		if (restrictionExpressions.size() > 0) {
+			buf.append(" restrict ( ");
+			for (Expression restr : restrictionExpressions) {
+				if (shownAnyRestr) buf.append(", ");
+				buf.append(restr);
+				shownAnyRestr = true;
+			}
+			buf.append(" ) ");
+		}
+		buf.append("]");
+		return buf.toString();
 	}
 
 	/**
@@ -251,6 +265,10 @@ if (DEBUG_VISITOR) System.out.println("The " + v.getClass().getName() + " visito
 		expr.setType(type);
 		expr.setPosition(this);
 		expr.varIdents = this.varIdents;
+
+		for (Expression restr : restrictionExpressions) {
+			expr.addRestrictionExpression((Expression) restr.deepCopy());		// Preserve any restrictions 
+		}
 		return expr;
 	}
 

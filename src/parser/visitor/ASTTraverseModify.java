@@ -51,7 +51,8 @@ public static boolean DEBUG_Module = true && DEBUG_SHOW_ENABLED;// parser.ast.Mo
 public static boolean DEBUG_Command = true && DEBUG_SHOW_ENABLED;
 public static boolean DEBUG_Update = true && DEBUG_SHOW_ENABLED;
 public static boolean DEBUG_ExprIdent = true && DEBUG_SHOW_ENABLED;
-public static boolean DEBUG_ExpIndSetAcc = true && DEBUG_SHOW_ENABLED;
+public static boolean DEBUG_ExpIndSetAcc = true ;//&& DEBUG_SHOW_ENABLED;
+public static boolean DEBUG_RSE = true ;// && DEBUG_SHOW_ENABLED;
 
 	public void defaultVisitPre(ASTElement e) throws PrismLangException {}
 	public void defaultVisitPost(ASTElement e) throws PrismLangException {}
@@ -358,10 +359,10 @@ if (DEBUG_Update) System.out.println(" This update is targeting this variable: "
 if (DEBUG_Update) System.out.println(" The variable's underlying Java class type is [" + targetOfUpdate.getClass().getName() + "]" );	
 			if (targetOfUpdate instanceof ExpressionIndexedSetAccess)
 			{
-// TEMPORARILY Trying to simply call 'accept' on the ExpressionIndexedSetAccess, instead of the commented-out code which duplicates what is in visit(EISA) anyway.
+// 2019-2-14: TEMPORARILY Trying to simply call 'accept' on the ExpressionIndexedSetAccess, instead of the commented-out code which duplicates what is in visit(EISA) anyway.
 				e.setVarIdent(i,(ExpressionIdent)targetOfUpdate.accept(this));
-
-/*				ExpressionIndexedSetAccess detail = (ExpressionIndexedSetAccess) targetOfUpdate;
+/* 2019-2-14: TEMPORARILY Disabled to try the above line instead.
+				ExpressionIndexedSetAccess detail = (ExpressionIndexedSetAccess) targetOfUpdate;
 				// Consider the Access part's validity - is it an int value.
 				Expression indexExp = detail.getIndexExpression();
 if (DEBUG_Update) System.out.println("  Because it is targeting an element of an indexed-set, ASTTravMod.visit(Update) is going to call accept() on the\nfollowing access expression: " + indexExp);
@@ -684,6 +685,33 @@ if (DEBUG_ExpIndSetAcc) System.out.println("The " + this.getClass().getName() + 
 		return e;
 	}
 	public void visitPost(ExpressionIndexedSetAccess e) throws PrismLangException { defaultVisitPost(e); }
+// ALSO ADDED BY SHANE
+	public void visitPre(RestrictedScopeExpression e) throws PrismLangException { defaultVisitPre(e); }
+	public Object visit(RestrictedScopeExpression e) throws PrismLangException
+	{
+		visitPre(e);
+		// Consider first the restriction expressions (if any) that apply to this scoping expressioni...
+		List<Expression> restrExprs = e.getRestrictionExpressions();
+		if (restrExprs != null && restrExprs.size() > 0)
+		 for (Expression curRestrExp : restrExprs) {		// Visit each of the restriction expressions.
+if (DEBUG_RSE) System.out.println(" The " + this.getClass().getName() + " visitor in ASTTraverseMod.visit(RSE) will call accept() on the restriction expression: " + curRestrExp);
+			e.replaceRestrictionExpression(curRestrExp, (Expression) curRestrExp.accept(this));
+		 }
+		// Consider next the default expression...
+if (DEBUG_RSE) System.out.println(" The " + this.getClass().getName() + " visitor in ASTTraverseMod.visit(RSE) will call accept() on the default (out-of-scope) expression: " + e.getDefaultExpression());
+		if (e.getDefaultExpression() != null) e.setDefaultExpression( (Expression) e.getDefaultExpression().accept(this));
+
+if (DEBUG_RSE) System.out.println(" The " + this.getClass().getName() + " visitor in ASTTraverseMod.visit(RSE) will call accept() on the underlying expression: " + e.getUnderlyingExpression() );
+		// And finally, consider the underlying actaul expression that is being restricted by this RestrictedScope...
+		if (e.getUnderlyingExpression() != null) e.setUnderlyingExpression( (Expression) e.getUnderlyingExpression().accept(this));
+
+if (DEBUG_RSE) System.out.println(" Ending ASTTraverseMod.visit(RSE) [" + this.getClass().getName() + "] for expression: " + e);
+		visitPost(e);
+		return e;
+	}
+	public void visitPost(RestrictedScopeExpression e) throws PrismLangException { defaultVisitPost(e); }
+
+// END of ADDED BY SHANE
 // END of ADDED BY SHANE
 	// -----------------------------------------------------------------------------------
 	public void visitPre(ExpressionProb e) throws PrismLangException { defaultVisitPre(e); }

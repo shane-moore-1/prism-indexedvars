@@ -37,6 +37,7 @@ import prism.PrismLangException;
 public class TypeCheck extends ASTTraverse
 {
 public static boolean DEBUG = false && DEBUG_SHOW_ENABLED;
+public static boolean DEBUG_Upd = true;
 public static boolean SHANE_REMINDER = true;
 
 	private PropertiesFile propertiesFile = null;
@@ -49,6 +50,37 @@ public static boolean SHANE_REMINDER = true;
 	public TypeCheck(PropertiesFile propertiesFile)
 	{
 		this.propertiesFile = propertiesFile;
+	}
+
+
+	public void visitPost(RestrictedScopeExpression e) throws PrismLangException
+	{
+if (DEBUG_RSE) System.out.println("\nIn TypeCheck.visitPost(RSE) for this RestrScopeExpr: " + e);
+		Type t1 = e.getUnderlyingExpression().getType();
+		Type t2 = e.getDefaultExpression().getType();
+if (DEBUG_RSE) System.out.println("The type of the UnderlyingExpression is: " + t1);
+if (DEBUG_RSE) System.out.println("and the type of the DefaultExpression is: " + t1);
+
+		if (t1 instanceof TypeBool && t2 instanceof TypeBool)
+			e.setType(TypeBool.getInstance());
+		else if (t1 instanceof TypeInt && t2 instanceof TypeInt)
+			e.setType(TypeInt.getInstance());
+		else if (t1 instanceof TypeDouble && t2 instanceof TypeDouble)
+			e.setType(TypeDouble.getInstance());
+		else {
+			throw new PrismLangException("Type Error: the Default expression must have same type as the Underlying expression in a Restricted Scope Expression.");
+		}
+
+		Type t3;
+		for (Expression restr : e.getRestrictionExpressions())
+		{
+			t3 = restr.getType();
+			System.out.println(" The type of this restriction expression: " + restr + " is " + t3);
+			if (!(t3 instanceof TypeBool))
+				throw new PrismLangException("Type Error: Restriction expressions must be boolean");
+		}
+
+if (DEBUG_RSE) System.out.println("\nEnding TypeCheck.visitPost(RSE) for this RestrScopeExpr: " + e);
 	}
 
 	public void visitPost(ModulesFile e) throws PrismLangException
@@ -121,12 +153,13 @@ public static boolean SHANE_REMINDER = true;
 
 	// ADDED BY SHANE, but not completed yet. ACTUALLY, probably doesn't need to exist, since I don't allow whole sets to be assigned.
 	// ALTERNATIVELY: maybe I could check the declType of the elements.
+	// HOWEVER: I think that by the time this Visitor walks the AST, the Declarations have all been replaced.
 	@Override
 	public void visitPost(DeclTypeIndexedSet e) throws PrismLangException
 	{
 		// Not Doing any checking yet
-if (SHANE_REMINDER) 
-	  System.out.println("~~ TypeCheck.visitPost(DeclarationIndexedSet) not yet implemented - doing nothing for: " + e);
+//if (SHANE_REMINDER) 
+	  System.out.println("~~ TypeCheck.visitPost(DeclarationIndexedSet) not yet implemented (if even needed) - doing nothing for: " + e);
 	}
 	
 	public void visitPost(Command e) throws PrismLangException
@@ -153,21 +186,21 @@ if (SHANE_REMINDER)
 		//if (e == null) throw new PrismLangException("in TypeCheck.visitPost(Update) --- null Update object provided to visitPost(Update)"); else 
 		int i, n;
 		n = e.getNumElements();
-		if (DEBUG) System.out.println("\nIn TypeCheck.visitPost(Update) for update: " + e);
+if (DEBUG_Upd) System.out.println("\nIn TypeCheck.visitPost(Update) for update: " + e);
 		for (i = 0; i < n; i++) {
-if (DEBUG) System.out.println("\nDealing with update-element " + (i+1) + "/" + n + ": " + e.getElement(i).toString());
+if (DEBUG_Upd) System.out.println("\nDealing with update-element " + (i+1) + "/" + n + ": " + e.getElement(i).toString());
 
 
-if (DEBUG) System.out.println(" getTypeForElement(" + i+ ") is " + e.getTypeForElement(i)); System.out.flush();
+if (DEBUG_Upd) System.out.println(" getTypeForElement(" + i+ ") is " + e.getTypeForElement(i)); System.out.flush();
 			if (e.getTypeForElement(i) == null)
 				throw new PrismLangException("ERROR: null type encountered in update to variable \"" + e.getVar(i) + "\"", e.getExpression(i));
 			// Updates to non-clocks
 			if (!(e.getTypeForElement(i) instanceof TypeClock)) {
 
-if (DEBUG) System.out.println(" and e.getExpression("+i+") is " + e.getExpression(i)); System.out.flush();
-if (DEBUG) System.out.println(" and e.getExpression("+i+").getType() is " + e.getExpression(i).getType() ); System.out.flush();
+if (DEBUG_Upd) System.out.println(" and e.getExpression("+i+") is " + e.getExpression(i)); System.out.flush();
+if (DEBUG_Upd) System.out.println(" and e.getExpression("+i+").getType() is " + e.getExpression(i).getType() ); System.out.flush();
 
-if (DEBUG) {
+if (DEBUG_Upd) {
   if (e.getTypeForElement(i) == null) System.out.println("   being NULL, nothing can be checked.");
   else System.out.println("Checking if canAssign the expression to the target. (If not, exception is generated)");
 }
@@ -176,7 +209,7 @@ if (DEBUG) {
 				if (!e.getTypeForElement(i).canAssign(e.getExpression(i).getType())) {
 					throw new PrismLangException("Type error in update to variable \"" + e.getVar(i) + "\"", e.getExpression(i));
 				}
-if (DEBUG) System.out.println("  - Yes, it can.");
+if (DEBUG_Upd) System.out.println("  - Yes, it can (otherwise an exception would have happened).");
 			}
 			// Updates to clocks
 			else {
@@ -269,9 +302,13 @@ if (DEBUG) System.out.println("  - Yes, it can.");
 		case ExpressionBinaryOp.OR:
 		case ExpressionBinaryOp.AND:
 			if (!(t1 instanceof TypeBool) && !(t1 instanceof TypePathBool)) {
+Exception eee = new Exception("op1 is " + e.getOperand1() + " and op2 is " + e.getOperand2() );
+eee.printStackTrace(System.out);
 				throw new PrismLangException("Type error: " + e.getOperatorSymbol() + " applied to non-Boolean expression", e.getOperand1());
 			}
 			if (!(t2 instanceof TypeBool) && !(t2 instanceof TypePathBool)) {
+Exception eee = new Exception("op1 is " + e.getOperand1() + " and op2 is " + e.getOperand2() );
+eee.printStackTrace(System.out);
 				throw new PrismLangException("Type error: " + e.getOperatorSymbol() + " applied to non-Boolean expression", e.getOperand2());
 			}
 			e.setType(t1 instanceof TypePathBool || t2 instanceof TypePathBool ? TypePathBool.getInstance() : TypeBool.getInstance());

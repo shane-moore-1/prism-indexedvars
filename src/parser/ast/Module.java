@@ -36,9 +36,6 @@ public class Module extends ASTElement
 public static boolean DEBUG = false;
 public static boolean DEBUG_InsDeclAt = parser.visitor.ConvertIndexedSetDeclarations.DEBUG;
 
-private static int NextInstanceNum = 0;
-private int MyInstanceNum;
-public int getInstanceNum() { return MyInstanceNum; }
 
 	// Module name
 	private String name;
@@ -63,9 +60,9 @@ public int getInstanceNum() { return MyInstanceNum; }
 	
 	public Module(String n)
 	{
+/* ADDED, THEN REMOVED, BY SHANE...
 MyInstanceNum = ++NextInstanceNum;
-Exception e = new Exception("CREATING A MODULE named " + n);
-e.printStackTrace(System.out);
+*/
 		name = n;
 		decls = new ArrayList<Declaration>();
 		commands = new ArrayList<Command>();
@@ -349,7 +346,6 @@ if (DEBUG) System.out.println("Removing declaration from Module " + this.getName
 		String s = "";
 		int i, n;
 
-s += "[Module, inst#"+MyInstanceNum+"]\n";		
 
 		s = s + "module " + name + "\n\n";
 		n = getNumDeclarations();

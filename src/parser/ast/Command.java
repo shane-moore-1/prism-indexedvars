@@ -142,6 +142,33 @@ System.out.println("returned from invoking getVP_EISAs on the updates...");
 System.out.println("</GetVP_EISAs invokedOnCommand='" + synch + "'>");
 		return varPosEISAs;
 	}
+
+	/** Request a Set of all the RestrictedScopeExpressions that are included inside the command.
+	 *  Currently only considers the GUARD of commands.
+	 */
+	public Set<RestrictedScopeExpression> getRestrictedScopeExpressions()
+	{
+		Set<RestrictedScopeExpression> setOfExprs = new TreeSet<RestrictedScopeExpression>();
+		FindRestrictedScopeExprs frse = new FindRestrictedScopeExprs();
+		try {
+			if (guard instanceof ExpressionUnaryOp) 
+				frse.visit((ExpressionUnaryOp) guard);
+			else if (guard instanceof ExpressionBinaryOp)
+				frse.visit((ExpressionBinaryOp) guard);
+			else if (guard instanceof RestrictedScopeExpression)
+				frse.visit((RestrictedScopeExpression) guard);
+			else 
+				frse.visit((ExpressionTemporal) guard);		// Just make something that is likely to throw exception.
+		} catch (Exception exc) {
+exc.printStackTrace(System.out);
+System.exit(1);
+		}
+		List<RestrictedScopeExpression> listOfExprs = frse.getExpressions();
+
+		if (listOfExprs != null & listOfExprs.size() > 0)
+			setOfExprs.addAll(listOfExprs);
+		return setOfExprs;
+	}
 	
 	// Methods required for ASTElement:
 	

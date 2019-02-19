@@ -33,6 +33,7 @@ import parser.*;
 import parser.ast.*;
 
 import parser.visitor.FindRelOpInvolvingVar;
+import parser.visitor.ResolveRestrictedScopes;
 
 // class to translate a modules description file into an MTBDD model
 
@@ -1766,6 +1767,52 @@ if (DEBUG_SHANE) System.out.println("Invoked m2m_translateSystemFullParallel");
 	}
 
 // ADDED BY SHANE
+/** This method will generate (by recursion if required), all the possible versions of the command with the restriction variables set to explicit values.
+ *  For all RestrictedScopeExpressions which are deemed to be out of scope by the value of a restriction variable, the 'default' expression will be substituted,
+ *  but for all RestrictedScopeExpressions which are deemed to be in scope by the value, the 'underlying' expression will be substituted with each possible
+ *  value of the variable, leading to a set of commands which 'realize' the original command.
+ * 
+ *
+ */
+private List<Command> generateCommandVersions(Command theCommand, List<Values> restrictionValCombins)
+{
+	ArrayList<Command> generatedCommands = new ArrayList<Command>();
+	ResolveRestrictedScopes rrs = new ResolveRestrictedScopes(constantValues,varList);
+	Command resolvedVersion = null;
+
+	for (Values substitutions : restrictionValCombins)
+	{
+System.out.println("Generating version of command: " + theCommand + "\n using these values affecting restriction scopes: " + substitutions);
+
+		for (int i = 0; i < substitutions.getNumValues(); i++)
+		{
+			String varNameToUse = substitutions.getName(i);
+			int valToUse = (int) ((Integer)substitutions.getValue(i));
+			int indexInVarList = varList.getIndex(varNameToUse);
+
+			ExpressionVar theVar = 	new ExpressionVar( varNameToUse, varList.getType(indexInVarList));
+			theVar.setIndex(indexInVarList);		// SHANE HOPES THAT IS CORRECT - otherwise, have to find out appropriate value to use.
+//if (DEBUG_TransMod) System.out.println("for variable " + varNameToUse + ", create ExprVar with type set to " + varList.getType(indexInVarList)");
+			ExpressionLiteral theVal = new ExpressionLiteral(varList.getType(indexInVarList),valToUse);
+
+		}
+
+		rrs.setValuesForResolution(substitutions);		// What to use for evaluation of restriction expressions
+		try {
+			resolvedVersion = (Command) rrs.visit( (Command) theCommand.deepCopy() );	// Resolve for current values
+			generatedCommands.add(resolvedVersion);					// Add to list we will return.
+
+
+		} catch (PrismLangException ple) { 
+System.out.println("An exception arose: " + ple);
+ple.printStackTrace(System.out);
+		}
+	}
+
+	return generatedCommands;
+}
+
+// ADDED BY SHANE
 /** This method will generate, by recursion, all the possible combinations of values for the variables whose indexes
     are in the supplied first parameter. It is blind as to whether any of the combinations are fit-for-purpose - that is
     left to the checkValidity() method which should be given the result of the top-level call to THIS method.
@@ -2090,8 +2137,8 @@ else System.out.println(" - no restrictions specified");
 private List<Values> filterCombinationsForGuard(List<Values> substitutionCombins, Expression guardExpr)
 {
 	for (Values curValues : substitutionCombins) {
-//		System.out.println("Considering whether the following values: " + curValues + "\n  might be ruled out by this guard: " + guardExpr);
-
+		System.out.println("Considering whether the following values: " + curValues + "\n  might be ruled out by this guard: " + guardExpr);
+System.out.println("\n*** NOT ACTUALLY IMPLEMENTED THAT YET ***\n");
 
 /*
 		int i;
@@ -2818,7 +2865,7 @@ System.exit(1);
 		JDDNode tmp;
 		ArrayList<JDDNode> guardDDs, upDDs;			// SHANE HAS CHANGED because we may have more generated rules than original commands.
 		TranslatedCommandDDs translatedCmd;
-		Command command;
+		Command originalCommand;
 		int l, numCommands;
 		double dmin = 0, dmax = 0;
 		boolean match;
@@ -2857,21 +2904,122 @@ if (DEBUG_TransMod) {
 //	PrintDebugIndent(); System.out.println("<TrMd_ConsidComForSync cmdNum='"+(l+1)+"/"+ numCommands+"' ofModule='"+module.getName()+"' hopeForSynch='"+synch+"'>");
 //	PrintDebugIndent(); System.out.println("[in prism.Modules2MTBDD::translateModule()]: Considering command " + (l+1) + " against sync " + synch);
 }
-			command = module.getCommand(l);
+			originalCommand = module.getCommand(l);
 			// check if command matches requested synch
 			match = false;
 			if (synch == "") {
-				if (command.getSynch() == "") match = true;
+				if (originalCommand.getSynch() == "") match = true;
 			}
 			else {
-				if (command.getSynch().equals(synch)) match = true;
+				if (originalCommand.getSynch().equals(synch)) match = true;
 			}
 			// if so translate
 			if (match) {
 if (DEBUG_TransMod) {
 	PrintDebugIndent(); System.out.println("Command " + (l+1) + " of module " +module.getName() + " MATCHES synch '" + synch + "'.");
-	PrintDebugIndent(); System.out.println("The command is:\n" + command);
+	PrintDebugIndent(); System.out.println("The command is:\n" + originalCommand);
 	PrintDebugIndent(); System.out.println("<DealWithMatchedSynch synch='"+synch+"' module='"+module.getName()+"'"); DebugIndent++;
+}
+
+				// New section inserted by SHANE, in order to determine whether any RestrictedScope expressions 
+				// are present, as these will potentially result in multiple versions of the command.
+
+if (DEBUG_TransMod) {
+	PrintDebugIndent(); System.out.println("<FindRestrictedScopeExpressions>");
+}
+
+				Set<RestrictedScopeExpression> RSEs = originalCommand.getRestrictedScopeExpressions();
+
+				// Having determined the restricted Scope Expressions, we now need to work out what variables are involved...
+				Set<ExpressionVar> varsForRestrictingScope = new TreeSet<ExpressionVar>();
+				Set<ExpressionVar> tmpExprVars;
+				List<Values> substitutionCombinsRS;	// Will contain the permutations that we need to generate DDs for.
+				ArrayList<Integer> list_varsForRestrictingScope = new ArrayList<Integer>();
+				List<Command> commandVersions = new ArrayList<Command>();
+
+				substitutionCombinsRS = new ArrayList<Values>();
+				if (RSEs.size() > 0) {
+if (DEBUG_TransMod ) {
+  System.out.println();
+  PrintDebugIndent(); System.out.println("Back in m2MTBDD.transMod: The following are the restriction expressions in the current command:");
+	for (Expression restrScopeExpr : RSEs) {
+  PrintDebugIndent(); System.out.println("  " + restrScopeExpr);
+	}
+  System.out.println();
+  PrintDebugIndent(); System.out.println("Will now extract out the variables used in the restriction expressions of the above");
+}
+					for (RestrictedScopeExpression rstrScopeExpr : RSEs) {
+						List<Expression> curRestrictionExprs = rstrScopeExpr.getRestrictionExpressions();
+						for (Expression restrExprSingleOne : curRestrictionExprs) {
+if (DEBUG_TransMod) System.out.println("  Need to consider impact of this: " + restrExprSingleOne);
+							tmpExprVars = restrExprSingleOne.extractVarExprs();
+							if (tmpExprVars != null && tmpExprVars.size() > 0) {	// Should be true, but here for paranoid safety!
+								varsForRestrictingScope.addAll(tmpExprVars);
+							}
+						}
+					}
+
+					// Expected to be true; will need to then consider the domain (range) of each variable.
+					if (varsForRestrictingScope.size() > 0) {
+						// Construct a List, of the index within varList of a Variable, to give to recursive method.
+						for (ExpressionVar ev : varsForRestrictingScope) {
+							String varName = ev.getName();
+							int vIndex = varList.getIndex(varName);
+							if (vIndex == -1) {
+								throw new PrismException("Unknown variable \"" + varName + "\"");
+							}
+// Doesn't work:							else if (varList.getType(vIndex) != parser.ast.type.TypeInt) 
+//								throw new PrismException("Variable \"" + varName + "\" not an integer type, cannot be used in a scope restriction expression");
+
+if (DEBUG_TransMod) System.out.println("\nAdding variable " + varName + " to the list of vars used for accessing indexed set (given to checkLowerBounds, etc.)\n");
+
+							list_varsForRestrictingScope.add(vIndex);
+
+						}
+					}
+						// We need to see whether there are dependencies amongst variables that may occur in those index-expressions,
+						// as these may determine an order in which to 'set' a value to determine the other substitutions.
+
+System.out.println("Having worked out all the variables that arise in scope-restriction expressions, now to generate all possible combinations of their values ...\n<ENUMERATE_COMBINS>");
+						substitutionCombinsRS = getEnumeratedCombinations(list_varsForRestrictingScope, new Values());
+System.out.println("</ENUMERATE_COMBINS>");
+
+System.out.println("There are a maximum of " + substitutionCombinsRS.size() + " combinations that might be applicable, depending on the actual restriction expressions.");
+
+//Not for here; instead we apply the 'defaults'... System.out.println("About to perform elimination of combinations that lead to out-of-bounds index access attempts...\n<ELIMINATE_COMBINS>");
+
+System.out.println(" <GenerateVersions>");
+						commandVersions = generateCommandVersions(originalCommand,substitutionCombinsRS);
+
+if (DEBUG_TransMod) {
+  System.out.println("Generated " + commandVersions.size() + " versions of the command...");
+  for (Command curCmdVer : commandVersions) 
+    System.out.println(" One version is: " + curCmdVer);
+}
+
+System.out.println(" </GenerateVersions>");
+
+				}		// End of RSEs.size > 0
+				else {
+					commandVersions.add(originalCommand);		// The original command will be the sole element in the commandVersions list.
+if (DEBUG_TransMod ) {
+  System.out.println();
+  PrintDebugIndent(); System.out.println("Back in m2MTBDD.transMod: There were NO restricted scope expressions in this command.");
+}
+				}
+
+if (DEBUG_TransMod) {
+	PrintDebugIndent(); System.out.println("</FindRestrictedScopeExpressions>");
+}
+
+				// Now to cyle over all versions of the command, translating them...
+			     for (Command command : commandVersions) {
+if (DEBUG_TransMod) {
+	PrintDebugIndent();
+	System.out.println("\n<DealWithCommandVariant forSynch='"+synch+"'>");
+DebugIndent--;
+	PrintDebugIndent();
+	System.out.println("Now dealing with this variant of the command:\n" + command);
 }
 
 
@@ -2903,7 +3051,7 @@ if (DEBUG_TransMod || Expression.DEBUG_VPEISA) {
 
 				// Having determined the unique index-specification expressions, we now need to work out what variables are involved...
 				Set<ExpressionVar> varsForAccessingIndSet = new TreeSet<ExpressionVar>();
-				Set<ExpressionVar> tmpExprVars;
+// Now defined earlier:		Set<ExpressionVar> tmpExprVars;
 				List<Values> substitutionCombins;	// Will contain the permutations that we need to generate DDs for.
 				substitutionCombins = new ArrayList<Values>();
 				if (indexSpecifications.size() > 0) {
@@ -3020,7 +3168,7 @@ if (DEBUG_TransMod)
 if (DEBUG_TransMod)
 {
 	PrintDebugIndent();
-	System.out.println("In TransMod: Since translatedCmd.guardDD is not zero, we WILL ADD the translatedCommand's guard to the guardDDs...");
+	System.out.println("In TransMod: Since translatedCmd.guardDD is not zero, we WILL:\n 1. ADD the translatedCommand's guard to the guardDDs...");
 }
 						// Extract out the guardDD and the upDD, and append to this module's lists.
 						guardDDs.add( translatedCmd.guardDD );
@@ -3028,7 +3176,7 @@ if (DEBUG_TransMod)
 {
 	PrintDebugIndent(); System.out.println("In TransMod: The accumulated GuardDDs array now has " + guardDDs.size() + " elements");
 	PrintDebugIndent(); System.out.println("</GuardDDs_Add>");
-	PrintDebugIndent(); System.out.println("In TransMod: We will also add the translatedCommand's upDD to the upDDs...");
+	PrintDebugIndent(); System.out.println("In TransMod: 2. We will also add the translatedCommand's upDD to the upDDs...");
 	PrintDebugIndent(); System.out.println("<UpDDs_Add>");
 }
 
@@ -3058,7 +3206,17 @@ DebugIndent--;
 	PrintDebugIndent();
 	System.out.println("</TrMod_DealWithSubstitution sub='"+substitutions+"'>");
 }
-				}
+				}  // End of loop dealing with each possible substitution for variables used in index-set access expressions.
+
+if (DEBUG_TransMod) {
+	PrintDebugIndent();
+	System.out.println("Completed dealing with this variant of the command:\n" + command);
+DebugIndent--;
+	PrintDebugIndent();
+	System.out.println("</DealWithCommandVariant forSynch='"+synch+"'>");
+}
+
+			     } // End of loop which deals with each possible version of the command generated by resolving restriction scopes.
 
 
 if (DEBUG_TransMod) {
@@ -3069,7 +3227,7 @@ if (DEBUG_TransMod) {
 if (DEBUG_TransMod)
 {
 	PrintDebugIndent(); 
-	System.out.println("Command " + (l+1) + " of module " +module.getName() + " with synch '" + command.getSynch() + "'");
+	System.out.println("Command " + (l+1) + " of module " +module.getName() + " with synch '" + originalCommand.getSynch() + "'");
 	PrintDebugIndent(); 
 	System.out.println(" - does not match synch '" + synch + "' so skip it for now.");
 }
@@ -3215,6 +3373,14 @@ if (DEBUG_SUBSTITUTIONS) {
   if (substitutions.getNumValues() > 0) 
     System.out.println("\nUsing the following substitutions: " + substitutions);
 }
+
+
+// MOVED - this occurs before THIS method is called.
+//		// First, we must resolve any RestrictedScopeExpressions to determine whether to include their underlying
+//		// expression, or their default instead...
+//		ResolveRestrictedScopes rrs = new ResolveRestrictedScopes(constantValues,substitutions);
+//		command = (Command) rrs.visit((Command) command.deepCopy());		// I hope that is the appropriate thing to do, so as to not break the original module.
+
 
 if (DEBUG_TransMod) { PrintDebugIndent(); System.out.println(" <DealWithGuard>"); }
 
