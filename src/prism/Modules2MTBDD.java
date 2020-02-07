@@ -39,6 +39,7 @@ import parser.visitor.ResolveRestrictedScopes;
 
 public class Modules2MTBDD
 {
+public static boolean DEBUG_CommandVersionsNAMES = true;		// Whether to append a version ID number to each version generated from a command
 public static boolean DEBUG_ShowEXCL_INCL = false;		// Whether to show which DDs are being INCLUDED or EXCLUDED during construction of a DD (in TransUpdate)
 public static boolean DEBUG_SHANE = false; //true && !DEBUG_SHANE_NOTHING;
 public static boolean DEBUG_RecurseVars = true;
@@ -47,18 +48,25 @@ public static boolean DEBUG_SHANE_ShowDD_Tree = false;
 public static boolean DEBUG_SHANE_ShowStepsInTM = false;
 public static boolean DEBUG_SHANE_ShowStepsInCCN2 = false;
 public static boolean DEBUG_ShowFinalTransDD = false;			// Show the ultimately final transition matrix DD ? (It could be huge!)
-public static boolean DEBUG_TrSysDef = true; //true && !DEBUG_SHANE_NOTHING;
-public static boolean DEBUG_TraSysMod = true; //true && !DEBUG_SHANE_NOTHING;
-public static boolean DEBUG_TransMod = true; //true && !DEBUG_SHANE_NOTHING;		// The version with parameters
-public static boolean DEBUG_tranModVoid = true; //true && !DEBUG_SHANE_NOTHING;		// The void parameters version
-public static boolean DEBUG_TransUpd = false ; //true && !DEBUG_SHANE_NOTHING;
+
+public static boolean DEBUG_SHANE_NOTHING = true;		// If True, means SHOW NOTHING.
+public static boolean DEBUG_TrSysDef = true ;  // && !DEBUG_SHANE_NOTHING;
+public static boolean DEBUG_TrSysDef_Extra = false ;  // && !DEBUG_SHANE_NOTHING;
+public static boolean DEBUG_TraSysMod = true && !DEBUG_SHANE_NOTHING;
+public static boolean DEBUG_TransMod = true;// && !DEBUG_SHANE_NOTHING;		// The version with parameters
+public static boolean DEBUG_TransMod_PedanticDetail = DEBUG_TransMod & false;
+public static boolean DEBUG_tranModVoid = true && !DEBUG_SHANE_NOTHING;		// The void parameters version
+public static boolean DEBUG_TransUpd = false;  //true && !DEBUG_SHANE_NOTHING;
 public static boolean DEBUG_TransUpd_ShowStack = false ; //false && !DEBUG_SHANE_NOTHING;
 public static boolean DEBUG_AllocDDV = false ; //true && !DEBUG_SHANE_NOTHING;
-public static boolean DEBUG_CCN = true; //true && !DEBUG_SHANE_NOTHING;			// Show detail of combineCommandsNondet()
+public static boolean DEBUG_CCN = true && !DEBUG_SHANE_NOTHING;			// Show detail of combineCommandsNondet()
 public static boolean DEBUG_SortRanges = false ; //true && !DEBUG_SHANE_NOTHING;
-public static boolean DEBUG_SUBSTITUTIONS = true;		// Show translation of a command for a specific substitution (or if only 1 possibility, then that possibility)
+public static boolean DEBUG_SUBSTITUTIONS = false;		// Show translation of a command for a specific substitution (or if only 1 possibility, then that possibility)
 public static boolean DEBUG_ChkRstr = true;			// Show the basic steps of CheckRestrictionLowerBound and CheckRestrictionUpperBound
 public static boolean DEBUG_ChkRstr_ExtraDetail = true && DEBUG_ChkRstr;	// Show more-detailed steps of the check restriction methods.
+public static boolean DEBUG_ShowDDReport = false;
+
+
 public static int DebugIndent = 0;
 public static void PrintDebugIndent() { for (int i = 0; i < DebugIndent; i++) System.out.print(" "); }
 
@@ -197,6 +205,7 @@ private ArrayList<Expression> cachedGuardExprs;		// SHANE ONLY - For debugging o
 // TEMPORARY - a debugger helper for SHANE to use
 public static void ShaneReportDD(JDDNode toReport, String announcement, boolean showChildrenTree)
 {
+   if (DEBUG_ShowDDReport) {
 	System.out.println("======");
 	System.out.println(announcement);
 	System.out.println("  GetNumNodes():      " + JDD.GetNumNodes(toReport));
@@ -210,6 +219,7 @@ public static void ShaneReportDD(JDDNode toReport, String announcement, boolean 
 	}
 	System.out.println(announcement);
 	System.out.println("======");
+   }
 }
 
 	// constructor
@@ -469,13 +479,16 @@ System.out.println("[In Modules2MTBDD.translate()] approx line 443, about to cal
 
 		expr2mtbdd.clearDummyModel();
 PrintDebugIndent();
-System.out.println("[In Modules2MTBDD.translate()] Reached End of method");
+System.out.println("[In Modules2MTBDD.translate()] Reached End of translate() method");
 
 if (DEBUG_SHANE_ShowStepsInTM)
   ShaneReportDD(model.getReach(),"The 'reach' DD after doReachability and filterReachableStates and fixDeadlocks is the following:",true);
 
 if (DEBUG_SHANE) mainLog.println("</m2m_translate>");
 		
+
+System.out.println("\n[ShaneNote:]  The total number of states represented by the ODD is: " + (model.getODD().getEOff() + model.getODD().getTOff() )+ "\n");
+
 		return model;
 	}
 	
@@ -739,7 +752,7 @@ System.out.println("</MODEL_VARS>");
 //			mainLog.print(" (" + i + ")" + ddVarNames.elementAt(i));
 //		}
 //		mainLog.println();
-System.out.println("</ALLOC_DD_VARS>");
+System.out.println("</ALLOC_DD_VARS total_dd_vars_allocated='"+(modelVariables.GET_nextDDVarIndex()-1)+"'>");
 	}
 
 	// sort out DD variables and the arrays they are stored in
@@ -1010,14 +1023,15 @@ System.out.println("  Considering each sysDDs.synchs[_].max, to see if it is > c
 System.out.println("     It was for i="+i+". Updating max to " + max);
 				}
 			}
-if (DEBUG_TrSysDef) System.out.println("m2mtbdd::translateSystemDefn @ PLACE A2:  After considering all " + numSynchs + " synchs, Max is : " + max + " and sysDDs.ind.max is " + sysDDs.ind.max);
+System.out.println("m2mtbdd::translateSystemDefn @ PLACE A2:  After considering all " + numSynchs + " synchs, Max is : " + max + " and sysDDs.ind.max is " + sysDDs.ind.max);
 			// check independent bit has this many variables
 			if (max > sysDDs.ind.max) {
-if (DEBUG_TrSysDef) System.out.println("m2mtbdd::translateSystemDefn @ PLACE A2-i. - because max IS GREATER than sysDDs.ind.max");
+if (DEBUG_TrSysDef) System.out.println("m2mtbdd::translateSystemDefn @ PLACE A2-i. - because max IS GREATER than sysDDs.ind.max\nsysDDs.ind.max="+sysDDs.ind.max+", max="+max);
 				tmp = JDD.Constant(1);
 				for (i = sysDDs.ind.max; i < max; i++) {
 					v = ddChoiceVars[ddChoiceVars.length-i-1];
 					JDD.Ref(v);
+if (DEBUG_TrSysDef) System.out.println("m2mtbdd::translateSystemDefn @ PLACE A2-i-A for i=" + i);
 					tmp = JDD.And(tmp, JDD.Not(v));
 				}
 				sysDDs.ind.trans = JDD.Apply(JDD.TIMES, sysDDs.ind.trans, tmp);
@@ -1032,21 +1046,21 @@ if (DEBUG_TrSysDef) System.out.println("m2mtbdd::translateSystemDefn @ PLACE A3-
 			for (i = 0; i < numSynchs; i++) {
 if (DEBUG_TrSysDef) System.out.println("      @ PLACE A3-i:   i is " + i + " out of " + (numSynchs-1) );
 				if (max > sysDDs.synchs[i].max) {
-if (DEBUG_TrSysDef) System.out.println("          @ PLACE A3-ii (the IF was true).");
+if (DEBUG_TrSysDef) System.out.println("          @ PLACE A3-ii-A (the IF was true).");
 					tmp = JDD.Constant(1);
 					for (j = sysDDs.synchs[i].max; j < max; j++) {
-if (DEBUG_TrSysDef) System.out.println("             @ PLACE A3-iii:    j is " + j);
+if (DEBUG_TrSysDef_Extra) System.out.println("             @ PLACE A3-iii:    j is " + j);
 						v = ddChoiceVars[ddChoiceVars.length-j-1];
 						JDD.Ref(v);
 						tmp = JDD.And(tmp, JDD.Not(v));
-if (DEBUG_TrSysDef && tmp.equals(JDD.ZERO)) System.out.println("tmp is ZERO.");
+if (DEBUG_TrSysDef_Extra && tmp.equals(JDD.ZERO)) System.out.println("tmp is ZERO.");
 					}
 					sysDDs.synchs[i].trans = JDD.Apply(JDD.TIMES, sysDDs.synchs[i].trans, tmp);
 					//JDD.Ref(tmp);
 					//sysDDs.synchs[i].rewards = JDD.Apply(JDD.TIMES, sysDDs.synchs[i].rewards, tmp);
 					sysDDs.synchs[i].max = max;
 				}
-else if (DEBUG_TrSysDef) System.out.println("          @ PLACE A3-iii (the if was FALSE, nothing to do for this 'i' value).");
+else if (DEBUG_TrSysDef) System.out.println("          @ PLACE A3-ii-B (the if was FALSE, nothing to do for this 'i' value).");
 			}
 if (DEBUG_TrSysDef) System.out.println("m2mtbdd::translateSystemDefn @ Place A4");
 			// now add in new mtbdd variables to distinguish between actions
@@ -1070,13 +1084,16 @@ if (DEBUG_TrSysDef) System.out.println("m2mtbdd::translateSystemDefn @ Place A5"
 				for (j = 0; j < numSynchs; j++) {
 					if (j == i) {
 						tmp = JDD.And(tmp, ddSynchVars[j].copy());
-if (DEBUG_TrSysDef) System.out.println("        @ Place A5-i for synch #" + i + ", j = " + j);
+if (DEBUG_TrSysDef) System.out.println("        @ Place A5-i-A for synch #" + i + ", j = " + j);
 					}
 					else {
+if (DEBUG_TrSysDef) System.out.println("        @ Place A5-i-B for synch #" + i + ", j = " + j);
 						tmp = JDD.And(tmp, JDD.Not(ddSynchVars[j].copy()));
 					}
 				}
+if (DEBUG_TrSysDef) System.out.println("m2mtbdd::translateSystemDefn @ Place A5-ii");
 				sysDDs.synchs[i].trans = JDD.Apply(JDD.TIMES, tmp, sysDDs.synchs[i].trans);
+if (DEBUG_TrSysDef) System.out.println("m2mtbdd::translateSystemDefn @ Place A5-iii");
 if (DEBUG_TrSysDef && sysDDs.synchs[i].trans.equals(JDD.ZERO)) System.out.println("sysDDs.synchs["+i+"].trans is ZERO.");
 				//JDD.Ref(tmp);
 				//transRewards = JDD.Apply(JDD.PLUS, transRewards, JDD.Apply(JDD.TIMES, tmp, sysDDs.synchs[i].rewards));
@@ -1100,7 +1117,9 @@ if (DEBUG_TrSysDef) System.out.println("m2mtbdd::translateSystemDefn @ Place 4, 
 			transRewards[j] = sysDDs.ind.rewards[j];
 		}
 		for (i = 0; i < numSynchs; i++) {
+if (DEBUG_TrSysDef) System.out.println("m2mtbdd::translateSystemDefn @ Place 4A-i for synch #"+i);
 			trans = JDD.Apply(JDD.PLUS, trans, sysDDs.synchs[i].trans.copy());
+if (DEBUG_TrSysDef) System.out.println("m2mtbdd::translateSystemDefn @ Place 4A-ii for synch #"+i);
 			for (j = 0; j < n; j++) {
 				transRewards[j] = JDD.Apply(JDD.PLUS, transRewards[j], sysDDs.synchs[i].rewards[j]);
 			}
@@ -1157,10 +1176,11 @@ if (DEBUG_TrSysDef) System.out.println("m2mtbdd::translateSystemDefn @ Place 6 -
 				//tmp = JDD.ThereExists(JDD.GreaterThan(sysDDs.ind.trans, 0), allDDColVars);
 				//transActions = JDD.Apply(JDD.PLUS, transActions, JDD.Apply(JDD.TIMES, tmp, JDD.Constant(1)));
 				for (i = 0; i < numSynchs; i++) {
+if (DEBUG_TrSysDef)  System.out.println("Place 6-i for synch: " + i + " - about to do a ThereExists...");
 					tmp = JDD.ThereExists(JDD.GreaterThan(sysDDs.synchs[i].trans.copy(), 0), allDDColVars);
-if (DEBUG_TrSysDef) ShaneReportDD(tmp,"For synch " + i + " tmp is ",true);
+if (DEBUG_TrSysDef_Extra) ShaneReportDD(tmp,"For synch " + i + " tmp is ",true);
 					transActions = JDD.Apply(JDD.PLUS, transActions, JDD.Apply(JDD.TIMES, tmp, JDD.Constant(1+i)));
-if (DEBUG_TrSysDef) ShaneReportDD(transActions,"After synch " + i + " transActions is ",true);
+if (DEBUG_TrSysDef_Extra) ShaneReportDD(transActions,"After synch " + i + " transActions is ",true);
 				}
 				break;
 			case DTMC:
@@ -1247,11 +1267,13 @@ System.out.flush();
 		int i, m;
 
 if (DEBUG_TraSysMod) {
+	PrintDebugIndent();
 	System.out.println("<TransSysMod module='" + sys.getName() + "'>\n");
+	DebugIndent++;
 	PrintDebugIndent();
 	System.out.println("\nCommencing Modules2MTBDD.tranSysMod for module '" + sys.getName() + "'.");
+	PrintDebugIndent();
 	System.out.println("We will consider all " + numSynchs + " synchs, to see how they pertain to this module.");
-	DebugIndent++;
 }
 
 		// create object to store result
@@ -1289,7 +1311,7 @@ if (DEBUG_TraSysMod) {
 if (DEBUG_TraSysMod || DEBUG_TransMod) {		
 	System.out.println(); PrintDebugIndent(); System.out.println("-------------\n");
 	PrintDebugIndent();
-	System.out.println("in Modules2MTBDD.tranSysMod, Place 2B, Iteration " + (i+1) + "/" + numSynchs + " - will call translateModule for the module, for synch: " + synch); 
+	System.out.println("in Modules2MTBDD.tranSysMod, at Place 2B, for module " + module.getName() + "\nConsidering synch " + (i+1) + "/" + numSynchs + " which is '"+synch+"' - to see if it exists in this module\n"); 
 	PrintDebugIndent();
 	System.out.println("<TrSysMod_DealWithSynch synch='"+synch+"' forModule='"+module.getName()+"'>");
 
@@ -1309,7 +1331,7 @@ DebugIndent--;
 
 if (DEBUG_TraSysMod) {		
 	PrintDebugIndent();
-	System.out.println("in Modules2MTBDD.tranSysMod, Place 4 - About to call copy() on moduleIdentities[m]"); 
+	System.out.println("in Modules2MTBDD.tranSysMod, Place 4 - About to call copy() on moduleIdentities["+m+"]"); 
 }
 		
 		// store identity matrix
@@ -1322,13 +1344,17 @@ if (DEBUG_TraSysMod) {
 		// store synchs used
 		sysDDs.allSynchs.addAll(module.getAllSynchs());
 
-DebugIndent--;
+if (DEBUG_TraSysMod) {		
 PrintDebugIndent();
 System.out.println("Concluding Modules2MTBDD.tranSysMod for  " + sys.getName());
+PrintDebugIndent();
 System.out.println("That means, we have considered ALL synchs of the whole system, to see how they pertain to module '"+sys.getName()+"'");
+PrintDebugIndent();
 System.out.println("We are returning sysDDs that was constructed by this call of tranSysMod.");
+PrintDebugIndent();
+DebugIndent--;
 System.out.println("</TransSysMod>\n\n##########\n");
-
+}
 		return sysDDs;
 	}
 
@@ -1779,11 +1805,16 @@ private List<Command> generateCommandVersions(Command theCommand, List<Values> r
 	ArrayList<Command> generatedCommands = new ArrayList<Command>();
 	ResolveRestrictedScopes rrs = new ResolveRestrictedScopes(constantValues,varList);
 	Command resolvedVersion = null;
+	int versionID = 0;
 
 	for (Values substitutions : restrictionValCombins)
 	{
-System.out.println("Generating version of command: " + theCommand + "\n using these values affecting restriction scopes: " + substitutions);
+if (DEBUG_TransMod) System.out.println("GSV-place 1: Generating version of command: " + theCommand.getSynch() + "\n using these values affecting restriction scopes: " + substitutions);
+if (DEBUG_TransMod) System.out.println("Command template (before including restrictions...) is\n" + theCommand);
 
+// Jan 2020: Shane thinks that the following for loop is not needed any more - it appears identical to something inside the method called straight after, and this loop here doesn't seem to do anything. So, I am commenting it out. It doesn't appear to have impacted the beahviour of the system by removing it.
+
+/* 
 		for (int i = 0; i < substitutions.getNumValues(); i++)
 		{
 			String varNameToUse = substitutions.getName(i);
@@ -1794,12 +1825,17 @@ System.out.println("Generating version of command: " + theCommand + "\n using th
 			theVar.setIndex(indexInVarList);		// SHANE HOPES THAT IS CORRECT - otherwise, have to find out appropriate value to use.
 //if (DEBUG_TransMod) System.out.println("for variable " + varNameToUse + ", create ExprVar with type set to " + varList.getType(indexInVarList)");
 			ExpressionLiteral theVal = new ExpressionLiteral(varList.getType(indexInVarList),valToUse);
-
 		}
+*/
 
 		rrs.setValuesForResolution(substitutions);		// What to use for evaluation of restriction expressions
 		try {
 			resolvedVersion = (Command) rrs.visit( (Command) theCommand.deepCopy() );	// Resolve for current values
+if (DEBUG_TransMod) System.out.println("GSV - Place 2: The Generated version (after including restrictions, after calling rrs.setValuesForResultion and rrs.visit) is\n" + resolvedVersion);
+
+if (DEBUG_CommandVersionsNAMES)
+	resolvedVersion.setSynch(resolvedVersion.getSynch() + "_Version_" + (++versionID));
+
 			generatedCommands.add(resolvedVersion);					// Add to list we will return.
 
 
@@ -1915,7 +1951,7 @@ if (DEBUG_ChkRstr) {
 				for (Expression restrExpr : restrExprs)
 				{
 if (DEBUG_ChkRstr) {
-  System.out.println("\t" + restrExprs);
+  System.out.println("\t  " + restrExpr);
 }
 				}
 
@@ -1933,7 +1969,7 @@ System.out.println("Utterly unexpected exception has arisen: ");
 ple1.printStackTrace(System.out);
 System.exit(1);
 					}
-  System.out.println("\t Considering which restrictions impact on variable: " + varName);
+  System.out.println("<ConsidImpactOnVar var='"+varName+"'>\n\t Considering which restrictions impact on variable: " + varName);
 					List<ExpressionBinaryOp> relationsInvolvingVar = null;
 					FindRelOpInvolvingVar visitor = new FindRelOpInvolvingVar(varName);
 					Expression op2;
@@ -2069,10 +2105,14 @@ System.exit(1);
 */
 						} // End of what to do for each of the relations involving the variable, that is in restrictions
 					} // End of if for whether there were any restricitions for the variable.
+System.out.println("</ConsidImpactOnVar var='"+varName+"'>\n");
 				} // End of block attached to the considering each of the variables involved in the access expression.
 
 				if (keepCombination)			// If it hasn't been rejected by restrictions, let's now try substituting this combination
 				{				// in to see if the resultant value is a valid index position...
+if (DEBUG_ChkRstr){
+   PrintDebugIndent(); System.out.println("It passed the restriction checks, doing further checks...");
+}
 				  try {
 				    // Evaluate the expression to find the definite index to retrieve
 				    indexToUse = accExpr.getIndexExpression().evaluateInt(constantValues, curSubValues);
@@ -2115,16 +2155,23 @@ ple.printStackTrace(System.out);
 					keepCombination = false;		// If there was a problem, exclude that combination
 				  }
 				}
+else if (DEBUG_ChkRstr){
+   PrintDebugIndent(); System.out.println("It failed on account of the restriction checks.");
+}
 			}
 else System.out.println(" - no restrictions specified");
+
+if (DEBUG_ChkRstr) {
+  System.out.println("\nFinished Considering access expression: " + accExpr + "\n for these values: " + curSubValues);
+}
 		}
 		// Based on verdicts, either keep or discard this combination of values. Any include=false will cause discard.
 		if (keepCombination)
 		  keptCombinations.add(curSubValues);
 
 		if (keepCombination)
-		   System.out.println("KEEPING: " + curSubValues);
-		else System.out.println("EXCLUDING: " + curSubValues);
+		   System.out.println("\nCOMBIN-OUTCOME: KEEPING: " + curSubValues);
+		else System.out.println("\nCOMBIN-OUTCOME: EXCLUDING: " + curSubValues);
 	}
 	return keptCombinations;	// Could be empty, but cannot be null.
 }
@@ -2136,9 +2183,10 @@ else System.out.println(" - no restrictions specified");
 */
 private List<Values> filterCombinationsForGuard(List<Values> substitutionCombins, Expression guardExpr)
 {
+System.out.println("\n*** NOT ACTUALLY IMPLEMENTED THAT YET, BUT MAY NOT NEED TO ***\n");
+
 	for (Values curValues : substitutionCombins) {
-		System.out.println("Considering whether the following values: " + curValues + "\n  might be ruled out by this guard: " + guardExpr);
-System.out.println("\n*** NOT ACTUALLY IMPLEMENTED THAT YET ***\n");
+//		System.out.println("Considering whether the following values: " + curValues + "\n  might be ruled out by this guard: " + guardExpr);
 
 /*
 		int i;
@@ -2872,12 +2920,12 @@ System.exit(1);
 
 DEBUG_CurSynch = synch;
 
-//if (DEBUG_TraSysMod) 
+if (DEBUG_TransMod) 
 {
 	PrintDebugIndent();
 	System.out.println("<TranslateModule mod='"+ module.getName() + "', usingSynchOf='" + synch + "'>");
+DebugIndent++;
 }
-//DebugIndent++;
 
 		// get number of commands 
 		numCommands = module.getNumCommands();
@@ -2890,20 +2938,15 @@ if (DEBUG_TransMod)
 {
 cachedGuardExprs = new ArrayList<Expression>();
 
-	PrintDebugIndent();
-	System.out.println("[in prism.Modules2MTBDD::translateModule()], Module: " + module.getName() + " has " + numCommands + " commands.\n");
-	PrintDebugIndent(); System.out.println("<TransMod_Phase1>");
+	PrintDebugIndent(); System.out.println("<TransMod_Phase1>     [in prism.Modules2MTBDD::translateModule()]");
 DebugIndent++;
 	PrintDebugIndent();
-	System.out.println("Looking for those commands with matching sync of: '" + synch +"'");
+	System.out.println("Looking within module '"+module.getName()+"' for those commands with matching sync of: '" + synch +"'");
+	PrintDebugIndent();
+	System.out.println("(Module: " + module.getName() + " has " + numCommands + " commands).\n");
 }
 		// translate guard/updates for each command of the module
 		for (l = 0; l < numCommands; l++) {
-if (DEBUG_TransMod) {
-	System.out.println();
-//	PrintDebugIndent(); System.out.println("<TrMd_ConsidComForSync cmdNum='"+(l+1)+"/"+ numCommands+"' ofModule='"+module.getName()+"' hopeForSynch='"+synch+"'>");
-//	PrintDebugIndent(); System.out.println("[in prism.Modules2MTBDD::translateModule()]: Considering command " + (l+1) + " against sync " + synch);
-}
 			originalCommand = module.getCommand(l);
 			// check if command matches requested synch
 			match = false;
@@ -2916,9 +2959,10 @@ if (DEBUG_TransMod) {
 			// if so translate
 			if (match) {
 if (DEBUG_TransMod) {
-	PrintDebugIndent(); System.out.println("Command " + (l+1) + " of module " +module.getName() + " MATCHES synch '" + synch + "'.");
-	PrintDebugIndent(); System.out.println("The command is:\n" + originalCommand);
-	PrintDebugIndent(); System.out.println("<DealWithMatchedSynch synch='"+synch+"' module='"+module.getName()+"'"); DebugIndent++;
+	PrintDebugIndent(); System.out.println("* Command " + (l+1) + " of module " +module.getName() + " MATCHES synch '" + synch + "'.\n");
+	PrintDebugIndent(); System.out.println("<DealWithMatchedSynch synch='"+synch+"' module='"+module.getName()+"' cmdNumWithinModule='"+(l+1)+"' >"); 
+       DebugIndent++;
+	PrintDebugIndent(); System.out.println("* The command is:\n\n" + originalCommand + "\n");
 }
 
 				// New section inserted by SHANE, in order to determine whether any RestrictedScope expressions 
@@ -2926,6 +2970,7 @@ if (DEBUG_TransMod) {
 
 if (DEBUG_TransMod) {
 	PrintDebugIndent(); System.out.println("<FindRestrictedScopeExpressions>");
+        PrintDebugIndent(); System.out.println("Back in m2MTBDD.transMod dealing with '["+synch+"]' in module " + module.getName());
 }
 
 				Set<RestrictedScopeExpression> RSEs = originalCommand.getRestrictedScopeExpressions();
@@ -2941,7 +2986,7 @@ if (DEBUG_TransMod) {
 				if (RSEs.size() > 0) {
 if (DEBUG_TransMod ) {
   System.out.println();
-  PrintDebugIndent(); System.out.println("Back in m2MTBDD.transMod: The following are the restriction expressions in the current command:");
+  PrintDebugIndent(); System.out.println("The following are the restriction expressions in the current command:");
 	for (Expression restrScopeExpr : RSEs) {
   PrintDebugIndent(); System.out.println("  " + restrScopeExpr);
 	}
@@ -3004,7 +3049,7 @@ System.out.println(" </GenerateVersions>");
 					commandVersions.add(originalCommand);		// The original command will be the sole element in the commandVersions list.
 if (DEBUG_TransMod ) {
   System.out.println();
-  PrintDebugIndent(); System.out.println("Back in m2MTBDD.transMod: There were NO restricted scope expressions in this command.");
+  PrintDebugIndent(); System.out.println("There were NO restricted scope expressions found in this command.");
 }
 				}
 
@@ -3015,11 +3060,12 @@ if (DEBUG_TransMod) {
 				// Now to cyle over all versions of the command, translating them...
 			     for (Command command : commandVersions) {
 if (DEBUG_TransMod) {
+System.out.println();
 	PrintDebugIndent();
-	System.out.println("\n<DealWithCommandVariant forSynch='"+synch+"'>");
-DebugIndent--;
+	System.out.println("<DealWithCommandVariant forSynch='"+synch+"'>\n");
+DebugIndent++;
 	PrintDebugIndent();
-	System.out.println("Now dealing with this variant of the command:\n" + command);
+	System.out.println("Now dealing with this variant of the command:\n" + command + "\n");
 }
 
 
@@ -3034,7 +3080,7 @@ if (DEBUG_TransMod || Expression.DEBUG_VPEISA) {
 
 if (DEBUG_TransMod || Expression.DEBUG_VPEISA) {
 	PrintDebugIndent(); System.out.println("</FindInspecificAccessExpr>\n");
-	PrintDebugIndent(); System.out.println("in Mod2MTBDD.transMod: REMINDER - The command is: " + command);	// Repeating from earlier, so it (re-)appears in view immediately when I search on the XML tag
+	PrintDebugIndent(); System.out.println("in Mod2MTBDD.transMod: REMINDER - The command is: " + command + "\n");	// Repeating from earlier, so it (re-)appears in view immediately when I search on the XML tag
 }
 				// See if there are any found. If so, get the index-expressions and place unique ones into another Set
 				if (EISAs.size() > 0) {
@@ -3062,7 +3108,7 @@ if (DEBUG_TransMod || Expression.DEBUG_VPEISA) {
   PrintDebugIndent(); System.out.println("  " + indSpecExpr);
 	}
   System.out.println();
-  PrintDebugIndent(); System.out.println("Will now extract out the variables used in the above expressions");
+  PrintDebugIndent(); System.out.println("in m2MTBDD.transmod: Will now extract out the variables used in the above expressions\n");
 }
 					// Go through each identified index-specification expression, and extract out the variables.
 					for (Expression indSpecExpr : indexSpecifications) {
@@ -3095,9 +3141,9 @@ if (DEBUG_TransMod || Expression.DEBUG_VPEISA) {
 						// We need to see whether there are dependencies amongst variables that may occur in those index-expressions,
 						// as these may determine an order in which to 'set' a value to determine the other substitutions.
 
-System.out.println("Having worked out all the variables that arise in the index specification, now to enumerate all possible combinations of their values ...\n<ENUMERATE_COMBINS>");
+System.out.println("Having worked out all the variables that arise in the index specification, now to enumerate all possible combinations of their values ...\n<ENUMERATE_COMBINS>\n");
 						substitutionCombins = getEnumeratedCombinations(list_varsForAccessingIndSet, new Values());
-System.out.println("</ENUMERATE_COMBINS>");
+System.out.println("</ENUMERATE_COMBINS>\n");
 
 System.out.println("There are a maximum of " + substitutionCombins.size() + " combinations that might be applicable, depending on the actual guard of the command, and actual access expressions.");
 
@@ -3106,6 +3152,7 @@ System.out.println("About to perform elimination of combinations that lead to ou
 System.out.println(" <CheckAccessExpressions>");
 						substitutionCombins = filterCombinationsForAccessExprs(substitutionCombins,EISAs);
 System.out.println(" </CheckAccessExpressions>");
+System.out.println("After filtering combinations on the basis of AccessExpressions, there are now a maximum of " + substitutionCombins.size() + " combinations that might be applicable.");
 
 		// ********************** UP  TO   HERE *******************
 		// Need to make some way of checking whether any guards are unable to be met by the already filtered combinations. And then, if no combinations remain, then the Command itself is never a possibility, which might be an error to the programmer.
@@ -3113,6 +3160,7 @@ System.out.println(" </CheckAccessExpressions>");
 System.out.println(" <CheckGuardLimitations>");
 						substitutionCombins = filterCombinationsForGuard(substitutionCombins,command.getGuard());
 System.out.println(" </CheckGuardLimitations>");
+System.out.println("After further filtering combinations, now on the basis of Guards, there are now a maximum of " + substitutionCombins.size() + " combinations that might be applicable.\n<COMBINS_REMAIN>The combinations remaining are: " + substitutionCombins + "\n</COMBINS_REMAIN>\n");
 
 System.out.println("</ELIMINATE_COMBINS>");
 
@@ -3168,7 +3216,7 @@ if (DEBUG_TransMod)
 if (DEBUG_TransMod)
 {
 	PrintDebugIndent();
-	System.out.println("In TransMod: Since translatedCmd.guardDD is not zero, we WILL:\n 1. ADD the translatedCommand's guard to the guardDDs...");
+	System.out.println("\nIn TransMod: Since translatedCmd.guardDD is not zero, we WILL KEEP the command.\n");// 1. ADD the translatedCommand's guard to the guardDDs...");
 }
 						// Extract out the guardDD and the upDD, and append to this module's lists.
 						guardDDs.add( translatedCmd.guardDD );
@@ -3185,9 +3233,9 @@ if (DEBUG_TransMod)
 if (DEBUG_TransMod)
 {
 	System.out.println("</UpDDs_Add>\n");
+cachedGuardExprs.add ( translatedCmd.guardExpr );	// Since the instantiation of cacheGE was inside a DEBUG, this call of add is inside a DEBUG
 }
 
-cachedGuardExprs.add ( translatedCmd.guardExpr );
 
 
 //guardDDs[l].setPurpose("guard for command "+l);	// Would need to say what substitutions are made, if uncommented.
@@ -3197,20 +3245,22 @@ cachedGuardExprs.add ( translatedCmd.guardExpr );
 else if (DEBUG_TransMod)
 {
 	PrintDebugIndent();
-	System.out.println("Since translatedCmd.guardDD equals JDD.ZERO (never able to be true), this translated JDD is being DISCARDED.\n  </GuardDDs_Add>");
+	System.out.println("\nIn TransMod: Since translatedCmd.guardDD equals JDD.ZERO (never able to be true), this translated JDD is being DISCARDED.\n");
+	PrintDebugIndent();
+	System.out.println("</GuardDDs_Add>\n");
 }
 
 // Always (if debug on):
 if (DEBUG_TransMod) {
 DebugIndent--;
 	PrintDebugIndent();
-	System.out.println("</TrMod_DealWithSubstitution sub='"+substitutions+"'>");
+	System.out.println("</TrMod_DealWithSubstitution sub='"+substitutions+"'>\n");
 }
 				}  // End of loop dealing with each possible substitution for variables used in index-set access expressions.
 
 if (DEBUG_TransMod) {
 	PrintDebugIndent();
-	System.out.println("Completed dealing with this variant of the command:\n" + command);
+	System.out.println("Completed dealing with this variant of the command:\n" + command + "\n");
 DebugIndent--;
 	PrintDebugIndent();
 	System.out.println("</DealWithCommandVariant forSynch='"+synch+"'>");
@@ -3220,16 +3270,16 @@ DebugIndent--;
 
 
 if (DEBUG_TransMod) {
-   DebugIndent--; PrintDebugIndent(); System.out.println("</DealWithMatchedSynch synch='"+synch+"' module='"+module.getName()+"'");
+   DebugIndent--; PrintDebugIndent(); System.out.println("</DealWithMatchedSynch synch='"+synch+"' module='"+module.getName()+"' >");
 }
 			// otherwise use 0
 			} else {
-if (DEBUG_TransMod)
+if (DEBUG_TransMod_PedanticDetail)
 {
 	PrintDebugIndent(); 
 	System.out.println("Command " + (l+1) + " of module " +module.getName() + " with synch '" + originalCommand.getSynch() + "'");
 	PrintDebugIndent(); 
-	System.out.println(" - does not match synch '" + synch + "' so skip it for now.");
+	System.out.println(" - does not match synch '" + synch + "' so we skip it.");
 }
 // SHANE BELIEVES THERE IS NO POINT NOW IN EVEN BOTHERING TO STORE ENTRIES FOR THIS ITERATION; it would just slow the CombineCommands phase
 
@@ -3253,7 +3303,7 @@ if (DEBUG_TransMod)
 	System.out.println("in Modules2MTBDD.translateModule() - Phase 1 completed - finished considering ALL commands of module '" + module.getName() + "' against the synch '" + synch + "'");
 DebugIndent--;
 	PrintDebugIndent();
-	System.out.println("</TransMod_Phase1 forSynch='"+synch+"'>\n");
+	System.out.println("</TransMod_Phase1 forSynch='"+synch+"' inModule='"+module.getName()+"' >\n");
 	PrintDebugIndent();
 	System.out.println("<TransMod_Phase2 forSynch='"+synch+"'>");
 DebugIndent++;
@@ -3265,16 +3315,14 @@ DebugIndent++;
 
 		// combine guard/updates dds for each command
 		if (modelType == ModelType.DTMC) {
-if (DEBUG_TransMod) {
-	PrintDebugIndent();
-	System.out.print("[in Modules2MTBDD.translateModule()]: About to call combineCommandsProb()");
-}
 			// OLD before ArrayLists: compDDs = combineCommandsProb(m, numCommands, guardDDs, upDDs);
 			JDDNode[] guards= new JDDNode[guardDDs.size()];
 			guards = guardDDs.toArray(guards);
 			JDDNode[] updates= new JDDNode[guardDDs.size()];	// Sizes should be same anyway
 			updates = upDDs.toArray(updates);
 if (DEBUG_TransMod) {
+	PrintDebugIndent();
+	System.out.print("[in Modules2MTBDD.translateModule()]: About to call combineCommandsProb()");
 	PrintDebugIndent();
 	System.out.println("The size of guardDDs is " + guardDDs.size() + " and guards[] is " + guards.length);
 	PrintDebugIndent();
@@ -3336,14 +3384,17 @@ if (DEBUG_TransMod)
 			JDD.Deref(upDDs.get(l) );
 			//JDD.Deref(rewDDs.get(l));
 		}
-	System.out.println("[in Modules2MTBDD.translateModule()]: @ line 3181 (After calling deref on the guardDDs and upDDs) ");
+	System.out.println("[in Modules2MTBDD.translateModule()]: @ line 3181 (After calling deref on the guardDDs and upDDs)\n");
 		
-if (DEBUG_TraSysMod) 
+if (DEBUG_TransMod) 
 {
-	DebugIndent--;
+	DebugIndent--;// end Phase2
 	PrintDebugIndent();
-	System.out.println("\n </TransMod_Phase2 forSynch='"+synch+"'>");
+	System.out.println("</TransMod_Phase2 forSynch='"+synch+"'>");
 	PrintDebugIndent(); System.out.println("Finished processing synch " + synch + " within current module");
+
+	DebugIndent--; // end whole TransMod
+	PrintDebugIndent();
 	System.out.println("</TranslateModule mod='"+ module.getName() + "', usingSynchOf='" + synch + "'>\n");
 }		
 		return compDDs;
@@ -3368,10 +3419,10 @@ if (DEBUG_TraSysMod)
 		JDDNode guardDD, upDD, tmp;
 		double dmin = 0, dmax = 0;
 
-if (DEBUG_SUBSTITUTIONS) { 
-  PrintDebugIndent(); System.out.println(" <TranslateCommand>\nTranslating the following command: " + command); 
+if (DEBUG_TransMod) { 
+  PrintDebugIndent(); System.out.println(" <TranslateCommand>\nTranslating the following command:\n" + command); 
   if (substitutions.getNumValues() > 0) 
-    System.out.println("\nUsing the following substitutions: " + substitutions);
+    System.out.println("\nUsing the following substitutions: " + substitutions + "\n");
 }
 
 
@@ -3382,7 +3433,7 @@ if (DEBUG_SUBSTITUTIONS) {
 //		command = (Command) rrs.visit((Command) command.deepCopy());		// I hope that is the appropriate thing to do, so as to not break the original module.
 
 
-if (DEBUG_TransMod) { PrintDebugIndent(); System.out.println(" <DealWithGuard>"); }
+if (DEBUG_TransMod) { PrintDebugIndent(); System.out.println("<DealWithGuard>"); }
 
 		// Find the current command's guard
 		Expression curGuard = command.getGuard();
@@ -3434,9 +3485,9 @@ if (DEBUG_TransMod) {
 
 if (DEBUG_TransMod) {
 	DebugIndent -= 1;
-	PrintDebugIndent(); System.out.println("</TranslateGuardExpr guard=\"" + curGuard + "\">");
+	PrintDebugIndent(); System.out.println("</TranslateGuardExpr guard=\"" + curGuard + "\">\n");
 	PrintDebugIndent();
-System.out.println("[in prism.Modules2MTBDD::translateCommand()], concluded calling translateExpr for guard of command " + (l+1) + " for substitutions: '" + substitutions +"'");
+System.out.println("[in prism.Modules2MTBDD::translateCommand()], concluded calling translateExpr for guard for substitutions: '" + substitutions +"'");
 }
 
 if (DEBUG_SHANE_ShowStepsInTM) ShaneReportDD(range,"~About the JDDNode describing 'range' ",true);
@@ -3588,7 +3639,7 @@ if (DEBUG_TransMod)
 			// 	rewDDs[l] = JDD.Constant(0);
 			// }
 		}
-if (DEBUG_SUBSTITUTIONS) { 
+if (DEBUG_TransMod) { 
 	PrintDebugIndent(); System.out.println(" </TranslateCommand>\n"); 
 }
 
