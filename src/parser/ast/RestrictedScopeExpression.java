@@ -27,7 +27,8 @@ public class RestrictedScopeExpression extends Expression implements Comparable<
 																	
 
 public static boolean DEBUG = true;
-public static boolean DEBUG_VISITOR = true;
+public static boolean DEBUG_VISITOR = false;
+public static boolean DEBUG_Eval = true;
 
 	private Expression underlyingExpression;		// The expression which would be present if no restriction rule is violated
 	private Expression defaultExpression;			// The expression which would be present if any restriction rule is violated
@@ -122,8 +123,43 @@ public static boolean DEBUG_VISITOR = true;
 	@Override
 	public Object evaluate(EvaluateContext ec) throws PrismLangException
 	{
-System.out.println("RestrictedScopeExpression.evaluate(EvaluateContext) has been called.");
-throw new PrismLangException("Evaluation of a RestrictedScopeExpression is NOT YET IMPLEMENTED.");
+		// Cycle over the restriction expressions to see whether any of them are violated...
+		boolean noRestrApplies= true;
+if (DEBUG_Eval) System.out.println("Fresh call to evaluate. Note: Boolean.false == false is: " + (Boolean.FALSE == false));
+		for (Expression restrExpr : restrictionExpressions)
+		{
+			Object outcome = restrExpr.evaluate(ec);
+
+if (DEBUG_Eval) {
+  System.out.println("Result of Evaluating this restriction: " + restrExpr + "   is '" + outcome + "'");
+  System.out.println("Outcome's type is: " + outcome.getClass().getName());
+}
+
+			if (((Boolean)outcome) == false)
+{
+  if (DEBUG_Eval)  System.out.println("Since is was false, setting noRestrApplies to false.");
+			   noRestrApplies = false;
+}
+else {
+  if (DEBUG_Eval)  System.out.println("Since it was true, leaving noRestrApplies as: " + noRestrApplies);
+}
+		}
+
+if (DEBUG_Eval) {
+  System.out.println("After considering all restrictions, noRestrApplies is " + noRestrApplies);
+
+  if (noRestrApplies)
+    System.out.println("Will evaluate: " + underlyingExpression + " which gives: " + underlyingExpression.evaluate(ec));
+  else
+    System.out.println("Will evaluate default: " + defaultExpression);
+}
+		if (!noRestrApplies)
+		   return defaultExpression.evaluate(ec);
+		else
+		   return underlyingExpression.evaluate(ec);
+
+//System.out.println("RestrictedScopeExpression.evaluate(EvaluateContext) has been called.");
+//throw new PrismLangException("Evaluation of a RestrictedScopeExpression is NOT YET IMPLEMENTED.");
 
 //		return underlyingExpression.evaluate(ec);		// Possibly sufficient for now; but likely will need to code up the more complex semantics of checking all restrictions, otherwise, return the default's evaluation.
 		// return defaultExpression.evaluate(ec);
