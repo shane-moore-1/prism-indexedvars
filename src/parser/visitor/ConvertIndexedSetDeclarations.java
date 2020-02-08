@@ -15,7 +15,7 @@ import prism.PrismLangException;
  */
 public class ConvertIndexedSetDeclarations extends ASTTraverseModify {
 
-  public static boolean DEBUG = true && ASTTraverseModify.DEBUG_SHOW_ENABLED;
+  public static boolean DEBUG = false && ASTTraverseModify.DEBUG_SHOW_ENABLED;
 
 	// Constants that have been defined, and can be used in specifying the size of the IndexedSet
 	private ConstantList constants;
@@ -109,7 +109,7 @@ if (DEBUG) System.out.println(" About to replace IndexedSetDeclaration of " + in
 				{
 					Declaration d = new Declaration(indexedSetName + "[" + i + "]", elementsType);
 					// Preserve any deferral settings to the new variables.
-					d.setDeferCreateDD(e.getDeferCreateDD());
+					d.setDeferCreateDD(e.getDeferCreateDDRound());
 					d.setIsPartOfIndexedVar();
 					if (i == 0) {
 						returnVal = d;		// to replace original Declaration upon returning

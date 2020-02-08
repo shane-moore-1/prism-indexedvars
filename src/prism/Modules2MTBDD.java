@@ -594,9 +594,12 @@ System.out.println("\nAbout to allocate the DD vars for all the modules' variabl
 			// allocate dd variables for module variables (i.e. rows/cols)
 			// go through all vars in order (incl. global variables)
 			// so overall ordering can be specified by ordering in the input file
+//SHANE MODIFICATION: Cycle over all variables, for 10 rounds to determine which variables to create in each of those rounds...
+			for (int creationRound = 0; creationRound <= Declaration.MAX_DEFERRAL_ROUND; creationRound++) {
+System.out.println("\nProcessing JDD variable creation for round " + creationRound + "\n<ROUND num='"+creationRound+"'>");
 //SHANE MODIFICATION: SKIP the ones which are requested for Deferral - they will be created in the next loop instead.
-			for (i = 0; i < numVars; i++) {
-			    if (!varList.getDeferCreation(i)) {
+			  for (i = 0; i < numVars; i++) {		// Need to go through each variable, to check if round is matched
+			    if (varList.getDeferCreationRound(i) == creationRound) {	// It wants to be created in the current round.
 				// get number of dd variables needed
 				// (ceiling of log2 of range of variable)
 				n = varList.getRangeLogTwo(i);
@@ -614,33 +617,12 @@ System.out.println("Creating " + varList.getName(i) + "'." + j);
 					// new dd col variable
 					varDDColVars[i].addVar(modelVariables.allocateVariable(varList.getName(i) + "'." + j));
 				}
-			    }
-else System.out.println("Skipping variable " + i + " (\""+varList.getName(i) + "\") because its DD creation is to be deferred.");
-			}
+			    }		// if creationRound matches
+//else System.out.println("Skipping variable " + i + " (\""+varList.getName(i) + "\") because its DD creation is to be deferred.");
+			  }		// for i to numVars
+System.out.println("</ROUND num='"+creationRound+"'>");
+			}		// for creationRound to 9
 
-// ADDED BY SHANE - Now we will created the Deferred variables...
-			for (i = 0; i < numVars; i++) {
-			    if (varList.getDeferCreation(i)) {
-				// get number of dd variables needed
-				// (ceiling of log2 of range of variable)
-				n = varList.getRangeLogTwo(i);
-System.out.println("\nVariable " + i + " is \"" + varList.getName(i) + "\", and its range requires " + n + " DD variables. Creating " + (n*2) + " variables (pre and post ones)...");
-
-// Set description of the RowVars[i] and ColVars[i]; each is a JDDVars to hold variable(s) pertaining to a specific prism variable.
-varDDRowVars[i].setPurpose("varDDRowVars["+i+"], the Variables to represent pre-values for " + varList.getName(i) + ", set-up in m2mtbdd.allocateDDVars()");
-varDDColVars[i].setPurpose("varDDColVars["+i+"], the Variables to represent updates for " + varList.getName(i) + "', set-up in m2mtbdd.allocateDDVars()");
-				// add pairs of variables (row/col)
-				for (j = 0; j < n; j++) {
-System.out.println("Creating " + varList.getName(i) + "." + j);
-					// new dd row variable
-					varDDRowVars[i].addVar(modelVariables.allocateVariable(varList.getName(i) + "." + j));
-System.out.println("Creating " + varList.getName(i) + "'." + j);
-					// new dd col variable
-					varDDColVars[i].addVar(modelVariables.allocateVariable(varList.getName(i) + "'." + j));
-				}
-			    }
-else System.out.println("Skipping variable " + i + " (\""+varList.getName(i) + "\") because we created the DD earlier (non-deferred var).");
-			}
 
 
 System.out.println("END of Case 1 block (within allocateDDVars())\n");
@@ -721,6 +703,7 @@ ddSchedVars[j].setPurpose("represent a nondet scheduling variable ddSchedVars[" 
 				// now add row/col dd vars for the variable
 				// get number of dd variables needed
 				// (ceiling of log2 of range of variable)
+// SHANE: THIS PART SHOULD BE MODIFIED TO MATCH THE CASE 1 BLOCK'S ALTERED VERSION  -factor out the code??
 				n = varList.getRangeLogTwo(i);
 				// add pairs of variables (row/col)
 				for (j = 0; j < n; j++) {

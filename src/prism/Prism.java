@@ -2180,6 +2180,11 @@ if (DEBUG_DOBUILD) System.out.println("in doBuildModel, Case is EXPLICIT_FILES")
 				if (listener != null)
 					listener.notifyModelBuildSuccessful();
 			}
+if (DEBUG_DOBUILD) {
+// SHANE inserted this to show the JDD variable order (since deferrals could change the order)
+mainLog.println("The final order of JDD variables in the model are:");
+currentModel.getModelVariables().showVarNamesAndIDs();
+}
 if (DEBUG_DOBUILD) System.out.println("</doBuildModel>");
 		} catch (PrismException e) {
 			// Notify model listeners of build failure

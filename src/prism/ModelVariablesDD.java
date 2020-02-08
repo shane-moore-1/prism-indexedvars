@@ -41,6 +41,8 @@ import jdd.JDDVars;
  */
 public class ModelVariablesDD
 {
+private static boolean DEBUG_SHANE = true;
+
 private static int ShaneNextID = 0;
 private int ShaneID;
 private Exception stackWhenInstantiated;
@@ -52,6 +54,9 @@ private Exception stackWhenInstantiated;
 	/** The next free variable index */
 	private int nextDDVarIndex = 0;
 
+/* The following inserted by SHANE for purpose of easily knowing the number of DDVars that are currently allocated*/
+public int GET_nextDDVarIndex() { return nextDDVarIndex; }
+
 	/** Storage for the preallocated extra state variables */
 	private JDDVars extraStateVariables = new JDDVars();
 	/** Storage for the preallocated extra action variables */
@@ -61,12 +66,14 @@ private Exception stackWhenInstantiated;
 	public ModelVariablesDD()
 	{
 /* The following inserted by SHANE for debugging/understanding the code.  This body was originally empty. */
+/*
 ShaneID = ++ShaneNextID;
 stackWhenInstantiated = new Exception("STACK WHEN INSTANTIATED");
 
 ddVariables.setPurpose("ddVariables in ModelVariablesDD-#" + ShaneID);
 extraStateVariables.setPurpose("extraStateVariables in ModelVariablesDD-#" + ShaneID);
 extraActionVariables.setPurpose("extraActionVariables in ModelVariablesDD-#" + ShaneID);
+*/
 	}
 
 	/**
@@ -102,6 +109,7 @@ extraActionVariables.setPurpose("extraActionVariables in ModelVariablesDD-#" + S
 
 public void showVarNamesAndIDs()
 {
+if (DEBUG_SHANE)
 	for (int i = 0; i < ddVarNames.size(); i++)
 		System.out.println(i + ": " + ddVarNames.get(i));
 }
@@ -114,8 +122,10 @@ public void showVarNamesAndIDs()
 	public JDDNode allocateVariable(String name)
 	{
 		JDDNode v = JDD.Var(nextDDVarIndex);
-System.out.println("<AllocVar>\nIn ModelVariablesDD #" + ShaneID + ", allocated variable " + name + " as Var #" + nextDDVarIndex + "\n</AllocVar>"); 
-v.setPurpose("Variable for " + name + " {created in ModelVariablesDD.allocateVariable()}");
+if (DEBUG_SHANE) {
+ System.out.println("Var #" + nextDDVarIndex + "  \tallocated for variable " + name + " \t[in ModelVariablesDD #" + ShaneID + "]" ); 
+ //v.setPurpose("Variable for " + name + " {created in ModelVariablesDD.allocateVariable()}");
+}
 		nextDDVarIndex++;
 
 		ddVariables.addVar(v.copy());
@@ -129,7 +139,7 @@ v.setPurpose("Variable for " + name + " {created in ModelVariablesDD.allocateVar
 	{
 		for (int i=0; i<count; i++) {
 			JDDNode v = allocateVariable("");
-v.setPurpose("Extra State Variable " + i + " (preallocate)");
+//v.setPurpose("Extra State Variable " + i + " (preallocate)");
 			extraStateVariables.addVar(v);
 		}
 	}
@@ -224,7 +234,7 @@ v.setPurpose("Extra State Variable " + i + " (preallocate)");
 	{
 		for (int i=0;i<count;i++) {
 			JDDNode v = allocateVariable("");
-v.setPurpose("Extra Action Variable " + i + " (preallocate)");
+//v.setPurpose("Extra Action Variable " + i + " (preallocate)");
 			extraActionVariables.addVar(v);
 		}
 	}

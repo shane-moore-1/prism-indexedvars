@@ -783,11 +783,24 @@ Declaration Declaration() :				// ALTERED BY SHANE to allow Indexed Sets.
 // ADDED BY SHANE, to allow deferal of some variables' DD creation.
 void deferCreateVar(Declaration declToDefer) :
 {
+	int defRnd = 1;   // The round in which variable should be created when making the JDDs. Default is 1 (since they said defer).
 	// ADDED BY SHANE
 }
 {
-	<DEFER>
-	{ declToDefer.setDeferCreateDD(true); }
+	<DEFER> 		// Optionally a number will follow the word 'defer'.
+	( <REG_INT> {
+		try {
+			defRnd = Integer.parseInt(getToken(0).image);
+		} catch (NumberFormatException e) {
+			// Need to catch this because some matches for regexp REG_INT
+			// are not valid integers (e.g. too big).
+			ParseException ex = new ParseException("Invalid deferal-round number");
+			ex.currentToken = getToken(0);
+			throw ex;
+			// NB: can't call generateParseException() here; it crashes
+		}}
+	) ?
+	{ declToDefer.setDeferCreateDD(defRnd); }	// set the deferral round, either the default of 1, or the explicitly provided number
 }
 
 

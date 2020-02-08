@@ -337,12 +337,14 @@ throws PrismLangException		// Until SHANE has considered the code in more detail
 
 	/**
 	 * See whether to defer the creation of the DD for the specified variable until second round.
+	 * @param i the index within this VarList of the variable to query about.
+	 * @returns The round in which the variable's JDD variables should be created (0-9)
 	 */
-	public boolean getDeferCreation(int i)
+	public int getDeferCreationRound(int i)
 	{
 		if (i < 0 || i >= vars.size())
 			throw new RuntimeException("Invalid integer value given");
-		return vars.get(i).decl.getDeferCreateDD();
+		return vars.get(i).decl.getDeferCreateDDRound();
 		
 	}
 

@@ -47,11 +47,15 @@ public static boolean DEBUG = false;
 
 // ADDED BY SHANE
 	// Whether this declaration is part of the realisation of an indexed-set (true), or standalone non-indexed (false)
-	protected boolean isPartOfIndexedVar;
+	protected boolean isPartOfIndexedVar = false;
 
-// ADDED BY SHANE
-	// Whether to defer the creation of the DD for this variable, until the "second" round of creation.
-	protected boolean deferCreateDD = false;
+// ADDED BY SHANE:
+	public static final int MAX_DEFERRAL_ROUND = 19;
+
+// ADDED AND THEN ALTERED BY SHANE
+	// How many rounds of JDD creation cycles to defer to until we will create this variable's JDD (0 is first round, no deferal
+	// and the constant above defines the MAXIMUM permitted round.)
+	protected int deferDDCreateToRound = 0;
 
 	public Declaration(String name, DeclarationType declType)
 	{
@@ -85,16 +89,24 @@ System.out.flush();
 		this.start = start;
 	}
 
-	public void setDeferCreateDD(boolean value)
+	public void setDeferCreateDD(int deferalRound)
 	{
-		this.deferCreateDD = value;
+		if (deferalRound < 0) {				// Cannot create in a round earlier than 0.
+		   this.deferDDCreateToRound = 0;			// Set to a default of 0
+		}
+		else if (deferalRound > MAX_DEFERRAL_ROUND) {	// Too large, beyond the limit set up the top of this class.
+		   this.deferDDCreateToRound = MAX_DEFERRAL_ROUND;
+		}
+		else {
+		   this.deferDDCreateToRound = deferalRound;
+		}
 	}
 
 	// Get methods
 
-	public boolean getDeferCreateDD()
+	public int getDeferCreateDDRound()
 	{
-		return deferCreateDD;
+		return deferDDCreateToRound;
 	}
 
 	public String getName()
