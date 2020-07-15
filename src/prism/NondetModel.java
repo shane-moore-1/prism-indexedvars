@@ -212,11 +212,13 @@ if (DEBUG) {
 	public void doReachability() throws PrismException
 	{
 		JDDNode tmp;
-if (DEBUG) System.out.println("--------------------\nStart of Nondet.doReachability(). About to call JDD.MaxAbstract()");
+if (DEBUG) System.out.println("--------------------\nStart of NondetModel.doReachability(void) method. Any Lag was possibly due to swapping?\nAbout to call JDD.MaxAbstract()");
 
 		// remove any nondeterminism
+PrismNative.ShaneMakeTopReportMsg("Immediately BEFORE MaxAbstract()");
 		JDD.Ref(trans01);
 		tmp = JDD.MaxAbstract(trans01, allDDNondetVars);
+PrismNative.ShaneMakeTopReportMsg("Finished MaxAbstract()");
 
 if (DEBUG) System.out.println("in NondetModel.doReachability(): About to call PrismMTBDD.Reachability()");
 		// compute reachable states
@@ -242,6 +244,7 @@ if (DEBUG) System.out.println("in NondetModel.doReachability(): About to call Pr
 	public void doReachability(JDDNode seed) throws PrismException
 	{
 		JDDNode tmp;
+if (DEBUG) System.out.println("--------------------\nStart of Nondet.doReachability(seed) method. \nAbout to call checkIsStateSet()");
 
 		// do sanity check on seed if checking is enabled
 		if (SanityJDD.enabled)
@@ -249,15 +252,20 @@ if (DEBUG) System.out.println("in NondetModel.doReachability(): About to call Pr
 
 		// remove any nondeterminism from the 0/1-transition function
 		JDD.Ref(trans01);
+if (DEBUG) System.out.println("\nIn NondetModel.doReachability(seed) method, about to call JDD.MaxAbstract()");
 		tmp = JDD.MaxAbstract(trans01, allDDNondetVars);
+PrismNative.ShaneMakeTopReportMsg("Finished MaxAbstract()");
 
+if (DEBUG) System.out.println("\nIn NondetModel.doReachability(seed) method, after call JDD.MaxAbstract(), about to do an OR with seed");
 		// S = union of initial states and seed. seed is dereferenced here.
 		JDDNode S = JDD.Or(start.copy(), seed);
 
+if (DEBUG) System.out.println("\nIn NondetModel.doReachability(seed) method, about to call PrismMTBDD.Reachability()");
 		// compute reachable states
 		JDDNode reachable = PrismMTBDD.Reachability(tmp, allDDRowVars, allDDColVars, S);
 		JDD.Deref(tmp);
 		JDD.Deref(S);
+if (DEBUG) System.out.println("\nIn NondetModel.doReachability(seed) method, finished call of PrismMTBDD.Reachability(), setting 'reachable' and returning from method.");
 
 		// set the reachable states, compute numStates, create the ODD, etc
 		setReach(reachable);
@@ -513,6 +521,7 @@ if (DEBUG_FRS) System.out.println("</NondetModel_FilterReachable>");
 	 * @param transformation the information about the transformation
 	 * @return the transformed model (needs to be cleared after use)
 	 */
+// SHANE NOTE: This method will need to be considered for how it should deal with deferral of variables. It uses the addVar that I have since made private.. Temporarily this method returns NULL.
 	public NondetModel getTransformed(NondetModelTransformationOperator transformation) throws PrismException
 	{
 		// New (transformed) model - dds, vars, etc.
@@ -610,7 +619,8 @@ if (DEBUG_FRS) System.out.println("</NondetModel_FilterReachable>");
 			}
 			newVarList = (VarList) varList.clone();
 			Declaration decl = new Declaration(extraStateVar, new DeclarationInt(Expression.Int(0), Expression.Int((1 << nStateVars) - 1)));
-			newVarList.addVar(before ? 0 : varList.getNumVars(), decl, 1, this.getConstantValues());
+//			newVarList.addVar(before ? 0 : varList.getNumVars(), decl, 1, this.getConstantValues());
+System.out.println("*** CANNOT ADD VARIABLE - CODE NEEDS TO BE RECONSIDERED in NondetModel.getTransformed() ****");
 		}
 
 		// Build transition matrix for transformed model
@@ -713,7 +723,8 @@ if (DEBUG_FRS) System.out.println("</NondetModel_FilterReachable>");
 		extraDDRowVars.derefAll();
 		extraDDColVars.derefAll();
 		extraActionVars.derefAll();
-
+// SHANE TEMPORARY - BECAUSE THIS METHOD IS NEEDING TO BE RE-WRITTEN (in respect of its use of AddVar, in light of possible variable deferral)
+result = null;
 		return result;
 	}
 

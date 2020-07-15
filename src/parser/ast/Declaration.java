@@ -89,16 +89,17 @@ System.out.flush();
 		this.start = start;
 	}
 
-	public void setDeferCreateDD(int deferalRound)
+	public void setDeferCreateDD(int deferralRound)
 	{
-		if (deferalRound < 0) {				// Cannot create in a round earlier than 0.
+if (DEBUG) System.out.println("Declaration.setDeferCreateDD called for variable " + name + ", round is to be: " + deferralRound);
+		if (deferralRound < 0) {				// Cannot create in a round earlier than 0.
 		   this.deferDDCreateToRound = 0;			// Set to a default of 0
 		}
-		else if (deferalRound > MAX_DEFERRAL_ROUND) {	// Too large, beyond the limit set up the top of this class.
+		else if (deferralRound > MAX_DEFERRAL_ROUND) {	// Too large, beyond the limit set up the top of this class.
 		   this.deferDDCreateToRound = MAX_DEFERRAL_ROUND;
 		}
 		else {
-		   this.deferDDCreateToRound = deferalRound;
+		   this.deferDDCreateToRound = deferralRound;
 		}
 	}
 
@@ -201,6 +202,9 @@ System.out.flush();
 		if (getStart() != null)
 			ret.setStart(getStart().deepCopy());
 		ret.setPosition(this);
+
+		ret.isPartOfIndexedVar = this.isPartOfIndexedVar;
+		ret.deferDDCreateToRound = this.deferDDCreateToRound;
 		return ret;
 	}
 }

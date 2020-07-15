@@ -39,10 +39,13 @@ import parser.visitor.ResolveRestrictedScopes;
 
 public class Modules2MTBDD
 {
+
+public static boolean DISABLE_VAR_DEFERRAL = false;
+
 public static boolean DEBUG_CommandVersionsNAMES = true;		// Whether to append a version ID number to each version generated from a command
 public static boolean DEBUG_ShowEXCL_INCL = false;		// Whether to show which DDs are being INCLUDED or EXCLUDED during construction of a DD (in TransUpdate)
 public static boolean DEBUG_SHANE = false; //true && !DEBUG_SHANE_NOTHING;
-public static boolean DEBUG_TrSysDefRec = true;
+public static boolean DEBUG_TrSysDefRec = false;
 public static boolean DEBUG_RecurseVars = true;
 public static boolean DEBUG_SHANE_ShowVarList = true;
 public static boolean DEBUG_SHANE_ShowDD_Tree = false;
@@ -51,11 +54,11 @@ public static boolean DEBUG_SHANE_ShowStepsInCCN2 = false;
 public static boolean DEBUG_ShowFinalTransDD = false;			// Show the ultimately final transition matrix DD ? (It could be huge!)
 
 public static boolean DEBUG_SHANE_NOTHING = true;		// If True, means SHOW NOTHING.
-public static boolean DEBUG_TSP = true ; // && !DEBUG_SHANE_NOTHING;
+public static boolean DEBUG_TSP = true && !DEBUG_SHANE_NOTHING;
 public static boolean DEBUG_TSync = true;				// If true, show the translateSynchronising debug output
-public static boolean DEBUG_TrSysDef = true ;  // && !DEBUG_SHANE_NOTHING;
+public static boolean DEBUG_TrSysDef = true ;//&& !DEBUG_SHANE_NOTHING;
 public static boolean DEBUG_TrSysDef_Extra = false ;  // && !DEBUG_SHANE_NOTHING;
-public static boolean DEBUG_TraSysMod = true ;//&& !DEBUG_SHANE_NOTHING;
+public static boolean DEBUG_TraSysMod = true; //&& !DEBUG_SHANE_NOTHING;
 public static boolean DEBUG_TransMod = true;// && !DEBUG_SHANE_NOTHING;		// The version with parameters
 public static boolean DEBUG_TransMod_PedanticDetail = DEBUG_TransMod & false;
 public static boolean DEBUG_tranModVoid = true && !DEBUG_SHANE_NOTHING;		// The void parameters version
@@ -63,13 +66,13 @@ public static boolean DEBUG_TransUpd = false;  //true && !DEBUG_SHANE_NOTHING;
 public static boolean DEBUG_TransUpd_ShowStack = false ; //false && !DEBUG_SHANE_NOTHING;
 public static boolean DEBUG_TransUpdIndivGroup = true;
 public static boolean DEBUG_TCFV = true;	// Show steps of 'TranslateCommandForValues'
-public static boolean DEBUG_UpdateCalcs = true;
+public static boolean DEBUG_UpdateCalcs = false;
 public static boolean DEBUG_AllocDDV = false ; //true && !DEBUG_SHANE_NOTHING;
-public static boolean DEBUG_CCN = true ;//&& !DEBUG_SHANE_NOTHING;			// Show detail of combineCommandsNondet()
+public static boolean DEBUG_CCN = true && !DEBUG_SHANE_NOTHING;			// Show detail of combineCommandsNondet()
 public static boolean DEBUG_SortRanges = false ; //true && !DEBUG_SHANE_NOTHING;
 public static boolean DEBUG_SUBSTITUTIONS = false;		// Show translation of a command for a specific substitution (or if only 1 possibility, then that possibility)
-public static boolean DEBUG_ChkRstr = true;			// Show the basic steps of CheckRestrictionLowerBound and CheckRestrictionUpperBound
-public static boolean DEBUG_ChkRstr_ExtraDetail = true && DEBUG_ChkRstr;	// Show more-detailed steps of the check restriction methods.
+public static boolean DEBUG_ChkRstr = true && !DEBUG_SHANE_NOTHING;			// Show the basic steps of CheckRestrictionLowerBound and CheckRestrictionUpperBound
+public static boolean DEBUG_ChkRstr_ExtraDetail = true && DEBUG_ChkRstr && !DEBUG_SHANE_NOTHING;	// Show more-detailed steps of the check restriction methods.
 public static boolean DEBUG_ShowDDReport = false;
 
 
@@ -80,6 +83,7 @@ private String DEBUG_CurSynch;	// The current Synch name, for help in DEBUG OUTP
 
 private ArrayList<Expression> cachedGuardExprs;		// SHANE ONLY - For debugging of large model with hundreds of enumerated substitutions.
 
+private int totalTranslatedCommands;
 
 	// Prism object
 	private Prism prism;
@@ -266,6 +270,10 @@ if (DEBUG_SHANE_ShowVarList) {
 	mainLog.println("numVars is " + numVars + " and these are the variables in varList:");
 	for (i = 0; i < numVars; i++)
 		mainLog.println("\t["+ i + "] is " + varList.getName(i));
+	System.out.println("variables in order for states list (such as Deadlocks reports):");
+	for (i = 0; i < numVars; i++)
+		System.out.print(varList.getName(i)+",");
+	System.out.println();
 }
 
 		constantValues = modulesFile.getConstantValues();
@@ -363,15 +371,15 @@ if (DEBUG_SHANE) {		// Replicates the thing immediately preceding
 
 }
 		
+mainLog.print("Building bdd for initial states...");
 		// build bdd for initial state(s)
 		buildInitialStates();
+mainLog.print("Finished building bdd for initial states...");
 		
-if (DEBUG_SHANE) {		// Replicates the above
-	mainLog.print("Transition matrix (pre-reachability but after buildInitialStates): ");
-	mainLog.print(JDD.GetNumNodes(trans) + " nodes (");
-	mainLog.print(JDD.GetNumTerminals(trans) + " terminal)\n");
+mainLog.print("Transition matrix (pre-reachability but after buildInitialStates): ");
+mainLog.print(JDD.GetNumNodes(trans) + " nodes (");
+mainLog.print(JDD.GetNumTerminals(trans) + " terminal)\n");
 
-}
 
 		// store reward struct names
 		rewardStructNames = new String[numRewardStructs];
@@ -607,12 +615,45 @@ System.out.println("\nAbout to allocate the DD vars for all the modules' variabl
 			// allocate dd variables for module variables (i.e. rows/cols)
 			// go through all vars in order (incl. global variables)
 			// so overall ordering can be specified by ordering in the input file
+
+// SHANE MODIFICATION: The newOrderForVars array will contain the indexes to variables, but given in the deferred order.A new ArrayList of all the Var objects, but in the order as required for deferral, which will be handed to the VarList after the loop...
+int[] deferredOrderForVars = new int[numVars];
+int nextUnusedPosition = 0;
+
 //SHANE MODIFICATION: Cycle over all variables, for 10 rounds to determine which variables to create in each of those rounds...
 			for (int creationRound = 0; creationRound <= Declaration.MAX_DEFERRAL_ROUND; creationRound++) {
 System.out.println("\nProcessing JDD variable creation for round " + creationRound + "\n<ROUND num='"+creationRound+"'>");
 //SHANE MODIFICATION: SKIP the ones which are requested for Deferral - they will be created in the next loop instead.
 			  for (i = 0; i < numVars; i++) {		// Need to go through each variable, to check if round is matched
+if (!DISABLE_VAR_DEFERRAL) {
 			    if (varList.getDeferCreationRound(i) == creationRound) {	// It wants to be created in the current round.
+				// get number of dd variables needed
+				// (ceiling of log2 of range of variable)
+				n = varList.getRangeLogTwo(i);
+System.out.println("\nVariable " + i + " is \"" + varList.getName(i) + "\", and its range requires " + n + " DD variables. Creating " + (n*2) + " variables (pre and post ones)...");
+
+// Set description of the RowVars[i] and ColVars[i]; each is a JDDVars to hold variable(s) pertaining to a specific prism variable.
+varDDRowVars[i].setPurpose("varDDRowVars["+i+"], the Variables to represent pre-values for " + varList.getName(i) + ", set-up in m2mtbdd.allocateDDVars()");
+varDDColVars[i].setPurpose("varDDColVars["+i+"], the Variables to represent updates for " + varList.getName(i) + "', set-up in m2mtbdd.allocateDDVars()");
+deferredOrderForVars[nextUnusedPosition] = i;			// Note variable 'i', as being the next one in the deferred-ordering.
+nextUnusedPosition++;						// and be ready for the next one.
+				// add pairs of variables (row/col)
+				for (j = 0; j < n; j++) {
+					// new dd row variable
+System.out.println("Creating " + varList.getName(i) + "." + j);
+					nextVar = modelVariables.allocateVariable(varList.getName(i) + "." + j);
+					varDDRowVars[i].addVar(nextVar);
+					allDDRowVars.addVar(nextVar);		// Also include in the list of ALL variables, in same order
+					// new dd col variable
+System.out.println("Creating " + varList.getName(i) + "'." + j);
+					nextVar = modelVariables.allocateVariable(varList.getName(i) + "'." + j);
+					varDDColVars[i].addVar(nextVar);
+					allDDColVars.addVar(nextVar);		// Include in list of ALL variables.
+				}
+			    }		// if creationRound matches
+//else System.out.println("Skipping variable " + i + " (\""+varList.getName(i) + "\") because its DD creation is to be deferred.");
+			   } else {		// THE TRADITIONAL VARIABLE ORDER IS DESIRED; do every creation in 'round 0':
+			     if (creationRound == 0) {		// We make everything in the order in which it appears, no deferrals, no subsequent rounds...
 				// get number of dd variables needed
 				// (ceiling of log2 of range of variable)
 				n = varList.getRangeLogTwo(i);
@@ -634,12 +675,16 @@ System.out.println("Creating " + varList.getName(i) + "'." + j);
 					varDDColVars[i].addVar(nextVar);
 					allDDColVars.addVar(nextVar);		// Include in list of ALL variables.
 				}
-			    }		// if creationRound matches
-//else System.out.println("Skipping variable " + i + " (\""+varList.getName(i) + "\") because its DD creation is to be deferred.");
+
+			     }
+			   }
 			  }		// for i to numVars
 System.out.println("</ROUND num='"+creationRound+"'>");
 			}		// for creationRound to 9
 
+if (!DISABLE_VAR_DEFERRAL) {
+// WON'T WORK:	varList.reorderVariables(newOrderForVars);		// Tell the VarList to re-order the variables to the specified ordering
+}
 
 
 System.out.println("END of Case 1 block (within allocateDDVars())\n");
@@ -840,7 +885,7 @@ System.out.println("\nCopying all variables from ddSchedVars into allDDSchedVars
 				allDDSchedVars.addVar(ddSchedVars[i].copy());
 				allDDNondetVars.addVar(ddSchedVars[i].copy());
 			}
-System.out.println("\nCopying all variables from ddChoiceVars into allDDSchedVars, and also into allDDNondetVars...");
+System.out.println("\nCopying all variables from ddChoiceVars into allDDChoiceVars, and also into allDDNondetVars...");
 			// go thru all local nondet vars
 			for (i = 0; i < ddChoiceVars.length; i++) {
 				// add to list
@@ -983,6 +1028,7 @@ if (DEBUG_tranModVoid) System.out.println("</TranMods>\nending m2mtbdd.translate
 		int[] synchMin;
 		
 System.out.println("<TranslateSystemDefn>\nStarting to translate the system...\nThe number of synchs is " + numSynchs);
+totalTranslatedCommands = 0;
 		// initialise some values for synchMin
 		// (stores min indices of dd vars to use for local nondet)
 		synchMin = new int[numSynchs];
@@ -1001,6 +1047,7 @@ if (DEBUG_TrSysDef) {
   System.out.println("</M2__TranSystemDefnRecursive_COMMENCE>");
   System.out.println("Now Back in m2mtbdd::translateSystemDefn @ Place 2. That means we have considered each synch, for every module.");
   System.out.println("We have NOW FINISHED topmost recursive call of translateSystemDefnRec.\n");
+  System.out.println("[TOTCMDS] This model has a total of " + totalTranslatedCommands + " command variants that were translated into MTBDDs\n");
   System.out.println("Continuing with m2mtbdd::translateSystemDefn ...");
 }
 
@@ -1039,7 +1086,7 @@ else if (DEBUG_TrSysDef) System.out.println("m2mtbdd::translateSystemDefn @ PLAC
 if (DEBUG_TrSysDef) System.out.println("m2mtbdd::translateSystemDefn @ PLACE A3-START.\n   About to check each of " + numSynchs + " synchs, has 'this many variables' ...");
 			// check each synchronous bit has this many variables
 			for (i = 0; i < numSynchs; i++) {
-if (DEBUG_TrSysDef) System.out.println("      @ PLACE A3-i: considering synch["+i+"]: " + sysDDs.synchs[i].nickName );
+if (DEBUG_TrSysDef) System.out.println("      @ PLACE A3-i: considering synch["+(i+1)+"/"+numSynchs+ "]: " + sysDDs.synchs[i].nickName );
 				if (max > sysDDs.synchs[i].max) {
 if (DEBUG_TrSysDef) System.out.println("          @ PLACE A3-ii-A (the IF was true) max ("+max+") IS greater than sysDDs.synchs["+i+"].max which is " + sysDDs.synchs[i].max);
 					tmp = JDD.Constant(1);
@@ -1076,10 +1123,12 @@ if (DEBUG_TrSysDef && sysDDs.ind.trans.equals(JDD.ZERO)) System.out.println("sys
 if (DEBUG_TrSysDef) System.out.println("m2mtbdd::translateSystemDefn @ Place A5");
 			// synchronous bits
 			for (i = 0; i < numSynchs; i++) {
-if (DEBUG_TrSysDef) System.out.println("m2mtbdd::translateSystemDefn @ Place A5-i for synch " + i);
+if (DEBUG_TrSysDef) System.out.println("m2mtbdd::translateSystemDefn @ Place A5-i for synch " + (i+1) + "/" + numSynchs);
 				tmp = JDD.Constant(1);
 				for (j = 0; j < numSynchs; j++) {
+if (DEBUG_TrSysDef) System.out.print("["+j+"]  ");
 					if (j == i) {
+if (DEBUG_TrSysDef) System.out.print("<-- ");
 						tmp = JDD.And(tmp, ddSynchVars[j].copy());
 //if (DEBUG_TrSysDef) System.out.println("        @ Place A5-i-A for synch #" + i + ", j = " + j);
 					}
@@ -3311,6 +3360,8 @@ if (DEBUG_TransMod)
 	PrintDebugIndent();
 	System.out.println("After translating command variant " + curVariant + " of command + " + command + "\n having used the following set of substitutions: '" + substitutions + "'");
 	PrintDebugIndent();
+	System.out.println("So far, translated " + totalTranslatedCommands + " commands");
+	PrintDebugIndent();
         System.out.println("<GuardDDs_Add for_cmd_with_synch='"+synch+"' for_substitutions='"+substitutions+"'>");
 	
 }
@@ -3517,6 +3568,7 @@ if (DEBUG_TransMod)
 	  Translate a command into a DD. If substitutions' is non-empty (the case when an indexed-set access using 
 	  variables in expressions) then various evaluations of expressions (possibly in guards, possibly in updates) 
 	  will be done BEFORE the translation into DD.
+	  Also will increase the count of total commands translated into MTBDD form (only if guards are not false).
 	  @param m The Module number that contained this command (known by the caller translateModules)
 	  @param l The command-number within the module of the original command (from the caller)
 	  @param command The actual command to be translated
@@ -3757,6 +3809,7 @@ if (DEBUG_TransMod)
 			// } else {
 			// 	rewDDs[l] = JDD.Constant(0);
 			// }
+totalTranslatedCommands++;
 		}
 if (DEBUG_TransMod) { 
 	PrintDebugIndent(); System.out.println(" </TranslateCommandVariant>\n"); 
@@ -3768,7 +3821,6 @@ if (DEBUG_TransMod) {
 		translatedCommandDD.upDD = upDD;
 		translatedCommandDD.originalCommandNumber = l;
 		translatedCommandDD.guardExpr = curGuard;
-
 		return translatedCommandDD;
 	}
 
@@ -4324,11 +4376,11 @@ if (DEBUG_TransUpdIndivGroup) {
 		for (i = 0; i < n; i++) {
 if (DEBUG_TransUpdIndivGroup) {
 	PrintDebugIndent();
-	System.out.println(" <IterationForUpdateElement which='"+ (i+1) +" of " + n + "' expr=\"" + c.getElement(i) +"\">");
+	System.out.println(" <TUG_IterationForUpdateElement which='"+ (i+1) +" of " + n + "' expr=\"" + c.getElement(i) +"\">");
 	System.out.println("    transUpGrp - PLACE 2 (iter "+i+"): Considering which variable is being updated.");
 }
 			
-// SHANE INSERTED CONDITIONAL BRANCH:  to deal with indexed-set variable accesses.
+// SHANE INSERTED CONDITIONAL BRANCH:  to deal with case that the TARGET variable being updated involves indexed-set variable accesses.
 			if (c.getVarIdent(i).isIndexedVariable() )
 			{
 				// get variable
@@ -4366,7 +4418,7 @@ if (DEBUG_TransUpdIndivGroup) {
 	PrintDebugIndent();
 	System.out.println("\t The resultant exact variable for " + c.getElement(i) + " will be: " + s + " - DOES THAT MAKE SENSE???");
 }
-			} else {
+			} else {						// TARGET variable to update, is an non-indexed variable (normal variable)
 				// get variable's name
 				s = c.getVar(i);
 if (DEBUG_TransUpdIndivGroup) {
@@ -4380,7 +4432,7 @@ if (DEBUG_TransUpdIndivGroup) {
 			v = varList.getIndex(s);
 if (DEBUG_TransUpdIndivGroup) {
 	PrintDebugIndent();
-	System.out.println("The variable is " + varList.getName(v) + ". Its position in varList is " + v);
+	System.out.println("The variable being updated is " + varList.getName(v) + ". Its position in varList is " + v);
 }
 			if (v == -1) {
 				throw new PrismLangException("Unknown variable \"" + s + "\" in update", c.getVarIdent(i));
@@ -4414,28 +4466,42 @@ if (DEBUG_SHANE_ShowStepsInTM) ShaneReportDD(tmp1,"~About DD after calling SetVe
 
 if (DEBUG_SHANE_ShowStepsInTM) ShaneReportDD(tmp1,"~After setting the vector elements for variable '"+ varList.getName(v) + "', the JDD (named 'tmp1') looks like this:",true);
 
-			Expression calcExpr = c.getExpression(i).deepCopy();		//make a copy, so we can preserve orig, but do substitutions for current.
-			
 if (DEBUG_TransUpdIndivGroup) {
 	PrintDebugIndent();
 	System.out.println("   transUpGrp - PLACE 3B: After setting the vector elements of update element " + (i+1) +":" + c.getElement(i) + ")");
 }
 
+
 if (DEBUG_SUBSTITUTIONS || DEBUG_UpdateCalcs) {
 	System.out.println("<CalcExpr>");
+}
+
+			// Now we will commence translating the calculation expression (the value to assign)
+
+			Expression calcExpr = c.getExpression(i).deepCopy();		//make a copy, so we can preserve orig, but do substitutions for current.
+			
+
+if (DEBUG_SUBSTITUTIONS || DEBUG_UpdateCalcs) {
 	System.out.println("Before any substitutions, the calcExpression is: " + calcExpr );
 }
 			// Work out the effect of substituting ONLY INTO INDEXED-SET ACCESS EXPRESSIONS any values for provided variable substitutions (and constants too).
 			// (Corrected February 2020)
 
 if (DEBUG_SUBSTITUTIONS || DEBUG_UpdateCalcs) System.out.println("\nThe current variant of command with synch '"+ DEBUG_CurSynch + "' has this calcExpr:" + calcExpr + "\nIt might need to replace variables used in indexed-set expressions (if any).");
+if (DEBUG_SUBSTITUTIONS || DEBUG_UpdateCalcs) System.out.println("The calcExpr has this type: " + calcExpr.getClass().getName());
 			// Exchange the known values of the current substitution into the original guard BUT ONLY where appearing inside Index-Specification expressions. 
 			curCalcExpr = (Expression) calcExpr.deepCopy();	// For safety, just use a copy (in case original is required)
-			curCalcExpr.replaceIndexSpecifiers(substitutions);     // The same step done for the guard to resolve access expressions
+// actually, it already was a copy; see about 15 lines above.
+
+if (DEBUG_SUBSTITUTIONS || DEBUG_UpdateCalcs) System.out.println("The copied calcExpr has this type: " + curCalcExpr.getClass().getName());
+
+			curCalcExpr = (Expression) curCalcExpr.replaceIndexSpecifiers(substitutions);     // The same step done for the guard to resolve access expressions
 if (DEBUG_SUBSTITUTIONS || DEBUG_UpdateCalcs) System.out.println("\nThe finalised version of the calcExpr is: " + curCalcExpr);
 
 // WRONG WAY	calcExpr = (Expression) calcExpr.evaluatePartially(constantValues,substitutions);
-// Why I think it was wrong, is because if a variable being substituted appears in another part of the expression than inside of anindexed set access expression, then it may cause some problems.
+// ACTUALLY: It was probably not wrong here, but rather, in the visitor there was no instructions on how to deal with the actual access-expression.
+// Whereas if the access expression occurred on the left side of an update, the code earlier in HERE has dealt with the access expression; and for guards,
+// something else possibly occurred.
 
 if (DEBUG_SUBSTITUTIONS || DEBUG_UpdateCalcs) {
 	System.out.println("</CalcExpr during='translateUpdate()'>\nAfter the substitutions, the calcExpression is: " + curCalcExpr);
@@ -4532,7 +4598,7 @@ if (DEBUG_TransUpdIndivGroup) {
 	System.out.println("    transUp (Second one) - PLACE 5, end of iteration for that update element.");
 	System.out.println("    dd at end of iteration "+i+" is: " + dd);
 	PrintDebugIndent();
-	System.out.println("</IterationForUpdateElement which='"+ (i+1) + " of " + n + "' was=\"" + c.getElement(i) + "\">");
+	System.out.println("</TUG_IterationForUpdateElement which='"+ (i+1) + " of " + n + "' was=\"" + c.getElement(i) + "\">");
 }
 		}
 if (DEBUG_TransUpdIndivGroup) System.out.println("\n<AllUpdateElementsOfCurrentGroupNowConsidered/>\n\n");
@@ -4624,6 +4690,7 @@ if (DEBUG_TransUpd) {
 		String synch, s;
 		JDDNode rewards, states, item;
 		ComponentDDs compDDs;
+System.out.println("\n<ComputeRewards>");
 		
 		// how many reward structures?
 		numRewardStructs = modulesFile.getNumRewardStructs();
@@ -4701,6 +4768,7 @@ if (DEBUG_TransUpd) {
 				}
 			}
 		}
+System.out.println("</ComputeRewards>\n");
 	}
 	
 	// calculate dd for initial state(s)

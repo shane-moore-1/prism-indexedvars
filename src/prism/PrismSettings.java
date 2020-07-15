@@ -1484,6 +1484,9 @@ public class PrismSettings implements Observer
 		}
 
 		// DEBUGGING / SANITY CHECKS
+		else if (sw.equals("nodefervars")) {
+Modules2MTBDD.DISABLE_VAR_DEFERRAL = true;			// ADDED BY SHANE to switch on or off the allowance of deferring of variable creation
+		}
 		else if (sw.equals("ddsanity")) {
 			set(PRISM_JDD_SANITY_CHECKS, true);
 		}

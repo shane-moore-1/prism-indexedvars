@@ -44,6 +44,8 @@ public class Command extends ASTElement
 	private Updates updates;
 	// Parent module
 	private Module parent;
+
+	private int variantID = 1;	// By default, first variant; some commands when variants exist, have higher numbers.
 	
 	// Constructor
 	
@@ -117,6 +119,16 @@ public class Command extends ASTElement
 	public Module getParent()
 	{
 		return parent;
+	}
+
+	public void setVariant(int variantID)
+	{
+		this.variantID = variantID;
+	}
+
+	public int getVariant()
+	{
+		return variantID;
 	}
 
 	/** Request a Set of all distinct expressions for indexed set accesses that involve variable position specifications,

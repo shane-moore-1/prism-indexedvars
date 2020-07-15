@@ -41,12 +41,48 @@ import parser.type.*;
  */
 public class VarList
 {
+private static boolean DEBUG_ADD_VAR = true;			// Whether to report the processing of variables (Mainly in the Constructor)
+
 	// List of variables
 	private List<Var> vars;
 	// Mapping from names to indices
 	private Map<String, Integer> nameMap;
 	// Total number of bits needed  to encode
 	private int totalNumBits;
+
+// THIS IDEA WAS NOT WORKING: Because even if I alter it here, then all the AST elements would be inconsistent in terms of indexes of identifiers.
+// IT IS NOT NEEDED NOW THAT I HAVE ALTERED THE Constructor of this class.
+/*	public void reorderVariables(int[] newOrdering)
+	{
+		List<Var> newlyOrdered;
+		Map<String, Integer> newNameMap;
+
+		if ((newOrdering != null) && (newOrdering.length == vars.size()))
+		{
+System.out.println("[ShaneNote - REORDER_VARS will reorder the variables in the VarList...]");
+			newlyOrdered = new ArrayList<Var>();
+			Var nextVar;
+			for (int i = 0; i < newOrdering.length; i++) {
+				nextVar = vars.get(newOrdering[i]);
+System.out.println(nextVar.decl.getName() + " being placed in position " + i + " for varList.vars");
+				newlyOrdered.add(nextVar);
+			}
+			vars = newlyOrdered;		// Now we replace the old ordering with the newly constructed ordering
+
+			// Recompute name map - COPIED FROM the version of addVar which has an extra parameter for position.
+			int j, n;
+			n = getNumVars();
+			newNameMap = new HashMap<String, Integer>(n);
+			for (j = 0; j < n; j++) {
+				newNameMap.put(getName(j), j);
+			}
+
+			nameMap = newNameMap;		// Activate the new name map
+System.out.println("[ShaneNote - REORDER_VARS completed]");
+		}
+else System.out.println("[ShaneError - REORDER_VARS given incompatible information]");
+	}
+*/
 
 	/**
 	 * Construct empty variable list.
@@ -66,9 +102,11 @@ public class VarList
 		this();
 
 		int i, j, n, n2;
+		int round, moduleID;
 		parser.ast.Module module;
 		Declaration decl;
 
+/* ORIGINAL CODE:
 		// First add all globals to the list
 		n = modulesFile.getNumGlobals();
 		for (i = 0; i < n; i++) {
@@ -86,6 +124,58 @@ public class VarList
 				addVar(decl, i, modulesFile.getConstantValues());
 			}
 		}
+*/
+
+// SHANE VERSION, which takes into consideration the deferral specifications.
+
+		ArrayList<Declaration> decls = new ArrayList<Declaration>();
+		ArrayList<Integer> moduleIDs = new ArrayList<Integer>();
+
+		// First extract all globals, add to the interim list
+		n = modulesFile.getNumGlobals();
+		for (i = 0; i < n; i++) {
+			decls.add(modulesFile.getGlobal(i));
+			moduleIDs.add(new Integer(-1));
+		}
+
+		// Then extract all module variables to the interim list
+		n = modulesFile.getNumModules();
+		for (i = 0; i < n; i++) {
+			module = modulesFile.getModule(i);
+			n2 = module.getNumDeclarations();
+			for (j = 0; j < n2; j++) {
+				decls.add(module.getDeclaration(j));
+				moduleIDs.add(new Integer(i));
+			}
+		}
+
+		// Now to go through the interim list, for multiple rounds of deferral, and in each round, when considering a decl, if that
+		// decl's round is the current round, we will call the addVar method, to put it into the VarList in the correct order 
+		// according to deferral specification:
+
+if (prism.Modules2MTBDD.DISABLE_VAR_DEFERRAL) {
+		n = decls.size();		// Total number of variables in the interim list.
+		for (i = 0; i < n; i++) {		// For each variable in the interim list
+			decl = decls.get(i);			// Get next candidate declaration
+			moduleID = moduleIDs.get(i);		// Find out the module number which that declaration belongs to
+			addVar(decl, moduleID, modulesFile.getConstantValues());
+		}
+}
+else {
+		n = decls.size();		// Total number of variables in the interim list.
+		for (round = 0; round <= Declaration.MAX_DEFERRAL_ROUND; round++) {
+if (DEBUG_ADD_VAR) System.out.println("Doing ROUND " + round + " in VarList constructor");
+			for (i = 0; i < n; i++) {		// For each variable in the interim list
+				decl = decls.get(i);			// Get next candidate declaration
+				if (decl.getDeferCreateDDRound() == round)	// The current round is the round for that declaration to be created.
+				{
+if (DEBUG_ADD_VAR) System.out.println(decl.getName() + " is for this round");
+					moduleID = moduleIDs.get(i);		// Find out the module number which that declaration belongs to
+					addVar(decl, moduleID, modulesFile.getConstantValues());
+				}
+			}
+		}
+}
 	}
 
 	/**
@@ -101,6 +191,8 @@ public class VarList
 		if (var != null) {
 			vars.add(var);
 			totalNumBits += getRangeLogTwo(vars.size() - 1);
+System.out.println("ADDVAR: Adding variable " +decl.getName() + " to VarList; totalNumBits is now " + totalNumBits + "; putting into Map: <"+decl.getName()+","+(vars.size()-1)+">");
+
 			nameMap.put(decl.getName(), vars.size() - 1);
 		}
 else System.out.println("in parser.Values::addVar(3 Args): var is null *******"); 
@@ -114,7 +206,7 @@ else System.out.println("in parser.Values::addVar(3 Args): var is null *******")
 	 * @param module Index of module containing variable
 	 * @param constantValues Values of constants needed to evaluate low/high/etc.
 	 */
-	public void addVar(int i, Declaration decl, int module, Values constantValues) throws PrismLangException
+	private void addVar(int i, Declaration decl, int module, Values constantValues) throws PrismLangException
 	{
 		Var var = createVar(decl, module, constantValues);
 		if (var != null) {
