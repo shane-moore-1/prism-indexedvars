@@ -41,6 +41,7 @@ import prism.PrismLangException;
 
 public class ModulesFileSemanticCheckAfterConstants extends ASTTraverse
 {
+private static boolean DEBUG_THIS = false;
 	@SuppressWarnings("unused")
 	private ModulesFile modulesFile;
 
@@ -59,25 +60,31 @@ public class ModulesFileSemanticCheckAfterConstants extends ASTTraverse
 		int i, n;
 		String var;
 		Vector<String> varsUsed = new Vector<String>();
-if (DEBUG_Update) System.out.println("<MFSCAC_VisitPost_Upd>");
+if (DEBUG_Update || DEBUG_THIS) System.out.println("<MFSCAC_VisitPost_Upd>");
 		// Check that no variables are set twice in the same update
 		// Currently, could do this *before* constants are defined,
 		// but one day we might need to worry about e.g. array indices...
 // SHANE SAYS: That day has come! Thus some alterations are made to this code...
 		n = e.getNumElements();
 		for (i = 0; i < n; i++) {
-if (DEBUG_Update) {	// Declared in ASTTraverse
-	System.out.println("in ModulesFileSemanticCheckAfterConstants.visitPost(Update) for Update: " + e);
+if (DEBUG_Update || DEBUG_THIS) {	// Declared in ASTTraverse
+	System.out.println("<MFSCAC_VP_UD>\nin ModulesFileSemanticCheckAfterConstants.visitPost(Update) for Update: " + e);
 	System.out.println("  Considering update-element #" + (i + 1) + "/" + n);
 }
 			// Ensure it is not altering an Indexed Set's element.
 			if (!(e.getVarIdent(i) instanceof ExpressionIndexedSetAccess)) {
 				var = e.getVar(i);
+if (DEBUG_Update || DEBUG_THIS) {
+  System.out.println("NOT an ExprIndSetAcc. rather, var is: " + var);
+}	
 				if (varsUsed.contains(var)) {
 					throw new PrismLangException("Variable \"" + var + "\" is set twice in the same update", e.getVarIdent(i));
 				}
 				varsUsed.add(var);
 			} else {
+if (DEBUG_Update || DEBUG_THIS) {
+  System.out.println("YES an ExprIndSetAcc. ");
+}	
 				// There's not much we can do at this time, about actual attempted alterations to elements 
 				// of an indexed set, as the access-expression may require run-time evaluation.
 				// And there is potential that two update elements of the same update try to alter the one same item
@@ -85,15 +92,18 @@ if (DEBUG_Update) {	// Declared in ASTTraverse
 				// We could maybe issue a 'warning' onto mainLog.
 				System.out.println("Update element " + (i+1) + " of the following update modifies an indexed-set element: " + e);
 				System.out.println("If more than one element of the same Update alters the same index, there may be indeterminable behavior"); 
-if (DEBUG_Update) {
+if (DEBUG_Update || DEBUG_THIS) {
    System.out.println("  Nothing was checked by this Visitor, because it was targeting an indexed-set access.");
 }
 			}
-if (DEBUG_Update) {
+if (DEBUG_Update || DEBUG_THIS) {
 	System.out.println("  Finished considering update-element #" + (i + 1) + "/" + n);
+}
+if (DEBUG_Update || DEBUG_THIS) {	
+	System.out.println("</MFSCAC_VP_UD>");
 }
 		}
 		varsUsed.clear();
-if (DEBUG_Update) System.out.println("</MFSCAC_VisitPost_Upd>\n");
+if (DEBUG_Update || DEBUG_THIS) System.out.println("</MFSCAC_VisitPost_Upd>\n");
 	}
 }

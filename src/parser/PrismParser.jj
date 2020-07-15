@@ -899,8 +899,6 @@ Declaration Declaration2() :				// ALTERED BY SHANE to allow Indexed Sets.
 			// The terminating Semicolon:
 			<SEMICOLON>  {/*Should be after IndexedSet's SemiColon */}
 		)
-// Shane Thinks the following line is not relevant, and must have been from a testing stage 
-		| "6donkey" {getToken(0); /*KungFu*/} | "5panda" { getToken(0); /*Bamboo*/}
 
 		
 //	)	

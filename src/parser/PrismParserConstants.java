@@ -299,8 +299,6 @@ public interface PrismParserConstants {
     "<REG_IDENT>",
     "<PREPROC>",
     "<LEXICAL_ERROR>",
-    "\"6donkey\"",
-    "\"5panda\"",
   };
 
 }

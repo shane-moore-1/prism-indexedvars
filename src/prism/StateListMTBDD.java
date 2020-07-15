@@ -81,6 +81,8 @@ public class StateListMTBDD implements StateList
 	public StateListMTBDD(JDDNode states, Model model)
 	{
 		int i;
+
+System.out.println("STATES_LIST_MTBDD - First version of Constructor was called");
 		
 		// store states list bdd
 		this.states = states;
@@ -111,6 +113,7 @@ public class StateListMTBDD implements StateList
 	 */
 	public StateListMTBDD(JDDNode states, JDDVars vars, ODDNode odd, VarList varList)
 	{
+System.out.println("STATES_LIST_MTBDD - Second version of Constructor was called");
 		int i;
 
 		// store states vector mtbdd
@@ -253,6 +256,8 @@ public class StateListMTBDD implements StateList
 			j = varList.getNumVars();
 			varsString = "";
 			for (i = 0; i < j; i++) {
+/* INSERTED BY SHANE, putting the NAME of the purported variable before the value */
+varsString += " " +varList.getModule(i) + "." + varList.getName(i) + "=";
 				// integer variable
 				if (varList.getType(i) instanceof TypeInt) {
 					varsString += varValues[i]+varList.getLow(i);

@@ -191,6 +191,14 @@ JNIEXPORT void JNICALL Java_prism_PrismNative_PN_1FlushFile
 JNIEXPORT void JNICALL Java_prism_PrismNative_PN_1CloseFile
   (JNIEnv *, jclass, jlong);
 
+/*
+ * Class:     prism_PrismNative
+ * Method:    PN_MakeTopReportMsg
+ * Signature: (Ljava/lang/String;Ljava/lang/String;)V
+ */
+JNIEXPORT void JNICALL Java_prism_PrismNative_PN_1MakeTopReportMsg
+  (JNIEnv *, jclass, jstring, jstring);
+
 #ifdef __cplusplus
 }
 #endif

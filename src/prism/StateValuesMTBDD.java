@@ -80,6 +80,8 @@ String valStr = "" + values;
 	/** The ODD for the reachable states of the underlying model */
 	ODDNode odd;
 	/** The VarList of the underlying model*/
+
+// CAN THIS BE SET TO HAVE THE ORDER OF THE DEFERRED VARIABLES?
 	VarList varList;
 
 	// stuff to keep track of variable values in print method
@@ -711,6 +713,7 @@ if (o == null) return;
 			outputLog.print(n + ":(");
 			j = varList.getNumVars();
 			for (i = 0; i < j; i++) {
+outputLog.print(varList.getName(i) + "=");
 				// integer variable
 				if (varList.getType(i) instanceof TypeInt) {
 					outputLog.print(varValues[i]+varList.getLow(i));
@@ -737,17 +740,17 @@ if (o == null) return;
 
 		// then recurse...
 		currentVarLevel++; if (currentVarLevel == varSizes[currentVar]) { currentVar++; currentVarLevel=0; }
-if (o != null) 		/* SHANE DETECTED ISSUE.*/
+if (o != null) 		/* SHANE DETECTED ISSUE. BUT IS THAT BECAUSE OF  Variable Deferrals? Or was it an issue anyway beforehand? */
 		printRec(e, level+1, o.getElse(), n);
 else
- printRec(e, level+1, null, n);
+ outputLog.print("Error traversing tree in StateValuesMTBDD.printRec");
 		currentVarLevel--; if (currentVarLevel == -1) { currentVar--; currentVarLevel=varSizes[currentVar]-1; }
 		varValues[currentVar] += (1 << (varSizes[currentVar]-1-currentVarLevel));
 		currentVarLevel++; if (currentVarLevel == varSizes[currentVar]) { currentVar++; currentVarLevel=0; }
 if (o != null)			/* SHANE DETECTED ISSUE.*/
 		printRec(t, level+1, o.getThen(), n+o.getEOff());
 else
- printRec(t, level+1, null, n+o.getEOff());
+ outputLog.print("Error traversing tree in StateValuesMTBDD.printRec");
 		currentVarLevel--; if (currentVarLevel == -1) { currentVar--; currentVarLevel=varSizes[currentVar]-1; }
 		varValues[currentVar] -= (1 << (varSizes[currentVar]-1-currentVarLevel));
 	}

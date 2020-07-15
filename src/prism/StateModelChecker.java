@@ -55,8 +55,10 @@ public static boolean DEBUG = true;			// Whether to show default/higher importan
 public static boolean DEBUG2 = true;			// Whether to show lesser importance general debugging traces
 public static boolean DEBUG3_chkExprDD = true && !DEBUG_HIDE_CHECK;		// Whether to debug (trace) the checkExpressionDD() method
 public static boolean DEBUG_ChkExpr = true && !DEBUG_HIDE_CHECK;	// Whether to show the checkExpression()'s debug messages
+public static boolean DEBUG_ChkExpr_EISA = true;
 public static boolean DEBUG_CEF = true;			// Whether to debug (trace) the behaviours of checkExpressionFilter()
-public static boolean DEBUG_CheckIndSetAcc = true ;//&& !DEBUG_HIDE_CHECK;	// Whether to debug the checkIndexSetAccess() method.
+public static boolean DEBUG_CheckIndSetAcc = true && !DEBUG_HIDE_CHECK;	// Whether to debug the checkIndexSetAccess() method.
+public static boolean DEBUG_CheckIndSetAcc_Highlight = true ;//&& !DEBUG_HIDE_CHECK;	// Whether to debug the checkIndexSetAccess() method.
 public static boolean DEBUG_chkBinOp = true && !DEBUG_HIDE_CHECK;	// Whether to debug the checkIndexSetAccess() method.
 public static boolean DEBUG_ChkVar = true && !DEBUG_HIDE_CHECK;		// Whether to show checkExpressionVar() stages.
 public static boolean DEBUG_WHICH = true;		// Whether to show WHICH method we are doing.
@@ -68,7 +70,7 @@ public static int MAX_TREE_TO_DISPLAY = 1200;
 
 public static void ShaneReportDD(String message, JDDNode toReport)
 {
-	System.out.println("======");
+/*	System.out.println("======");
 	System.out.println(message);
 	System.out.println("  GetNumNodes():      " + JDD.GetNumNodes(toReport));
 	System.out.println("  GetNumTerminals():  " + JDD.GetNumTerminals(toReport));
@@ -78,9 +80,18 @@ public static void ShaneReportDD(String message, JDDNode toReport)
 		   System.out.println("Tree would be too large to report"); 
 		else 
 		   toReport.ShaneShowChildren();
+*/
 }
 
-
+public static void ShowCheckCalls()
+{
+System.out.println("SMC.ShowCheckCalls - NOT ENABLING DEBUGGING OF CALLS to some of the StateModelChecker class methods.");
+/*DEBUG_HIDE_CHECK = false;		
+	DEBUG_ChkExpr = true && !DEBUG_HIDE_CHECK;
+	DEBUG3_chkExprDD = true && !DEBUG_HIDE_CHECK;
+	DEBUG_ChkVar = true && !DEBUG_HIDE_CHECK;
+*/	
+}
 
 
 	// PRISM stuff
@@ -250,6 +261,7 @@ if (DEBUG_constr) System.out.println(" modelType is CTMC, making a StochModelChe
 		model.clear();
 	}
 
+private static int InvokeCount_check = 0;
 	@Override
 	public Result check(Expression expr) throws PrismException
 	{
@@ -260,9 +272,11 @@ if (DEBUG_constr) System.out.println(" modelType is CTMC, making a StochModelChe
 		// Create storage for result
 		result = new Result();
 
+InvokeCount_check++;
 		// Remove any existing filter info
 		currentFilter = null;
-System.out.println("<check what='" + expr + "' sourcecode='in prism.SMC::check() @~230'");
+System.out.println("\n'in prism.SMC::check() @ PLACE SMCChk-1 (the start of the method)");
+System.out.println("<SMC_Check invocation='"+InvokeCount_check+"' expr='" + expr + "'>");
 
 		// Wrap a filter round the property, if needed
 		// (in order to extract the final result of model checking) 
@@ -275,12 +289,18 @@ System.out.println("<check what='" + expr + "' sourcecode='in prism.SMC::check()
 		
 		// Do model checking and store result vector
 		timer = System.currentTimeMillis();
-System.out.println("in prism.SMC::check() @~208 for expression: " + expr + " for which I am about to call checkExpression");
 
 		// check expression, statesOfInterest = all reachable states
+System.out.println("in prism.SMC::check() @ PLACE SMCChk-2 : I am about to call checkExpression for " + expr);
+System.out.println("passing as the 'statesOfInterest' a copy of model.getReach() [so, all reachable states]");
+
 		vals = checkExpression(expr, model.getReach().copy());
+
+System.out.println("in prism.SMC::check() @ PLACE SMCChk-3 : I have now returned from call of checkExpression for " + expr);
+
 		timer = System.currentTimeMillis() - timer;
 		System.out.println("\nTime for model checking: " + timer / 1000.0 + " seconds.");
+PrismNative.ShaneMakeTopReportMsg("check "+InvokeCount_check+" has ended");
 
 		// Print result to log
 		resultString = "Result";
@@ -291,7 +311,7 @@ System.out.println("in prism.SMC::check() @~208 for expression: " + expr + " for
 
 		// Clean up
 		vals.clear();
-System.out.println("End of SMC.check()");
+System.out.println("\nEnd of SMC.check()\n</SMC_Check invocation='"+InvokeCount_check+"' >\n");
 		// Return result
 		return result;
 	}
@@ -302,10 +322,11 @@ System.out.println("End of SMC.check()");
 int myCallSeqID = ChkExpCallSeqID++;
 
 if (DEBUG_ChkExpr) PrintDebugIndent();
-if (DEBUG_ChkExpr) {
+if (DEBUG_ChkExpr && !DEBUG_HIDE_CHECK) {
   System.out.println("<CheckExpr callseq='" + myCallSeqID + "' comment=\'StateModelChecker.checkExpr() called for expression: " + expr + "\'>");
   DebugIndent++;
-  System.out.println("statesOfInterest is this JDDNode: " + statesOfInterest);
+  System.out.println("In SMC.checkExpr() PLACE CE-1.\n");
+//  System.out.println("\tstatesOfInterest is this JDDNode: " + statesOfInterest);
 }
 		StateValues res;
 
@@ -313,27 +334,32 @@ if (DEBUG_ChkExpr) {
 		if (expr instanceof ExpressionITE) {
 if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("treating as ExpressionITE");}
 			res = checkExpressionITE((ExpressionITE) expr, statesOfInterest);
+if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("finished treating "+expr+" as ExpressionITE");}
 		}
 		// Binary ops
 		else if (expr instanceof ExpressionBinaryOp) {
 if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("treating as ExpressionBinaryOp");}
 			res = checkExpressionBinaryOp((ExpressionBinaryOp) expr, statesOfInterest);
+if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("finished treating "+expr+" as ExpressionBinaryOp");}
 		}
 		// Unary ops
 		else if (expr instanceof ExpressionUnaryOp) {
 if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("treating as ExpressionUnaryOp");}
 			res = checkExpressionUnaryOp((ExpressionUnaryOp) expr, statesOfInterest);
+if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("finished treating "+expr+" as ExpressionUnaryOp");}
 		}
 		// Functions
 		else if (expr instanceof ExpressionFunc) {
 if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("treating as ExpressionFunc");}			
 			res = checkExpressionFunc((ExpressionFunc) expr, statesOfInterest);
+if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("finished treating "+expr+" as ExpressionFunc");}			
 		}
 		// Identifier for accessing an indexed set
 		else if (expr instanceof ExpressionIndexedSetAccess)		// ADDED BY SHANE
 		{
-if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("treating as *****   ExpressionIndexedSetAccess *****");}
+if (DEBUG_ChkExpr_EISA) {PrintDebugIndent(); System.out.println("treating as *****   ExpressionIndexedSetAccess *****");}
 			res = checkExpressionIndSetAcc((ExpressionIndexedSetAccess) expr,statesOfInterest);
+if (DEBUG_ChkExpr_EISA) {PrintDebugIndent(); System.out.println("finished treating "+expr+" as *****   ExpressionIndexedSetAccess *****");}
 		}
 		// Identifiers (non-indexed)
 		else if (expr instanceof ExpressionIdent) {
@@ -344,40 +370,47 @@ if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("treating as *****   
 		else if (expr instanceof ExpressionLiteral) {
 if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("treating as ExpressionLiteral");}
 			res = checkExpressionLiteral((ExpressionLiteral) expr, statesOfInterest);
+if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("finished treating "+expr+" as ExpressionLiteral");}
 		}
 		// Constants
 		else if (expr instanceof ExpressionConstant) {
 if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("treating as ExpressionConstant");}
 			res = checkExpressionConstant((ExpressionConstant) expr, statesOfInterest);
+if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("finished treating "+expr+" as ExpressionConstant");}
 		}
 		// Formulas
 		else if (expr instanceof ExpressionFormula) {
 if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("treating as ExpressionFormula");}
 			// This should have been defined or expanded by now.
-			if (((ExpressionFormula) expr).getDefinition() != null)
+			if (((ExpressionFormula) expr).getDefinition() != null) {
+if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("finished treating "+expr+" as ExpressionFormula");}
 				return checkExpression(((ExpressionFormula) expr).getDefinition(), statesOfInterest);
-			else
+			} else
 				throw new PrismException("Unexpanded formula \"" + ((ExpressionFormula) expr).getName() + "\"");
 		}
 		// Variables
 		else if (expr instanceof ExpressionVar) {
 if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("treating as ExpressionVar");}
 			res = checkExpressionVar((ExpressionVar) expr, statesOfInterest);
+if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("finished treating "+expr+" as ExpressionVar");}
 		}
 		// Labels
 		else if (expr instanceof ExpressionLabel) {
 if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("treating as ExpressionLabel");}
 			res = checkExpressionLabel((ExpressionLabel) expr, statesOfInterest);
+if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("finished treating "+expr+" as ExpressionLabel");}
 		}
 		// Property refs
 		else if (expr instanceof ExpressionProp) {
 if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("treating as ExpressionProp");}
 			res = checkExpressionProp((ExpressionProp) expr, statesOfInterest);
+if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("finished treating "+expr+" as ExpressionProp");}
 		}
 		// Filter
 		else if (expr instanceof ExpressionFilter) {
 if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("treating as ExpressionFilter");}
 			res = checkExpressionFilter((ExpressionFilter) expr, statesOfInterest);
+if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("finished treating "+expr+" as ExpressionFilter");}
 		}
 		// Anything else - error
 		else {
@@ -386,7 +419,7 @@ if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("expr was not recogni
 			throw new PrismException("Couldn't check " + expr.getClass());
 		}
 
-if (DEBUG_ChkExpr) {System.out.println("\n"); PrintDebugIndent(); System.out.println("Back in 'SMC.checkExpr() callseq='" + myCallSeqID + "' for expression: " + expr + " we now have a value for 'res'.");}
+if (DEBUG_ChkExpr) {System.out.println("\n\n"); PrintDebugIndent(); System.out.println("Back in SMC.checkExpr() PLACE CE-2 for callseq='" + myCallSeqID + "' for expression: " + expr + " we now have a value for 'res'.");}
 
 if (DEBUG_ShowStatsForNodes)
 {
@@ -400,8 +433,8 @@ if (DEBUG_ShowStatsForNodes)
 		if (res instanceof StateValuesMTBDD && reach != null)
 		{
 if (DEBUG_ChkExpr) { 
-  PrintDebugIndent(); System.out.println("RES-CASE 1: 'res' IS an instance of StateValuesMTBDD (i.e. symbolic),\n\t\tAND the reach is not null,");
-  System.out.println("\t\twhich means, we WILL FILTER OUT apparently non-reachable states.");
+  PrintDebugIndent(); System.out.println("RES-CASE 1:\t 'res' IS an instance of StateValuesMTBDD (i.e. symbolic),\n\t\tAND the reach is not null,");
+  System.out.println("\t\twhich means, we WILL FILTER OUT non-reachable states.");
 }
 // The next line is ORIGINAL from the github version (i.e. not part of debugging):
 			res.filter(reach);
@@ -414,6 +447,7 @@ else if (res instanceof StateValuesMTBDD) {
   }
 }
 
+if (DEBUG_ChkExpr) System.out.println("In SMC.checkExpression() - PLACE CE-3 (Ending call)");
 if (DEBUG_ChkExpr) DebugIndent--;
 if (DEBUG_ChkExpr) PrintDebugIndent();
 if (DEBUG_ChkExpr) System.out.println("</CheckExpr callseq='" + myCallSeqID + "' comment=\"StateModelChecker.checkExpr() finished for expression: " + expr + "\" >\n");
@@ -430,24 +464,24 @@ if (DEBUG_ChkExpr) System.out.println("</CheckExpr callseq='" + myCallSeqID + "'
 		
 if (DEBUG3_chkExprDD) {
   StackTraceElement[] STACK = (new Exception()).getStackTrace();
-  PrintDebugIndent(); System.out.println("<ChkDD comment='in prism.StateModelChecker.checkExpressionDD() for '" + expr + "' calledFrom='"+STACK[1]+"'>");
+  PrintDebugIndent(); System.out.println("\n<ChkDD comment='in SMC.ChkExprDD() for '" + expr + "'\ncalledFrom='"+STACK[1]+"'>\n");
   DebugIndent++;
 }
-if (DEBUG3_chkExprDD) {PrintDebugIndent(); System.out.println("1. [In ChkDD for '"+expr+"'] - Calling checkExpression for it...");}
+if (DEBUG3_chkExprDD) {PrintDebugIndent(); System.out.println("1. [In SMC.ChkDD for '"+expr+"'] - Calling checkExpression for it (to get a StateValues)...");}
 
 		StateValues interimStep = checkExpression(expr, statesOfInterest);
 
 if (DEBUG3_chkExprDD) {
-	PrintDebugIndent(); System.out.println("2. [In ChkDD for '"+expr+"'] - the StateValues returned from checkExpression is:\n");
+	PrintDebugIndent(); System.out.println("2. [In SMC.ChkExprDD for '"+expr+"'] - the StateValues returned from checkExpression is:");
 	if (interimStep != null) interimStep.print(mainLog);
 	else System.out.println(" NULL");
 }
 
-if (DEBUG3_chkExprDD) {PrintDebugIndent(); System.out.println("3. [In ChkDD for '"+expr+"'] - now calling convertToStateValuesMTBDD()");}
+if (DEBUG3_chkExprDD) {PrintDebugIndent(); System.out.println("\n3. [In SMC.ChkExprDD for '"+expr+"'] - now calling convertToStateValuesMTBDD()");}
 		sv = interimStep.convertToStateValuesMTBDD();
 
 if (DEBUG3_chkExprDD) {
-if (DEBUG3_chkExprDD) {PrintDebugIndent(); System.out.println("4. [In ChkDD for '"+expr+"'] - returned from calling convertToStateValuesMTBDD()\nResult: ");}
+if (DEBUG3_chkExprDD) {PrintDebugIndent(); System.out.println("\n4. [In ChkExprDD for '"+expr+"'] - returned from calling convertToStateValuesMTBDD()\nResult: ");}
 	if (sv != null) sv.print(mainLog);
 	else System.out.println(" is null - nothing to print!");
 }
@@ -461,7 +495,7 @@ if (DEBUG_ShowStatsForNodes)
 
 if (DEBUG3_chkExprDD) {
   DebugIndent--;
-  PrintDebugIndent(); System.out.println("</ChkDD>\n");
+  PrintDebugIndent(); System.out.println("</ChkDD for='"+expr+"'>\n");
 //Exception eee = new Exception("STACKTRACE ONLY (at very end of ChkDD)");
 //eee.printStackTrace(System.out);
 }
@@ -1260,20 +1294,26 @@ if (DEBUG_ChkVar) System.out.println("<ChkVar expr='"+expr+"'>");
 		if (v == -1) {
 			throw new PrismException("Unknown variable \"" + s + "\"");
 		}
-else if (DEBUG_ChkVar) System.out.println("Variable's name is: " + s + ", and its index in the VarList is: " + v);
+else if (DEBUG_ChkVar) {
+    System.out.println("Var in expression: " + s + "\nand its index in the VarList is apparently: " + v);
+}
 		// get some info on the variable
 		l = varList.getLow(v);
 		h = varList.getHigh(v);
 if (DEBUG_ChkVar) System.out.println("Variable's lowest val is: " + l + ", and its highest val is: " + h +"\nAbout to make a new DD, and manipulate it using SetVectorElement...");
 		// create dd
 		dd = JDD.Constant(0);
+if (DEBUG_ChkVar) System.out.println("The purpose of the selected varDDRowVars is: " + varDDRowVars[v].getPurpose());
 		for (i = l; i <= h; i++) {
 			dd = JDD.SetVectorElement(dd, varDDRowVars[v], i - l, i);
 		}
-dd.setPurpose("% JDD for an ExpressionVar for variable " + expr + ", created in SMC.checkExprVar %");
+//dd.setPurpose("% JDD for an ExpressionVar for variable " + expr + ", created in SMC.checkExprVar %");
 
+		StateValues result = new StateValuesMTBDD(dd, model);
+if (DEBUG_ChkVar) System.out.println("The StateValues being returned for the expression: '"+expr+"' is:\n" + result);
 if (DEBUG_ChkVar) System.out.println("</ChkVar expr='"+expr+"'>\n");
-		return new StateValuesMTBDD(dd, model);
+
+		return result;
 	}
 
 	// ADDED BY SHANE - checks an expression for Accessing of an Indexed Set:
@@ -1298,29 +1338,33 @@ DebugIndent++;
 		
 		int evaluatedIndexPos = 0;
 		
-if (DEBUG_CheckIndSetAcc)
+if (DEBUG_CheckIndSetAcc_Highlight)
 {
 	PrintDebugIndent();
-	System.out.println("In SMC.checkExpressionIndSetAcc - place 1, for: " + eisa);
+	System.out.println("<ChkEISA> In SMC.checkExpressionIndSetAcc() - place 1, for: " + eisa);
 }
 
 		Expression accessExpr = eisa.getIndexExpression();
 // OLD - wasn't sufficient		StateValues intermediate = checkExpression(accessExpr(),statesOfInterest);
 
 		// Is it a constant int value - if so, find out exactly what that constant is...
-
-
-if (DEBUG_CheckIndSetAcc) System.out.println("isConstant gives:  " + accessExpr.isConstant() );
-if (DEBUG_CheckIndSetAcc) System.out.println("type gives:        " + accessExpr.getType() );
-if (DEBUG_CheckIndSetAcc) System.out.println("is that int gives: " + (accessExpr.getType() instanceof TypeInt));
+if (DEBUG_CheckIndSetAcc) {
+	PrintDebugIndent(); System.out.println("  isConstant gives:  " + accessExpr.isConstant() );
+	PrintDebugIndent(); System.out.println("  type gives:        " + accessExpr.getType() );
+	PrintDebugIndent(); System.out.println("  Was that type an int? " + ((accessExpr.getType() instanceof TypeInt) ? "Yes":"No"));
+}
+	// Note: Due to the substitution combinations having been done prior to reaching here, for model building at least, it will always
+	// be THIS case which is done, and the access expression will always be a constant by the time this method is called.
 
 		// A constant is provided, and its type is int  [maybe includes Literals??] 
 		if (accessExpr.isConstant() && accessExpr.getType() instanceof TypeInt) {
-if (DEBUG_CheckIndSetAcc) System.out.println("CASE 1: AccessExpression is constant, and integer");
+if (DEBUG_CheckIndSetAcc_Highlight) System.out.println("ChkEISA - CASE 1: AccessExpression is constant, and integer");
+
+//SHANE FEB 2020 - Should we de-ref this?? Or Not?
 			JDD.Deref(statesOfInterest);	// It is constant, so we don't need to worry about any state!!
 
 			evaluatedIndexPos = accessExpr.evaluateInt(constantValues);	// Find the value
-if (DEBUG_CheckIndSetAcc) System.out.println("I believe you want to access index " + evaluatedIndexPos);
+if (DEBUG_CheckIndSetAcc) System.out.println("I believe you want to access specific index '" + evaluatedIndexPos+ "'");
 
 			// Check the index is within the valid range?
 
@@ -1330,15 +1374,15 @@ if (DEBUG_CheckIndSetAcc)
 {
 	PrintDebugIndent();
 	System.out.println("In SMC.checkExpressionIndSetAcc - place 3, determined name of variable as " + s);
-	System.out.println("will look for the variable having that name.");
 	PrintDebugIndent();
+	System.out.println("will look for the variable having that name.");
 }
 			// NOW that we know WHICH variable corresponds to the desired index, we do exactly as is done for a normal non-indexed variable (see checkExprVar)
 			// get the indexed-variable's varList index
 
-if (DEBUG_CheckIndSetAcc) System.out.println("<BOINK>");
+if (DEBUG_CheckIndSetAcc) System.out.println("<BOINK1>");
 			v = varList.getIndex(s);
-if (DEBUG_CheckIndSetAcc) System.out.println("Result of getIndex was: " + v + "\n</BOINK>");
+if (DEBUG_CheckIndSetAcc) System.out.println("Result of getIndex was: " + v + "\n</BOINK1>");
 			if (v == -1) {
 				throw new PrismException("Unknown variable \"" + s + "\"");
 			}
@@ -1352,15 +1396,20 @@ if (DEBUG_CheckIndSetAcc) System.out.println("Result of getIndex was: " + v + "\
 			}
 
 DebugIndent--;
+if (DEBUG_CheckIndSetAcc_Highlight)
+{
+	PrintDebugIndent();
+	System.out.println("</ChkEISA considered='" + eisa + "'>\n");
+}
 			return new StateValuesMTBDD(dd, model);
 		}
-// THE REMAINDER IS INCOMPLETE.
+// THE REMAINDER IS INCOMPLETE - but may not be required since an earlier phase generates versions of command which have specific indexes before coming to this metho.
 		else if (accessExpr instanceof ExpressionVar) 		// THIS ONE CANNOT BE USED DURING MODEL-CONSTRUCTION; ONLY DURING ACTUAL MODEL-CHECKING
 		{
-if (DEBUG_CheckIndSetAcc) System.out.println("CASE 2: AccessExpression is a Var expression");
+if (DEBUG_CheckIndSetAcc_Highlight) System.out.println("ChkEISA - CASE 2: AccessExpression is a Var expression");
 		    if (accessExpr.getType() instanceof TypeInt)
 		    {
-if (DEBUG_CheckIndSetAcc) System.out.println("SUBCASE A: the AccessExpression is of type Int");
+if (DEBUG_CheckIndSetAcc) System.out.println("SUBCASE A: the AccessExpression '"+accessExpr+"' is of type Int");
 //			JDD.Deref(statesOfInterest);	// It is constant, so we don't need to worry about any state!!
 
 //UP TO HERE
@@ -1378,6 +1427,7 @@ if (DEBUG_CheckIndSetAcc) System.out.println("Is res2 NOT instanceof StateValues
 			if (!(res2 instanceof StateValuesMTBDD)) {
 				
 System.out.println("Case A - res2 is of type: " + res2.getClass().getName());
+				System.out.println("IMPLEMENTATION INCOMPLETE to deal with CASE 2A indexAccessExpression: " + accessExpr);
 //res2.print(System.out);
 //res2.convertToStateValuesDV().print(System.out);
 /*
@@ -1436,6 +1486,7 @@ if (DEBUG_CheckIndSetAcc)
 //			evaluatedIndexPos = (int) d.getJDDNode().getValue();
 //System.out.println(d);
 	d.print(mainLog);
+				System.out.println("IMPLEMENTATION INCOMPLETE to deal with CASE 2B indexAccessExpression: " + accessExpr);
 
 /* some other stuff		dd1 = ((StateValuesMTBDD) res1).getJDDNode();
 				dd2 = ((StateValuesMTBDD) res2).getJDDNode();
@@ -1469,9 +1520,9 @@ if (DEBUG_CheckIndSetAcc)
 			// NOW that we know WHICH variable corresponds to the desired index, we do exactly as for a normal variable (see checkExprVar)
 
 			// get the variable's index
-if (DEBUG_CheckIndSetAcc) System.out.println("<BOINK>");
+if (DEBUG_CheckIndSetAcc) System.out.println("<BOINK2>");
 			v = varList.getIndex(s);
-if (DEBUG_CheckIndSetAcc) System.out.println("Result of getIndex was: " + v + "\n</BOINK>");
+if (DEBUG_CheckIndSetAcc) System.out.println("Result of getIndex was: " + v + "\n</BOINK2>");
 			if (v == -1) {
 				throw new PrismException("Unknown variable \"" + s + "\"");
 			}
@@ -1486,18 +1537,41 @@ if (DEBUG_CheckIndSetAcc) System.out.println("Result of getIndex was: " + v + "\
 
 DebugIndent--;
 //			return new StateValuesMTBDD(dd, model);
+if (DEBUG_CheckIndSetAcc_Highlight)
+{
+	PrintDebugIndent();
+	System.out.println("</ChkEISA considered='" + eisa + "'>\n");
+}
 			throw new PrismException("IMPLEMENTATION INCOMPLETE to deal with: " + accessExpr);
 
 		    } else {	// The access expression has some type other than Int
 if (DEBUG_CheckIndSetAcc) System.out.println("SUBCASE B: the AccessExpression is NOT of type Int - it is of type: " + accessExpr.getType().getClass().getName());
+if (DEBUG_CheckIndSetAcc_Highlight)
+{
+	PrintDebugIndent();
+	System.out.println("</ChkEISA considered='" + eisa + "'>\n");
+}
 			throw new PrismException("Unable to model-check that type of index access expression: " + accessExpr);
 		    }
 		} else if (accessExpr instanceof ExpressionBinaryOp || accessExpr instanceof ExpressionUnaryOp) { // Some kind of arithmetic, presumbly.
-if (DEBUG_CheckIndSetAcc) System.out.println("CASE 3: AccessExpression is something which needs calculation, namely:" + accessExpr.getClass().getName() );
-			throw new PrismException("IMPLEMENTATION INCOMPLETE - Unable to model-check that type of index access expression: " + accessExpr);
+if (DEBUG_CheckIndSetAcc_Highlight) System.out.println("CASE 3: AccessExpression is something which needs calculation, namely:" + accessExpr.getClass().getName() );
+System.out.println("access expression: " + accessExpr);
+System.out.println("object type of accessExpr: " + accessExpr.getClass().getName());
+System.out.println("getType on the expression: " + accessExpr.getType());
+if (DEBUG_CheckIndSetAcc_Highlight)
+{
+	PrintDebugIndent();
+	System.out.println("</ChkEISA considered='" + eisa + "'>\n");
+}
+			throw new PrismException("IMPLEMENTATION INCOMPLETE - Unable to model-check that type of index access expression: " + accessExpr + "\nthe object type is: "+accessExpr.getClass().getName());
 		}else { 	// For example, a
-if (DEBUG_CheckIndSetAcc) System.out.println("CASE 4: AccessExpression is of an unhandled type, namely:" + accessExpr.getClass().getName() );
-			throw new PrismException("IMPLEMENTATION INCOMPLETE - Unable to model-check that type of index access expression: " + accessExpr);
+if (DEBUG_CheckIndSetAcc_Highlight) System.out.println("CASE 4: AccessExpression is of an unhandled type, namely:" + accessExpr.getClass().getName() );
+if (DEBUG_CheckIndSetAcc_Highlight)
+{
+	PrintDebugIndent();
+	System.out.println("</ChkEISA considered='" + eisa + "'>\n");
+}
+			throw new PrismException(" *** IMPLEMENTATION INCOMPLETE *** - Unable to model-check that type of index access expression: " + accessExpr);
 		}
 
 
@@ -1513,7 +1587,6 @@ if (DEBUG_CheckIndSetAcc) System.out.println("Intermediate is symbolic - Shane h
 		}
 		// Otherwise result will be explicit
 */
-
 
 	}
 	
@@ -1597,25 +1670,25 @@ if (DEBUG_CEF) System.out.println("   In ChkExprFilter, @ Place 1:  isTrue(filte
 
 // Store some more info
 		String filterStatesString = filterTrue ? "all states" : "states satisfying filter";
-if (DEBUG_CEF) System.out.println("   In ChkExprFilter, @ Place 2:  about to call checkExprDD on the filter...");
+if (DEBUG_CEF) System.out.println("\n   In ChkExprFilter, @ Place 2:  about to call checkExprDD on the filter...");
 		JDDNode ddFilter = checkExpressionDD(filter, statesOfInterest.copy());
-if (DEBUG_CEF) System.out.println("   Back In ChkExprFilter, @ Place 3:  about to call constructor for StateListMTBDD, with ddFilter and model");
+if (DEBUG_CEF) System.out.println("\n   Back In SMC.ChkExprFilter, @ Place 3:  about to call constructor for StateListMTBDD, with ddFilter (just received) and model");
 		StateListMTBDD statesFilter = new StateListMTBDD(ddFilter, model);
 		// Check if filter state set is empty; we treat this as an error
 		if (ddFilter.equals(JDD.ZERO)) {
 if (DEBUG_CEF) System.out.println("   In ChkExprFilter, the ddFilter equals JDD.ZERO, so an Exception will be thrown:  Filter satisfies no states");
 			throw new PrismException("Filter satisfies no states");
 		}
-else if (DEBUG_CEF) System.out.println("   In ChkExprFilter, @ Place 4:  the ddFilter does not equal JDD.ZERO, so NO Exception will be thrown ");
+else if (DEBUG_CEF) System.out.println("   In SMC.ChkExprFilter, @ Place 4:  the ddFilter does not equal JDD.ZERO, so NO Exception will be thrown ");
 
 		// Remember whether filter is for the initial state and, if so, whether there's just one
 		boolean filterInit = (filter instanceof ExpressionLabel && ((ExpressionLabel) filter).isInitLabel());
 		boolean filterInitSingle = filterInit & model.getNumStartStates() == 1;
-if (DEBUG_CEF) System.out.println("   In ChkExprFilter, @ Place 5:  filterInit is " + filterInit + ", filterInitSingle is " + filterInitSingle);
+if (DEBUG_CEF) System.out.println("   In SMC.ChkExprFilter, @ Place 5:  filterInit is " + filterInit + ", filterInitSingle is " + filterInitSingle);
 
 		// For some types of filter, store info that may be used to optimise model checking
 		FilterOperator op = expr.getOperatorType();
-if (DEBUG_CEF) System.out.print("   In ChkExprFilter, @ Place 6: About to call ODDUtils.GetIndexOfFistFromDD: ");
+if (DEBUG_CEF) System.out.print("   In SMC.ChkExprFilter, @ Place 6: Determining the type of FilterOperator... Then will call GetIndexOfFirstFromDD to pass to this Filter constructor: ");
 		if (op == FilterOperator.STATE) {
 if (DEBUG_CEF) System.out.println("Case 1 (FilterOperator.STATE)");
 			// Check filter satisfied by exactly one state
@@ -1644,7 +1717,7 @@ if (DEBUG_CEF) {
 		StateValues vals = null;
 		try {
 			// Check operand recursively, using the filter as the states of interest
-if (DEBUG_CEF) System.out.println("   In ChkExprFilter, @ Place 7: about to call checkExpression on operand: " + expr.getOperand());
+if (DEBUG_CEF) System.out.println("\n   In ChkExprFilter, @ Place 7: about to call checkExpression on operand: " + expr.getOperand() + "\nNote: the second parameter [statesOfInterest] is the DD representing the filter (the start point states for doing the check)\n");
 			vals = checkExpression(expr.getOperand(), ddFilter.copy());
 		} catch (PrismException e) {
 			JDD.Deref(ddFilter);
@@ -1652,7 +1725,7 @@ if (DEBUG_CEF) System.out.println("   In ChkExprFilter, @ Place 7: about to call
 if (DEBUG_CEF) e.printStackTrace(System.out);
 			throw e;
 		}
-if (DEBUG_CEF) System.out.println("   In ChkExprFilter, @ Place 8: having just completed checkExpression on operand: " + expr.getOperand());
+if (DEBUG_CEF) System.out.println("   In ChkExprFilter, @ Place 8: having just completed checkExpression on operand: " + expr.getOperand() + "\n");
 
 		// Print out number of states satisfying filter
 		if (!filterInit)
@@ -1925,7 +1998,7 @@ if (DEBUG_CEF) System.out.print("   In ChkExprFilter, @ Place 9: considering the
 			throw new PrismException("Unrecognised filter type \"" + expr.getOperatorName() + "\"");
 		}
 
-if (DEBUG_CEF) System.out.print("   In ChkExprFilter, @ Place 10: ddMatch != null is " + (ddMatch != null) );
+if (DEBUG_CEF) System.out.println("   In ChkExprFilter, @ Place 10: ddMatch != null is " + (ddMatch != null) );
 
 		// For some operators, print out some matching states
 		if (ddMatch != null) {

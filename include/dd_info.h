@@ -31,6 +31,7 @@
 
 int DD_GetNumNodes(DdManager *ddman, DdNode *dd);
 int DD_GetNumTerminals(DdManager *ddman, DdNode *dd);
+int DD_ShaneGetRefCount(DdManager *ddman, DdNode *dd);
 double DD_GetNumMinterms(DdManager *ddman, DdNode *dd, int num_vars);
 double DD_GetNumPaths(DdManager *ddman, DdNode *dd);
 void DD_PrintInfo(DdManager *ddman, DdNode *dd, int num_vars);

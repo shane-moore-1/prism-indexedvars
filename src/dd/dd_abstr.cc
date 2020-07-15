@@ -172,11 +172,13 @@ int num_vars
 	DdNode *cube, *res;
 
 	if (dd == NULL) return NULL;
-
+printf("In src/dd/dd_abstr.cc: DD_MaxAbstract - Place 1\n");
 	cube = Cudd_addComputeCube(ddman, vars, NULL, num_vars);
 	if (cube == NULL) return NULL;
 	Cudd_Ref(cube);
+printf("In DD_MaxAbstract - Place 2\n");
 	res = Cudd_addMaxAbstract(ddman, dd, cube);	
+printf("In DD_MaxAbstract - Place 3 - completed MaxAbstract\n");
 	if (res == NULL) return NULL;
 	Cudd_Ref(res);
 	Cudd_RecursiveDeref(ddman, dd);

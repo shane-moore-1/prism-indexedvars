@@ -205,7 +205,7 @@ jint flags
 	
 	// build b vector (if present)
 	if (b != NULL) {
-		PH_PrintToMainLog(env, "Creating vector for RHS... ");
+		PH_PrintToMainLog(env, "Creating vector for RHS... in PH_JORInterval ");
 		b_vec = mtbdd_to_double_vector(ddman, b, rvars, num_rvars, odd);
 		// try and convert to compact form if required
 		compact_b = false;

@@ -1,0 +1,8 @@
+April 7, 2020:
+    I temporarily commented-out the visit(EISA) in the FindAllVars, since the superclass should be sufficient now.
+    The reason I tried this was: when trying to build the btyp file, the listConsider variable did not exist (it was still named queueConsider)
+    and when it reached the use of the unknown variable, it was not reporting the usual "Unknown variable" error, but now it is.
+    I should possible check other correct models still work.
+
+HOWEVER:
+    I restored it back in, because then the TypeCheck visitor complained.

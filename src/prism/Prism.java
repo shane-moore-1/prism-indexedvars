@@ -82,8 +82,9 @@ public class Prism extends PrismComponent implements PrismSettingsListener
 // ADDED BY SHANE to enable debugging to be switched on or off
 private static boolean DEBUG = false;
 private static boolean DEBUG_loadPrismModel = false; //true;
-private static boolean DEBUG_SetModelConstants = false;
+private static boolean DEBUG_SetModelConstants = true;
 private static boolean DEBUG_DOBUILD = true;				// Whether to show steps of doBuildModel().
+private static boolean DEBUG_PMC = true;		// show output for modelCheck() method
 	/** PRISM version (e.g. "4.0.3"). Read from prism.Version. */
 	private static String version = prism.Version.versionString;
 
@@ -2186,6 +2187,7 @@ mainLog.println("The final order of JDD variables in the model are:");
 currentModel.getModelVariables().showVarNamesAndIDs();
 }
 if (DEBUG_DOBUILD) System.out.println("</doBuildModel>");
+		PrismNative.ShaneMakeTopReportMsg("Completed building model in doBuildModel()");
 		} catch (PrismException e) {
 			// Notify model listeners of build failure
 			for (PrismModelListener listener : modelListeners) {
@@ -2977,9 +2979,9 @@ if (DEBUG_DOBUILD) System.out.println("</doBuildModel>");
 
 		if (!digital)
 			mainLog.printSeparator();
-if (DEBUG) {
+if (DEBUG_PMC) {
 	System.out.println("<ModelCheck prop=\'" + prop + "\'>");
-	System.out.println(" @ prism.Prism.modelCheck() - Place 1");
+	System.out.println(" @ prism.Prism.modelCheck() - PMC Place 1");
 	System.out.println("CSV-LONG CSV-BRIEF, Model checking: " + prop );		// REALLY need to 'escape' it, enclose in doubquot, ensure doubquots inside it are duplicated twice in a row.
 }
 		mainLog.println("\nModel checking: " + prop);
@@ -2988,34 +2990,34 @@ if (DEBUG) {
 		if (definedPFConstants != null && definedPFConstants.getNumValues() > 0)
 			mainLog.println("Property constants: " + definedPFConstants);
 
-if (DEBUG) System.out.println(" @ prism.Prism.modelCheck() - Place 2");
+if (DEBUG_PMC) System.out.println(" @ prism.Prism.modelCheck() - PMC Place 2");
 
 		// Check that property is valid for the current model type
 		prop.getExpression().checkValid(currentModelType);
 
 		// For PTAs...
 		if (currentModelType == ModelType.PTA) {
-if (DEBUG) System.out.println(" @ prism.Prism.modelCheck() - Place 2-B - calling modelCheckPTA");
+if (DEBUG_PMC) System.out.println(" @ prism.Prism.modelCheck() - PMC Place 2-B - calling modelCheckPTA");
 			return modelCheckPTA(propertiesFile, prop.getExpression(), definedPFConstants);
 		}
 
 		// For exact model checking
 		if (settings.getBoolean(PrismSettings.PRISM_EXACT_ENABLED)) {
-if (DEBUG) System.out.println(" @ prism.Prism.modelCheck() - Place 2-C - calling modelCheckExact");
+if (DEBUG_PMC) System.out.println(" @ prism.Prism.modelCheck() - PMC Place 2-C - calling modelCheckExact");
 			return modelCheckExact(propertiesFile, prop);
 		}
 		// For fast adaptive uniformisation
 		if (currentModelType == ModelType.CTMC && settings.getString(PrismSettings.PRISM_TRANSIENT_METHOD).equals("Fast adaptive uniformisation")) {
 			FastAdaptiveUniformisationModelChecker fauMC;
-if (DEBUG) System.out.println(" @ prism.Prism.modelCheck() - Place 3-A - creating FastAdaptiveUniformisationModelChecker");
+if (DEBUG_PMC) System.out.println(" @ prism.Prism.modelCheck() - PMC Place 3-A - creating FastAdaptiveUniformisationModelChecker");
 			fauMC = new FastAdaptiveUniformisationModelChecker(this, currentModulesFile, propertiesFile);
 			return fauMC.check(prop.getExpression());
 		}
 		// Auto-switch engine if required
 		if (currentModelType == ModelType.MDP && !Expression.containsMultiObjective(prop.getExpression())) {
-if (DEBUG) System.out.println(" @ prism.Prism.modelCheck() - Place 3-B-1");
+if (DEBUG_PMC) System.out.println(" @ prism.Prism.modelCheck() - PMC Place 3-B-1");
 			if (getMDPSolnMethod() != Prism.MDP_VALITER && !getExplicit()) {
-if (DEBUG) System.out.println(" @ prism.Prism.modelCheck() - Place 3-B-2");
+if (DEBUG_PMC) System.out.println(" @ prism.Prism.modelCheck() - PMC Place 3-B-2");
 				mainLog.printWarning("Switching to explicit engine to allow use of chosen MDP solution method.");
 				engineSwitch = true;
 				lastEngine = getEngine();
@@ -3024,7 +3026,7 @@ if (DEBUG) System.out.println(" @ prism.Prism.modelCheck() - Place 3-B-2");
 		}
 
 		if (Expression.containsNonProbLTLFormula(prop.getExpression())) {
-if (DEBUG) System.out.println(" @ prism.Prism.modelCheck() - Place 4");
+if (DEBUG_PMC) System.out.println(" @ prism.Prism.modelCheck() - PMC Place 4");
 			mainLog.printWarning("Switching to explicit engine to allow non-probabilistic LTL mocel checking.");
 			engineSwitch = true;
 			lastEngine = getEngine();
@@ -3032,13 +3034,13 @@ if (DEBUG) System.out.println(" @ prism.Prism.modelCheck() - Place 4");
 		}
 		try {
 			// Build model, if necessary
-if (DEBUG) System.out.println(" @ prism.Prism.modelCheck() - Place 5-Pre - about to call 'buildModelIfRequired() [Note that modelIsBuilt() returns " + modelIsBuilt() + "]");
+if (DEBUG_PMC) System.out.println(" @ prism.Prism.modelCheck() - PMC Place 5-Pre - about to call 'buildModelIfRequired() [Note that modelIsBuilt() returns " + modelIsBuilt() + "]");
 			buildModelIfRequired();
-if (DEBUG) System.out.println(" @ prism.Prism.modelCheck() - Place 5-Post - after call to buildModelIfRequired()\n");
+if (DEBUG_PMC) System.out.println(" @ prism.Prism.modelCheck() - PMC Place 5-Post - after call to buildModelIfRequired()\n");
 
 			// Compatibility check
 			if (genStrat && currentModelType.nondeterministic() && !getExplicit()) {
-if (DEBUG) System.out.println(" @ prism.Prism.modelCheck() - Place 6");
+if (DEBUG_PMC) System.out.println(" @ prism.Prism.modelCheck() - PMC Place 6");
 
 				if (!((NondetModel) currentModel).areAllChoiceActionsUnique())
 					throw new PrismException("Cannot generate strategies with the current engine "
@@ -3048,21 +3050,23 @@ if (DEBUG) System.out.println(" @ prism.Prism.modelCheck() - Place 6");
 
 			// Create new model checker object and do model checking
 			if (!getExplicit()) {
-if (DEBUG) System.out.println(" @ prism.Prism.modelCheck() - Place 7A-1 - about to call 'createModelChecker()'\n\n<CreateModelChecker calledFrom='Prism.modelCheck()'");
+if (DEBUG_PMC) System.out.println(" @ prism.Prism.modelCheck() - PMC Place 7A-1 - about to call 'createModelChecker()'\n\n<CreateModelChecker calledFrom='Prism.modelCheck()'");
 				ModelChecker mc = createModelChecker(propertiesFile);
-if (DEBUG) System.out.println("</CreateModelChecker>\n");
-if (DEBUG) System.out.println(" @ prism.Prism.modelCheck() - Place 7A-2 - about to call 'mc.check()' on result of 'prop.getExpression()')");
-if (DEBUG) System.out.println("<CheckAProperty which='" + prop.getExpression() + "' whereFrom='Prism.modelCheck() place 7A-2'>");
+// SHANE IDEA, NOT DONE YET:	mc.setReplacementVarList(varListDeferredOrder);
+
+if (DEBUG_PMC) System.out.println("</CreateModelChecker>\n");
+if (DEBUG_PMC) System.out.println(" @ prism.Prism.modelCheck() - PMC Place 7A-2 - about to call 'mc.check()' on result of 'prop.getExpression()')");
+if (DEBUG_PMC) System.out.println("<CheckAProperty which='" + prop.getExpression() + "' whereFrom='Prism.modelCheck() place 7A-2'>");
 				res = mc.check(prop.getExpression());
-if (DEBUG) System.out.println("</CheckAProperty which='" + prop.getExpression() + "'>\n");
+if (DEBUG_PMC) System.out.println("</CheckAProperty which='" + prop.getExpression() + "'>\n");
 			} else {
-if (DEBUG) System.out.println(" @ prism.Prism.modelCheck() - Place 7B-1 - about to call 'createModelCheckerExplicit()'");
+if (DEBUG_PMC) System.out.println(" @ prism.Prism.modelCheck() - PMC Place 7B-1 - about to call 'createModelCheckerExplicit()'");
 				explicit.StateModelChecker mc = createModelCheckerExplicit(propertiesFile);
-if (DEBUG) System.out.println(" @ prism.Prism.modelCheck() - Place 7B-2 - about to call 'mc.check()' on result of 'prop.getExpression()')");
+if (DEBUG_PMC) System.out.println(" @ prism.Prism.modelCheck() - PMC Place 7B-2 - about to call 'mc.check()' on result of 'prop.getExpression()')");
 				res = mc.check(currentModelExpl, prop.getExpression());
 			}
 		} finally {
-if (DEBUG) System.out.println("</ModelCheck>\n");
+if (DEBUG_PMC) System.out.println("</ModelCheck>\n");
 			// Undo auto-switch (if any)
 			if (engineSwitch) {
 				setEngine(lastEngine);
@@ -3886,6 +3890,7 @@ if (DEBUG) System.out.println("</ModelCheck>\n");
 		}
 		// Create model checker
 		StateModelChecker mc = StateModelChecker.createModelChecker(currentModelType, this, currentModel, propertiesFile);
+mc.ShowCheckCalls();  // enables debug outputs
 		// Pass any additional local settings
 		// TODO
 

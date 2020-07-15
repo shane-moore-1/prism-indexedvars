@@ -203,17 +203,19 @@ if (DEBUG_VISITOR) System.out.println("The " + v.getClass().getName() + " visito
 	{
 		boolean shownRestrAlready = false;
 		StringBuilder sb = new StringBuilder();
-		sb.append("(");
+//		sb.append("( ");
 		sb.append(underlyingExpression.toString());
-		sb.append(" restrict ");
+		sb.append(" ~[");
 		for (Expression curRestr : restrictionExpressions)
 		{
 			if (shownRestrAlready) sb.append(", ");
 			sb.append(curRestr);
 			shownRestrAlready = true;
 		}
-		sb.append(" default ");
+		sb.append(" otherwise ");
 		sb.append(defaultExpression);
+		sb.append("] ");
+//		sb.append(")");
 		return sb.toString();
 	}
 

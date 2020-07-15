@@ -497,6 +497,14 @@ JNIEXPORT jint JNICALL Java_jdd_JDD_DD_1GetNumTerminals
 
 /*
  * Class:     jdd_JDD
+ * Method:    DD_ShaneGetRefCount
+ * Signature: (J)I
+ */
+JNIEXPORT jint JNICALL Java_jdd_JDD_DD_1ShaneGetRefCount
+  (JNIEnv *, jclass, jlong);
+
+/*
+ * Class:     jdd_JDD
  * Method:    DD_GetNumMinterms
  * Signature: (JI)D
  */

@@ -271,6 +271,48 @@ JNIEXPORT void JNICALL Java_prism_PrismNative_PN_1CloseFile(JNIEnv *env, jclass 
 	fclose(jlong_to_FILE(fp));
 }
 
+//------------ADDED BY SHANE---------------------
+
+/*
+void makeTopReportPart2(int pidToShow,const char *filenamePart1,const char *filenamePart2)
+{	// I don't think this one is used any more.
+   char pid_buffer[8];
+   snprintf(pid_buffer,8,"%d",pidToShow);
+      execl("/home/shane/shane-top-report.sh","shane-top-report.sh",pid_buffer,filenamePart1,filenamePart2,(char*)NULL);
+}
+*/
+
+int makeTopReportForShane(const char*filenamePart1, const char* message)
+{
+   int ourPID = getpid();		// The PID of the Java Virtual Machine, hopefully.
+
+   int thePID = fork();
+   if (thePID == 0)		// The forked child will be used to make the top-report
+   {
+   char pid_buffer[8];
+   snprintf(pid_buffer,8,"%d",ourPID); //pidToShow);
+      execl("/home/shane/shane-top-report.sh","shane-top-report.sh",pid_buffer,filenamePart1,message,(char*)NULL);
+//      makeTopReport(ourPID,filenamePart1,filenamePart2);
+   }
+   else if (thePID == -1)
+     return -1;
+   else
+   {
+	sleep(3);
+	return 0;
+   }     
+}
+
+JNIEXPORT void JNICALL Java_prism_PrismNative_PN_1MakeTopReportMsg(JNIEnv *env, jclass cls, jstring outfilePart1, jstring message)
+{
+	const char *outfileNamePart1 = env->GetStringUTFChars(outfilePart1, 0);
+	const char *messageToWrite = env->GetStringUTFChars(message, 0);
+
+	makeTopReportForShane(outfileNamePart1,messageToWrite);	
+
+	env->ReleaseStringUTFChars(message, messageToWrite);
+	env->ReleaseStringUTFChars(outfilePart1, outfileNamePart1);
+}
 //------------------------------------------------------------------------------
 // tidy up
 //------------------------------------------------------------------------------

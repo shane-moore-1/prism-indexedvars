@@ -16,7 +16,7 @@ public class ExpressionIndexedSetAccess extends ExpressionIdent implements Compa
 																	
 
 public static boolean DEBUG = false;
-public static boolean DEBUG_VISITOR = true;
+public static boolean DEBUG_VISITOR = false;
 
 //	String name; <<-- inherited, no need to redeclare;
 	Expression indexExpression;			// The expression which specifies (evaluates to) an index
@@ -159,7 +159,7 @@ if (DEBUG_VPEISA) System.out.println("Recursing into the access expression which
 
 // SHANE NOTE: This method will be invoked, at ****simulation time****, if we have a guard (for example) where the index to access 
 // is given by a variable (thus not known at model-construction time).
-// SHANE Wonders if this will run during ModelChecking time??
+// SHANE Wonders if this will run during ModelChecking (or ModelTranslation) time??
 	@Override
 	public Object evaluate(EvaluateContext ec) throws PrismLangException
 	{
@@ -227,8 +227,16 @@ System.out.println("ExpressionIndexedSetAccess.evaluate(EvaluateContext) has bee
 	@Override
 	public Object accept(ASTVisitor v) throws PrismLangException
 	{
-if (DEBUG_VISITOR) System.out.println("The " + v.getClass().getName() + " visitor has invoked accept() in ExpressionIndexedSetAccess on this instance: " + toString());
-		return v.visit(this);
+//		return v.visit(this);
+		Object result;
+
+if (DEBUG_VISITOR) System.out.println("<EISA_ACCEPT forVisitor='"+ v.getClass().getName() +"'>\n The " + v.getClass().getName() + " visitor has invoked accept() in ExpressionIndexedSetAccess on this instance: " + toString());
+		
+		result = v.visit(this);
+
+if (DEBUG_VISITOR) System.out.println(" The " + v.getClass().getName() + " visitor is completing accept() in ExpressionIndexedSetAccess on this instance: " + toString() + "\n</EISA_ACCEPT forVisitor='"+ v.getClass().getName() +"'\n>");
+
+		return result;
 	}
 	
 	/**
@@ -244,7 +252,7 @@ if (DEBUG_VISITOR) System.out.println("The " + v.getClass().getName() + " visito
 		if (restrictionExpressions.size() > 0) {
 			buf.append(" restrict ( ");
 			for (Expression restr : restrictionExpressions) {
-				if (shownAnyRestr) buf.append(", ");
+				if (shownAnyRestr) buf.append(" & ");
 				buf.append(restr);
 				shownAnyRestr = true;
 			}

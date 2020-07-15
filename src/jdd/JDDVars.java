@@ -43,9 +43,11 @@ import java.util.Vector;
 public class JDDVars implements Iterable<JDDNode>
 {
 private static boolean DEBUG = false;
-private static boolean DEBUG_ShowStack = true;
+private static boolean DEBUG_ShowAdding = true;
+private static boolean DEBUG_ShowStack = false;
 private static boolean DEBUG_GetVInd = false;			// Show calls of GetVarIndex ?
-
+private static boolean DEBUG_ShowInstantiate = false;
+private static boolean DEBUG_ShowPurpose = false;
 
 
 private static int NextShaneID = 1;
@@ -56,8 +58,10 @@ private String ShanePurposeOfThisInstance = ShanePurposeUNKNOWN;
 public void setPurpose(String purpose)
 {
 	this.ShanePurposeOfThisInstance = purpose;
-if (DEBUG)	System.out.println("The purpose of instance #" + ShaneID + " is: " + purpose);
+if (DEBUG_ShowPurpose) System.out.println("The purpose of JDDVars instance #" + ShaneID + " is: " + purpose);
 }
+
+public String getPurpose() { return ShanePurposeOfThisInstance; }
 
 	private Vector<JDDNode> vars;
 	private long array;
@@ -83,15 +87,14 @@ if (DEBUG)	System.out.println("The purpose of instance #" + ShaneID + " is: " + 
 	 */
 	public JDDVars()
 	{
-if (DEBUG) {
   this.ShaneID = NextShaneID; NextShaneID++;
+if (DEBUG_ShowInstantiate) {
   System.out.println("Created JDDVars instance #" + ShaneID);
   if (DEBUG_ShowStack) {
     Exception e = new Exception("STACK TRACE");
     e.printStackTrace(System.out);
   }
 }
-
 		vars = new Vector<JDDNode>();
 		array = 0;
 		arrayBuilt = false;
@@ -104,7 +107,7 @@ if (DEBUG) {
 	 */
 	public void addVar(JDDNode var)
 	{
-if (DEBUG) System.out.println("called JDDVars.addVar for JDD-V #" + ShaneID + " [" + ShanePurposeOfThisInstance + "], passing this JDDNode: " + var);
+//if (DEBUG_ShowAdding) System.out.println("called JDDVars.addVar for JDD-V #" + ShaneID + " [" + ShanePurposeOfThisInstance + "], passing this JDDNode: " + var.getIndex());
 		vars.addElement(var);
 		if (arrayBuilt) DDV_FreeArray(array);
 		arrayBuilt = false;

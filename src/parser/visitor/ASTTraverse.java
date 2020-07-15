@@ -46,10 +46,10 @@ public static boolean DEBUG_SHOW_ENABLED = false;
 
 public static boolean DEBUG_DeclTypeIndSet = false && DEBUG_SHOW_ENABLED;
 public static boolean DEBUG_Commands = false && DEBUG_SHOW_ENABLED;
-public static boolean DEBUG_Update = true && DEBUG_SHOW_ENABLED;
+public static boolean DEBUG_Update = false && DEBUG_SHOW_ENABLED;
 public static boolean DEBUG_Ident = false && DEBUG_SHOW_ENABLED;
 public static boolean DEBUG_ExpIndSetAcc = false && DEBUG_SHOW_ENABLED;
-public static boolean DEBUG_RSE = true ;// && DEBUG_SHOW_ENABLED;
+public static boolean DEBUG_RSE = false && DEBUG_SHOW_ENABLED;
 
 	public void defaultVisitPre(ASTElement e) throws PrismLangException {}
 	public void defaultVisitPost(ASTElement e) throws PrismLangException {}

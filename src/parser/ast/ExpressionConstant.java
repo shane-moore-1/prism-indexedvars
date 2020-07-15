@@ -81,8 +81,14 @@ public class ExpressionConstant extends Expression
 	{
 		Object res = ec.getConstantValue(name);
 		if (res == null)
+{
+Exception e = new PrismLangException("Could not evaluate constant", this);
+e.printStackTrace(System.out);
+System.out.println("Tried: " + name);
+System.out.println("EvaluateContext class type is: " + ec.getClass().getName());
+System.out.println("EvaluateContext is: " + ec);
 			throw new PrismLangException("Could not evaluate constant", this);
-
+}
 		if (res instanceof BigRational) {
 			// Constants can also be BigRational, cast to appropriate type
 			// This might lose precision
@@ -97,8 +103,14 @@ public class ExpressionConstant extends Expression
 	{
 		Object res = ec.getConstantValue(name);
 		if (res == null)
+{
+Exception e = new PrismLangException("Could not evaluate constant", this);
+e.printStackTrace(System.out);
+System.out.println("Tried: " + name);
+System.out.println("EvaluateContext class type is: " + ec.getClass().getName());
+System.out.println("EvaluateContext is: " + ec);
 			throw new PrismLangException("Could not evaluate constant", this);
-
+}
 		return BigRational.from(res);
 	}
 

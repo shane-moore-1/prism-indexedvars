@@ -93,6 +93,7 @@ jint flags
 	// get reachable states
 	reach = odd->dd;
 	
+printf("PH_ProbReachRewardInterval.cc - Place 1\n");
 	// filter out rows (goal states and infinity states) from matrix
 	Cudd_Ref(trans);
 	Cudd_Ref(maybe);
@@ -115,6 +116,8 @@ jint flags
 	// combine state and transition rewards and put in a vector
 	Cudd_Ref(trans_rewards);
 	state_rewards = DD_Apply(ddman, APPLY_PLUS, state_rewards, trans_rewards);
+
+printf("PH_ProbReachRewardInterval.cc - Place 2\n");
 	
 	// subtract a from identity (unless we are going to solve with the power method)
 	if (lin_eq_method != LIN_EQ_METHOD_POWER) {
@@ -136,29 +139,41 @@ jint flags
 	soln = NULL;
 	switch (lin_eq_method) {
 		case LIN_EQ_METHOD_POWER:
+printf("case LIN_EQ_METHOD_POWER\n");
 			soln = jlong_to_double(Java_hybrid_PrismHybrid_PH_1PowerInterval(env, cls, ptr_to_jlong(odd), ptr_to_jlong(rvars), num_rvars, ptr_to_jlong(cvars), num_cvars, ptr_to_jlong(a), ptr_to_jlong(state_rewards), ptr_to_jlong(lower), ptr_to_jlong(upper), false, flags)); break;
 		case LIN_EQ_METHOD_JACOBI:
+printf("case LIN_EQ_METHOD_JACOBI\n");
 			soln = jlong_to_double(Java_hybrid_PrismHybrid_PH_1JORInterval(env, cls, ptr_to_jlong(odd), ptr_to_jlong(rvars), num_rvars, ptr_to_jlong(cvars), num_cvars, ptr_to_jlong(a), ptr_to_jlong(state_rewards), ptr_to_jlong(lower), ptr_to_jlong(upper), false, false, 1.0, flags)); break;
 		case LIN_EQ_METHOD_GAUSSSEIDEL:
+printf("case LIN_EQ_METHOD_GAUSSSEIDEL\n");
 			soln = jlong_to_double(Java_hybrid_PrismHybrid_PH_1SORInterval(env, cls, ptr_to_jlong(odd), ptr_to_jlong(rvars), num_rvars, ptr_to_jlong(cvars), num_cvars, ptr_to_jlong(a), ptr_to_jlong(state_rewards), ptr_to_jlong(lower), ptr_to_jlong(upper), false, false, 1.0, true, flags)); break;
 		case LIN_EQ_METHOD_BGAUSSSEIDEL:
+printf("case LIN_EQ_METHOD_BGAUSSSEIDEL\n");
 			soln = jlong_to_double(Java_hybrid_PrismHybrid_PH_1SORInterval(env, cls, ptr_to_jlong(odd), ptr_to_jlong(rvars), num_rvars, ptr_to_jlong(cvars), num_cvars, ptr_to_jlong(a), ptr_to_jlong(state_rewards), ptr_to_jlong(lower), ptr_to_jlong(upper), false, false, 1.0, false, flags)); break;
 		case LIN_EQ_METHOD_PGAUSSSEIDEL:
+printf("case LIN_EQ_METHOD_PGAUSSSEIDEL\n");
 			soln = jlong_to_double(Java_hybrid_PrismHybrid_PH_1PSORInterval(env, cls, ptr_to_jlong(odd), ptr_to_jlong(rvars), num_rvars, ptr_to_jlong(cvars), num_cvars, ptr_to_jlong(a), ptr_to_jlong(state_rewards), ptr_to_jlong(lower), ptr_to_jlong(upper), false, false, 1.0, true, flags)); break;
 		case LIN_EQ_METHOD_BPGAUSSSEIDEL:
+printf("case LIN_EQ_METHOD_BPGAUSSSEIDEL\n");
 			soln = jlong_to_double(Java_hybrid_PrismHybrid_PH_1PSORInterval(env, cls, ptr_to_jlong(odd), ptr_to_jlong(rvars), num_rvars, ptr_to_jlong(cvars), num_cvars, ptr_to_jlong(a), ptr_to_jlong(state_rewards), ptr_to_jlong(lower), ptr_to_jlong(upper), false, false, 1.0, false, flags)); break;
 		case LIN_EQ_METHOD_JOR:
+printf("case LIN_EQ_METHOD_JOR\n");
 			soln = jlong_to_double(Java_hybrid_PrismHybrid_PH_1JORInterval(env, cls, ptr_to_jlong(odd), ptr_to_jlong(rvars), num_rvars, ptr_to_jlong(cvars), num_cvars, ptr_to_jlong(a), ptr_to_jlong(state_rewards), ptr_to_jlong(lower), ptr_to_jlong(upper), false, false, lin_eq_method_param, flags)); break;
 		case LIN_EQ_METHOD_SOR:
+printf("case LIN_EQ_METHOD_SOR\n");
 			soln = jlong_to_double(Java_hybrid_PrismHybrid_PH_1SORInterval(env, cls, ptr_to_jlong(odd), ptr_to_jlong(rvars), num_rvars, ptr_to_jlong(cvars), num_cvars, ptr_to_jlong(a), ptr_to_jlong(state_rewards), ptr_to_jlong(lower), ptr_to_jlong(upper), false, false, lin_eq_method_param, true, flags)); break;
 		case LIN_EQ_METHOD_BSOR:
+printf("case LIN_EQ_METHOD_BSOR\n");
 			soln = jlong_to_double(Java_hybrid_PrismHybrid_PH_1SORInterval(env, cls, ptr_to_jlong(odd), ptr_to_jlong(rvars), num_rvars, ptr_to_jlong(cvars), num_cvars, ptr_to_jlong(a), ptr_to_jlong(state_rewards), ptr_to_jlong(lower), ptr_to_jlong(upper), false, false, lin_eq_method_param, false, flags)); break;
 		case LIN_EQ_METHOD_PSOR:
+printf("case LIN_EQ_METHOD_PSOR\n");
 			soln = jlong_to_double(Java_hybrid_PrismHybrid_PH_1PSORInterval(env, cls, ptr_to_jlong(odd), ptr_to_jlong(rvars), num_rvars, ptr_to_jlong(cvars), num_cvars, ptr_to_jlong(a), ptr_to_jlong(state_rewards), ptr_to_jlong(lower), ptr_to_jlong(upper), false, false, lin_eq_method_param, true, flags)); break;
 		case LIN_EQ_METHOD_BPSOR:
+printf("case LIN_EQ_METHOD_BPSOR\n");
 			soln = jlong_to_double(Java_hybrid_PrismHybrid_PH_1PSORInterval(env, cls, ptr_to_jlong(odd), ptr_to_jlong(rvars), num_rvars, ptr_to_jlong(cvars), num_cvars, ptr_to_jlong(a), ptr_to_jlong(state_rewards), ptr_to_jlong(lower), ptr_to_jlong(upper), false, false, lin_eq_method_param, false, flags)); break;
 	}
 	
+printf("PH_ProbReachRewardInterval.cc - Place 4\n");
 	// set reward for infinity states to infinity
 	if (soln != NULL) {
 		// first, generate vector for inf

@@ -34,6 +34,8 @@
 
 // note: this PERMUTES variables (i.e. x_i -> y_i) cf. DD_SwapVariables
 
+static unsigned long ShaneCallCount = 0;
+
 DdNode *DD_PermuteVariables
 (
 DdManager *ddman,
@@ -45,20 +47,20 @@ int num_vars
 {
 	int i, *permut;
 	DdNode *res;
-/*SHANE-DEBUG*/printf("\nIn /src/dd/dd_vars.cc:");
+///*SHANE-DEBUG*/printf("\nentered /src/dd/dd_vars.cc::DD_PermuteVars ");
 
 	if (dd == NULL) return NULL;
 
 	permut = new int[Cudd_ReadSize(ddman)];
 	for (i = 0; i < Cudd_ReadSize(ddman); i++) {
 		permut[i] = i;
-/*SHANE-DEBUG*/printf("\npermut[%d] initialized to %d",i,permut[i]);
+///*SHANE-DEBUG*/printf("\npermut[%d] initialized to %d",i,permut[i]);
 	}
 	for (i = 0; i < num_vars; i++) {
-/*SHANE-DEBUG*/printf("\nold_vars[%d]->index is %d. Thus permut[%d] will be set to new_vars[%d]->index which is %d",i,old_vars[i]->index,old_vars[i]->index,i,new_vars[i]->index);
+///*SHANE-DEBUG*/printf("\nold_vars[%d]->index is %d. Thus permut[%d] will be set to new_vars[%d]->index which is %d",i,old_vars[i]->index,old_vars[i]->index,i,new_vars[i]->index);
 		permut[old_vars[i]->index] = new_vars[i]->index;
 	}	
-/*SHANE-DEBUG*/printf("\nAbout to call Cudd_addPermute");
+///*SHANE-DEBUG*/printf("\nAbout to call Cudd_addPermute");
 	res = Cudd_addPermute(ddman, dd, permut);	
 	if (res == NULL) return NULL;
 	Cudd_Ref(res);
@@ -68,6 +70,7 @@ int num_vars
 		delete[] permut;
 	}
 	
+///*SHANE-DEBUG*/printf("\nexiting /src/dd/dd_vars.cc::DD_PermuteVars\n");
 	return res;
 }
 

@@ -42,7 +42,7 @@ public class FindAllVars extends ASTTraverseModify
 public static boolean DEBUG_Basic = false ; //true && DEBUG_SHOW_ENABLED;		// The most high-level (i.e. minimal) types of debug messages
 public static boolean DEBUG = false ; //true && DEBUG_SHOW_ENABLED;			// The majority of debug messages
 public static boolean DEBUG_OrdinVar = false ; //true && DEBUG_SHOW_ENABLED;		// Whether to show details for ordinary variables (as opposed to indexed ones).
-public static boolean DEBUG_EISA = true;
+public static boolean DEBUG_EISA = false;
 
 	private List<String> varIdents;
 	private List<Type> varTypes;

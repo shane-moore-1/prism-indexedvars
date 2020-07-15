@@ -40,7 +40,7 @@ import java.util.*;
 
 public abstract class Expression extends ASTElement implements Comparable<Expression>
 {
-public static boolean DEBUG_VPEISA = true;		// Debug the getVarPosEISAs and their overrides in the subclasses?
+public static boolean DEBUG_VPEISA = false;		// Debug the getVarPosEISAs and their overrides in the subclasses?
 protected static boolean DEBUG = false;		// Any other debugging Shane has added here.
 
 protected static int DEBUG_INDENT = 0;	// How much to indent some of the debug messages
@@ -1132,7 +1132,7 @@ if (DEBUG) System.out.println("[The class itself is an instance of: " + getClass
 	*/
 	public List<ExpressionIndexedSetAccess> getVariablePosEISAs()
 	{
-if (DEBUG_VPEISA) System.out.println("  getVariablePosEISAs not overridden by " + this.getClass().getName() + " - returning null");
+if (DEBUG_VPEISA) System.out.println("  getVariablePosEISAs not overridden by " + this.getClass().getName() + " - returning null for expr: " + this.toString());
 		return null;
 	}
 
@@ -1142,7 +1142,7 @@ if (DEBUG_VPEISA) System.out.println("  getVariablePosEISAs not overridden by " 
 	*/
 	public Set<ExpressionVar> extractVarExprs()
 	{
-if (DEBUG_VPEISA) System.out.println("  extractVarExprs not overridden by " + this.getClass().getName());
+if (DEBUG_VPEISA) System.out.println("  extractVarExprs not overridden by " + this.getClass().getName() + " [for expr: " + this.toString() + " ]");
 		return null;
 	}
 

@@ -191,10 +191,10 @@ if (SHANE_DEBUG) {
 	mainLog.println();
 	mainLog.println();		// These lines are hopefully sufficient to cause DIFF to put a 'breakpoint'
 	mainLog.println();
-	mainLog.println("BEGIN");
+	mainLog.println("<PM_Reachability>BEGIN");
 }
 		long ptr = PM_Reachability(trans01.ptr(), rows.array(), rows.n(), cols.array(), cols.n(), start.ptr());
-if (SHANE_DEBUG) mainLog.println("END\n\nin PrismMTBDD.Reachability() - returned from calling native PM_Reachability. Returning a new ptrToJDDNode.");
+if (SHANE_DEBUG) mainLog.println("END\n</PM_Reachability>\nConcluded mtbdd/PrismMTBDD's Reachability() - returned from calling native PM_Reachability. Returning a new ptrToJDDNode.");
 		return JDD.ptrToNode(ptr);
 	}
 

@@ -32,18 +32,10 @@ public class JDDNode
 {
 private static boolean DEBUG_PrintingChildren = false;
 private static boolean SHANE_DEBUG = false;
-private static String ShanePURPOSE_Unknown = "[Unknown Purpose]";
-private static int ShaneNextID = 0;
-private int ShaneID;
-private String ShanePURPOSE = ShanePURPOSE_Unknown;
-private Exception ShaneCreationTimeStack;
 
-public void setPurpose(String purpose)
-{
-	ShanePURPOSE = purpose;
-}
+public void setPurpose(String purpose) { }
 
-public String getPurpose() { return ShanePURPOSE; }
+public String getPurpose() { return null; }
 
 	private long ptr;
 	
@@ -73,21 +65,6 @@ public String getPurpose() { return ShanePURPOSE; }
 	protected JDDNode(long p)
 	{
 		ptr = p;
-if (SHANE_DEBUG)
-{
-ShaneID = ++ShaneNextID;
-// Guess the purpose, by saying what the most recent few method calls were (It can always be replaced with better description):
-ShaneCreationTimeStack = new Exception();
-StackTraceElement[] stackElts = ShaneCreationTimeStack.getStackTrace();
-ShanePURPOSE = //ShanePURPOSE_Unknown;
-
-"{Created in " + stackElts[1] + 
-"\n\twhich was called by " + stackElts[2] + 
-(stackElts.length >= 3 ? "\n\twhich was called by " + stackElts[3] : "") +
-(stackElts.length >= 4 ? "\n\twhich was called by " + stackElts[4] : "") +
-"\n}\n";
-if (!DEBUG_PrintingChildren) System.out.println("\nInstantiated JDDNode #" + ShaneID + " - " + ShanePURPOSE);
-}
 	}
 	
 	public long ptr()
@@ -180,12 +157,15 @@ DEBUG_PrintingChildren=true;
         theThen.ShaneShowChildren();
 	indent--;
 }
-	for (i = 0; i < indent; i++) System.out.print(" ");
+	if (indent < 45)
+	  for (i = 0; i < indent; i++) System.out.print("  ");
+	else System.out.print("\tlvl="+indent+"\t");
+
 DEBUG_PrintingChildren=true;
     if (isConstant()) 
 	System.out.println(getValue());
     else 
-	System.out.println(":");
+	System.out.println("["+(ptr% 10150673) +"| "+getIndex()+" (" + JDD.ShaneGetRefCount(this) + ")]:");
     
 if (!isConstant()) {
 DEBUG_PrintingChildren=true;
@@ -197,7 +177,6 @@ DEBUG_PrintingChildren=true;
     
 DEBUG_PrintingChildren=false;
 }
-
 
 	public boolean equals(Object o)
 	{
@@ -216,18 +195,6 @@ DEBUG_PrintingChildren=false;
 			if (this.isConstant()) result += " value=" + this.getValue();
 			result += " references=" + DebugJDD.getRefCount(this);
 		}
-if (SHANE_DEBUG) {
-  result += " [shane ID= " + ShaneID + ", purp = " + ShanePURPOSE;
-
-  if (ShanePURPOSE == ShanePURPOSE_Unknown) {	// Show stack of creation time, partially:
-StackTraceElement[] stackElts = ShaneCreationTimeStack.getStackTrace();
-    result += "{Created in " + stackElts[1] + 
-    ", which was called by " + stackElts[2] + 
-    (stackElts.length >= 3 ? ", which was called by " + stackElts[3] : "") +
-    (stackElts.length >= 4 ? ", which was called by " + stackElts[4] : "") ;
-  }
-  result += "] ";
-}
 		return result;
 	}
 
@@ -244,7 +211,6 @@ StackTraceElement[] stackElts = ShaneCreationTimeStack.getStackTrace();
 		} else {
 			JDDNode result = new JDDNode(ptr());
 			JDD.Ref(result);
-result.ShanePURPOSE = " Copy of JDDNode with ShaneID #"+ShaneID+", whose purpose was: {" + ShanePURPOSE + "}";
 			return result;
 		}
 	}

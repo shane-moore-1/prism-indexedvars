@@ -258,20 +258,20 @@ else e.printStackTrace(System.out);
 		initialise(args);
 
 if (DEBUG) {
-	System.out.println("<DoParsing calledFrom=\"PrismCL.run()\"");
+	System.out.println("\n<DoParsing calledFrom='PrismCL.run()'  >");
 }
 		// Parse/load model/properties
 		doParsing();
 
 if (DEBUG) {
-	System.out.println("</DoParsing>");
-	System.out.println("<SortProperties where=\"in PrismCL.run(): About to call sortProperties()\"");
+	System.out.println("</DoParsing calledFrom='prism/PrismCL.run()'>\n");
+	System.out.println("<SortProperties calledFrom='prism/PrismCL.run()' note='About to call sortProperties()' >");
 }
 		// Sort out properties to check
 		sortProperties();
 if (DEBUG) {
-	System.out.println("</SortProperties>");
-	System.out.println("<UndefinedConstants sectionWithin=\"in PrismCL.run()\"");
+	System.out.println("\n</SortProperties>");
+	System.out.println("\n<UndefinedConstants sectionWithin='prism/PrismCL.run()'");
 }
 
 		if (param && numPropertiesToCheck == 0) {
@@ -283,23 +283,23 @@ if (DEBUG) {
 
 		// process info about undefined constants
 		try {
-if (DEBUG) System.out.println(" <Construct_UndefinedConstants where='PrismCL.java ~ line 290'>");
+if (DEBUG) System.out.println(" <Instantiate_UndefinedConstants where='PrismCL.java ~ line 290'>");
 			// first, see which constants are undefined
 			// (one set of info for model, and one set of info for each property)
 			if (exportlabels)
 				undefinedMFConstants = new UndefinedConstants(modulesFile, propertiesFile, true);
 			else
 				undefinedMFConstants = new UndefinedConstants(modulesFile, null);
-if (DEBUG) System.out.println(" </Construct_UndefinedConstants where='PrismCL.java>");
+if (DEBUG) System.out.println(" </Instantiate_UndefinedConstants where='PrismCL.java>");
 			undefinedMFConstants.setExactMode(exactConstants);
 			undefinedConstants = new UndefinedConstants[numPropertiesToCheck];
 			for (i = 0; i < numPropertiesToCheck; i++) {
-if (DEBUG) System.out.println(" <Construct_UndefinedConstants2 where='PrismCL.java ~ line 300' forProperty='"+i+"'>");
+if (DEBUG) System.out.println(" <Instantiate2_UndefinedConstants where='PrismCL.java ~ line 300' forProperty='"+i+"'>");
 				undefinedConstants[i] = new UndefinedConstants(modulesFile, propertiesFile, propertiesToCheck.get(i));
-if (DEBUG) System.out.println(" </Construct_UndefinedConstants2> forProperty='"+i+"'");
+if (DEBUG) System.out.println(" </Instantiate2_UndefinedConstants> forProperty='"+i+"'");
 				undefinedConstants[i].setExactMode(exactConstants);
 			}
-if (DEBUG) System.out.println("<ProgressNote  where='PrismCL.java ~ line 305' />");
+if (DEBUG) System.out.println("<ProgressNote  whereThisCodePointIs='PrismCL.java ~ line 302' />");
 			// may need to remove some constants if they are used for parametric methods
 			if (param) {
 				undefinedMFConstants.removeConstants(paramNames);
@@ -328,27 +328,33 @@ if (DEBUG) System.out.println("iter: " + i + " in PrismCL ~ line 334");
 		}
 
 if (DEBUG)
-	System.out.println("</PrepareResultsCollections>");
+	System.out.println("</PrepareResultsCollections>\n");
 
 if (DEBUG) {
 	System.out.flush();
 	mainLog.flush();
-	System.out.println("in PrismCL.run(): About to do the massive for loop...\nundefinedMFConsts.getNumModelIterations() returns " + undefinedMFConstants.getNumModelIterations() + "\n<MassiveForLoop>");
+	System.out.println("in PrismCL.run(): About to do the massive for loop...\n");
+        System.out.println("  undefinedMFConsts.getNumModelIterations() returns " + undefinedMFConstants.getNumModelIterations());
+        System.out.println("\n<MassiveForLoop>");
 }
 		// iterate through as many models as necessary
 		for (i = 0; i < undefinedMFConstants.getNumModelIterations(); i++) {
-if (DEBUG_MassiveForLoop) System.out.println("<MassiveForLoopIteration i='" + (i+1) + " of "+undefinedMFConstants.getNumModelIterations()+"'>");
+if (DEBUG_MassiveForLoop) System.out.println("\n<MFL_ITER i='" + (i+1) + " of "+undefinedMFConstants.getNumModelIterations()+"'>\n");
 
 			// set values for ModulesFile constants
 			try {
-if (DEBUG_MassiveForLoop) System.out.println("in PrismCL.run()'s Massive For Loop, about to call getMFConstantValues...\n<MFL_Part1 iter='"+i+"'>");
+//if (DEBUG_MassiveForLoop) System.out.println("<MFL_Part1 iter='"+(i+1)+"'>");
+//if (DEBUG_MassiveForLoop) System.out.println("  in PrismCL.run()'s Massive For Loop, about to call getMFConstantValues...");
 				definedMFConstants = undefinedMFConstants.getMFConstantValues();
-if (DEBUG_MassiveForLoop) System.out.println("</MFL_Part1>\nin PrismCL.run()'s Massive For Loop, about to call prism.setPRISMModelConstants...\n<MFL_Part2 iter='"+i+"'>");
+//if (DEBUG_MassiveForLoop) System.out.println("</MFL_Part1>);
+
+if (DEBUG_MassiveForLoop) System.out.println("<MFL_Part2 iter='"+(i+1)+"'>");
+if (DEBUG_MassiveForLoop) System.out.println("  in PrismCL.run()'s Massive For Loop, about to call prism.setPRISMModelConstants...");
 				prism.setPRISMModelConstants(definedMFConstants, exactConstants);
 if (DEBUG_MassiveForLoop) System.out.println("</MFL_Part2>");
 			} catch (PrismException e) {
 				// in case of error, report it, store as result for any properties, and go on to the next model
-if (DEBUG) System.out.println("Caught Exception: " + e);
+if (DEBUG) System.out.println("Caught Exception while in MFL_Part1 or MFL_Part2: " + e);
 				// (might happen for example if overflow or another numerical problem is detected at this stage)
 				error(e.getMessage());
 				for (j = 0; j < numPropertiesToCheck; j++) {
@@ -366,7 +372,8 @@ if (DEBUG) System.out.println("Caught Exception: " + e);
 
 			// if requested, generate a random path with the simulator
 			if (simpath) {
-if (DEBUG_MassiveForLoop) System.out.println("in PrismCL.run()'s Massive For Loop, about to try a simpath...\n<MFL_SIMPATH iter='"+i+"'>");
+if (DEBUG_MassiveForLoop) System.out.println("<MFL_SIMPATH iter='"+(i+1)+"'>");
+if (DEBUG_MassiveForLoop) System.out.println("  in PrismCL.run()'s Massive For Loop, about to try a simpath...");
 				try {
 					if (!simMaxPathGiven)
 						simMaxPath = prism.getSettings().getLong(PrismSettings.SIMULATOR_DEFAULT_MAX_PATH);
@@ -384,40 +391,66 @@ if (DEBUG_MassiveForLoop) System.out.println("</MFL_SIMPATH>");
 			}
 
 			// Do any model exports
-if (DEBUG_MassiveForLoop) System.out.println("in PrismCL.run()'s Massive For Loop, about to call doExports...\n<MFL_DO_EXPORTS iter='"+i+"'>");
+if (DEBUG_MassiveForLoop) System.out.println("\n<MFL_DO_EXPORTS iter='"+(i+1)+"'>");
+if (DEBUG_MassiveForLoop) System.out.println("  in PrismCL.run()'s Massive For Loop, about to call doExports...");
 			doExports();
-if (DEBUG_MassiveForLoop) System.out.println("</MFL_DO_EXPORTS>");
+if (DEBUG_MassiveForLoop) System.out.println("\n</MFL_DO_EXPORTS>\n");
 
 			if (modelBuildFail)
+{
+if (DEBUG_MassiveForLoop) System.out.println("** NOTE: modelBuildFail is true (in prismCL's massive for loop ~ line 401; proceeding to next iteration **\n</MFL_ITER note='failed iterations'>");
+
+
 				continue;
+
+
+}
+
+
 
 			// Do steady-state/transient probability computation, if required
-if (DEBUG_MassiveForLoop) System.out.println("in PrismCL.run()'s Massive For Loop, about to call doSteadyState...\n<MFL_DO_STEADY iter='"+i+"'>");
+if (DEBUG_MassiveForLoop) System.out.println("\n<MFL_DO_STEADY iter='"+(i+1)+"'>");
+if (DEBUG_MassiveForLoop) System.out.println("  in PrismCL.run()'s Massive For Loop, about to call doSteadyState...");
 			doSteadyState();
-if (DEBUG_MassiveForLoop) System.out.println("</MFL_DO_STEADY>");
+if (DEBUG_MassiveForLoop) System.out.println("\n</MFL_DO_STEADY>\n");
 
 			if (modelBuildFail)
-				continue;
+{
+if (DEBUG_MassiveForLoop) System.out.println("** NOTE: modelBuildFail is true (in prismCL's massive for loop ~ line 419; proceeding to next iteration **\n</MFL_ITER note='failed iterations'>");
 
-if (DEBUG_MassiveForLoop) System.out.println("in PrismCL.run()'s Massive For Loop, about to call doTransient...\n<MFL_DO_TRANSIENT iter='"+i+"'>");
+				continue;
+}
+
+if (DEBUG_MassiveForLoop) System.out.println("\n<MFL_DO_TRANSIENT iter='"+(i+1)+"'>");
+if (DEBUG_MassiveForLoop) System.out.println("  in PrismCL.run()'s Massive For Loop, about to call doTransient...");
 			doTransient();
-if (DEBUG_MassiveForLoop) System.out.println("</MFL_DO_TRANSIENT>");
+if (DEBUG_MassiveForLoop) System.out.println("\n</MFL_DO_TRANSIENT>\n");
+
 			if (modelBuildFail)
+{
+if (DEBUG_MassiveForLoop) System.out.println("** NOTE: modelBuildFail is true (in prismCL's massive for loop ~ line 431; proceeding to next iteration **\n</MFL_ITER note='failed iterations'>");
+
 				continue;
+}
 
 if (DEBUG) {
-	System.out.println("\nin PrismCL.run(): About to check the properties.");
-	System.out.println("<MFL_LoopOverProperties>");
+	System.out.println("\n<MFL_LoopOverProperties>");
+	System.out.println("\n  in PrismCL.run(): About to check the properties. There are " + numPropertiesToCheck + " properties to be checked.");
+	System.out.println("\n  Note that we are STILL inside the massive for loop, which is at iteration " + (i+1) + " of " + undefinedMFConstants.getNumModelIterations() + "\n   [That last number is how many ModelIterations there needs to be]");
 }
 
 			// Work through list of properties to be checked
 			for (j = 0; j < numPropertiesToCheck; j++) {
 if (DEBUG) {
-	System.out.println(" <CheckProperty which='" + (j+1) + "/" + numPropertiesToCheck + "' at='PrismCL.java, Line ~415'>");
+	System.out.println("\n <CheckProperty which='" + (j+1) + "/" + numPropertiesToCheck + "' at='PrismCL.java, Line ~445'>\n");
+	System.out.println("\n  Reminder: we are STILL inside the massive for loop, which is doing iteration " + (i+1) + " of " + undefinedMFConstants.getNumModelIterations() + "\n   [That last number is how many ModelIterations there needs to be]");
+	System.out.println("\n    and we are up to considering property " + (j+1) + "/" + numPropertiesToCheck + "\n");
 }
 
 				// for simulation we can do multiple values of property constants simultaneously
 				if (simulate && undefinedConstants[j].getNumPropertyIterations() > 1) {
+if (DEBUG) System.out.println("PrismCL:Place CP-1: CASE A - Simulation...");
+
 					try {
 if (DEBUG) {
 	System.out.println("PrismCL - Place CP-1");
@@ -431,7 +464,7 @@ if (DEBUG) {
 								simMaxPath, simMethod);
 
 if (DEBUG) {
-	System.out.println("</CP_ModCheckSimExperi>");
+	System.out.println("</CP_ModCheckSimExperi>\n");
 }
 					} catch (PrismException e) {
 						// in case of (overall) error, report it, store as result for property, and proceed
@@ -444,6 +477,7 @@ if (DEBUG) {
 				}
 				// otherwise, treat each case individually
 				else {
+if (DEBUG) System.out.println("PrismCL:Place CP-1: CASE B - Treat each case individually (rather than use simulation)...");
 
 					for (k = 0; k < undefinedConstants[j].getNumPropertyIterations(); k++) {
 
@@ -452,7 +486,7 @@ if (DEBUG) {
 							if (propertiesFile != null) {
 								definedPFConstants = undefinedConstants[j].getPFConstantValues();
 if (DEBUG) {
-	System.out.println("PrismCL - Place CP-B-1 - about to call setSomeUndefConst on propertiesFile");
+	System.out.println("PrismCL - Place CP-B-1 - about to call setSomeUndefConst() on propertiesFile");
 }
 								propertiesFile.setSomeUndefinedConstants(definedPFConstants, exactConstants);
 if (DEBUG) {
@@ -462,27 +496,33 @@ if (DEBUG) {
 							// Normal model checking
 							if (!simulate && !param) {
 if (DEBUG) {
-	System.out.println("PrismCL - Place CP-B-2 case i");
+	System.out.println("PrismCL - Place CP-B-2 case i. About to call prism.modelCheck for a particular property...\n<CALL_PMC>");
 }
 								res = prism.modelCheck(propertiesFile, propertiesToCheck.get(j));
+if (DEBUG) System.out.println("\n</CALL_PMC note='concluded call from prism/PrismCL that started at Place CP-B-2 case i'>\n");
 							}
 							// Parametric model checking
 							else if (param) {
 if (DEBUG) {
-	System.out.println("PrismCL - Place CP-B-2 case ii");
+	System.out.println("PrismCL - Place CP-B-2 case ii - About to call prism.modelCheckParametric for a particular property, and various parameter(s)...\n<CALL_PMCP>");
 }
 
 								res = prism.modelCheckParametric(propertiesFile, propertiesToCheck.get(j), paramNames, paramLowerBounds, paramUpperBounds);
+if (DEBUG) System.out.println("\n</CALL_PMCP note='concluded call from prism/PrismCL that started at Place CP-B-2 case ii'>\n");
 							}
 							// Approximate (simulation-based) model checking
 							else if (simulate) {
 if (DEBUG) {
-	System.out.println("PrismCL - Place CP-B-2 case iii");
+	System.out.println("PrismCL - Place CP-B-2 case iii step 1 - simulate; about to call processSimulationOptions...\n<CALL_PSO>");
 }
 
 								simMethod = processSimulationOptions(propertiesToCheck.get(j).getExpression());
+if (DEBUG) System.out.println("\n</CALL_PSO note='concluded call from prism/PrismCL that started at Place CP-B-2 case iii step 1'>");
+if (DEBUG) System.out.println("Step 2 is to call modelCheckSimulator...\n<CALL_MCS>");
+
 								res = prism.modelCheckSimulator(propertiesFile, propertiesToCheck.get(j).getExpression(), definedPFConstants, null, simMaxPath,
 										simMethod);
+if (DEBUG) System.out.println("\n</CALL_MCS note='concluded call from prism/PrismCL that started at Place CP-B-2 case iii step 2'>");
 								simMethod.reset();
 							} else {
 								throw new PrismException("Cannot use parametric model checking and simulation at the same time");
@@ -572,42 +612,55 @@ if (DEBUG) {
 					break;
 				}
 if (DEBUG) {
-	System.out.println("Finished checking that property.\n </CheckProperty which='" + (j+1) + "/" + numPropertiesToCheck + "' at='PrismCL.java, Line ~570'>\n---------------------------\n");
+	System.out.println("Finished checking a property...\n </CheckProperty which='" + (j+1) + "/" + numPropertiesToCheck + "' at='PrismCL.java, Line ~570'>\n---------------------------\n");
 }
 
 			}
 
-if (DEBUG)
-	System.out.println("</MFL_LoopOverProperties>\nin PrismCL.run(): About to call buildModel()...\n<BuildModel>");
+if (DEBUG) {
+	System.out.println("</MFL_LoopOverProperties>");
+	System.out.println("\nNote: We are STILL in the Massive For Loop of prismCL.run(); and have just concluded the sub-loop which iterates over all the properties we wanted to check.\nNow proceeding to a few other tasks in prismCL.run()'s massive for loop ...");
+}
 
 			// Explicitly request a build if necessary
 			if (propertiesToCheck.size() == 0 && !steadystate && !dotransient && !simpath && !nobuild && prism.modelCanBeBuilt() && !prism.modelIsBuilt()) {
 				try {
+if (DEBUG) System.out.println("<ExplicitlyBuildModel>\n in PrismCL.run(): About to call buildModel()...");
+
 					prism.buildModel();
+
+if (DEBUG) {
+	System.out.println("\nin PrismCL.run(): Finished call of buildModel() with no execptions caught.\n</ExplicitlyBuildModel>");
+}
 				} catch (PrismException e) {
 if (DEBUG) e.printStackTrace(System.out); else
 					error(e.getMessage());
 				}
 			}
 
-if (DEBUG) {
-	System.out.println("\nin PrismCL.run(): Finished call of buildModel() with no execptions caught.\n</BuildModel>");
-	System.out.println("\nin PrismCL.run(): about to call undefinedMFConstants.iterateModel()...\n<UMFC_IterateModel>");
-}
 
+if (DEBUG) System.out.println("\n<UMFC_IterateModel>");
+if (DEBUG) System.out.println("  in PrismCL.run(): about to call undefinedMFConstants.iterateModel()...");
 			// iterate to next model
 			undefinedMFConstants.iterateModel();
-if (DEBUG) System.out.println("\nin PrismCL.run(): Finished call of iterateModel()\n</UMFC_IterateModel>");
+if (DEBUG) System.out.println("  in PrismCL.run(): Finished call of iterateModel()\n</UMFC_IterateModel>");
+
+if (DEBUG) System.out.println("In PrismCL.run(), at place GTX, there are " + numPropertiesToCheck + " properties to check" + 
+ ((numPropertiesToCheck > 0) ? " - commencing iterations over them" : " - so nothing to iterate over.") );
+
 			for (j = 0; j < numPropertiesToCheck; j++) {
-if (DEBUG) System.out.println("\nin PrismCL.run(): calling iterateModel on undefinedConstants["+j+"]...\n<UC_IterateModel>");
+if (DEBUG) System.out.println("\n<UC_IterateModel forUndefConstant='" + j + " of " + numPropertiesToCheck + "' >");
+if (DEBUG) System.out.println(" in PrismCL.run(): calling iterateModel on undefinedConstants["+j+"]...");
 
 				undefinedConstants[j].iterateModel();
-if (DEBUG) System.out.println("\nin PrismCL.run(): completed call of iterateModel on undefinedConstants["+j+"]...\n</UC_IterateModel>");
+if (DEBUG) System.out.println(" in PrismCL.run(): completed call of iterateModel on undefinedConstants["+j+"]...\n</UC_IterateModel>");
 			}
-if (DEBUG) System.out.println("\nin PrismCL.run(): Reached end of the MassiveForLoop for another iteration.\n</MassiveForLoopIteration i='" + i+"'>");
+
+
+if (DEBUG) System.out.println("\nin PrismCL.run(): Reached end of the MassiveForLoop for another iteration.\n</MFL_ITER  i='" + i+"' note='Concluded that iteration>");
 
 		}
-if (DEBUG) System.out.println("</MassiveForLoop>");
+if (DEBUG) System.out.println("\n</MassiveForLoop note='End of the Massive For Loop, no more iterations to do'>\n\n");
 
 		// export results (if required)
 		if (exportresults) {
@@ -697,16 +750,16 @@ if (DEBUG_doParsing)  System.out.println("<doParsing methodLocatedIn='PrismCL.ja
 
 		try {
 			if (importpepa) {
-if (DEBUG_doParsing)  System.out.println("<ImportPepa partOf='PrismCL.doParsing()'>");
+if (DEBUG_doParsing)  System.out.println("<ImportPepa calledWithin='PrismCL.doParsing()'>");
 				mainLog.print("\nImporting PEPA file \"" + modelFilename + "\"...\n");
 				modulesFile = prism.importPepaFile(new File(modelFilename));
-if (DEBUG_doParsing)  System.out.println("</ImportPepa partOf='PrismCL.doParsing()'>");
+if (DEBUG_doParsing)  System.out.println("</ImportPepa calledWithin='PrismCL.doParsing()'>");
 			} else if (importprismpp) {
-if (DEBUG_doParsing)  System.out.println("<ImportPrismPreprocFile partOf='PrismCL.doParsing()'>");
+if (DEBUG_doParsing)  System.out.println("<ImportPrismPreprocFile calledWithin='PrismCL.doParsing()'>");
 				mainLog.print("\nImporting PRISM preprocessor file \"" + modelFilename + "\"...\n");
 				String prismppParamsList[] = ("? " + prismppParams).split(" ");
 				modulesFile = prism.importPrismPreprocFile(new File(modelFilename), prismppParamsList);
-if (DEBUG_doParsing)  System.out.println("</ImportPrismPreprocFile partOf='PrismCL.doParsing()'>");
+if (DEBUG_doParsing)  System.out.println("</ImportPrismPreprocFile calledWithin='PrismCL.doParsing()'>");
 			} else if (importtrans) {
 				mainLog.print("\nImporting model (");
 				mainLog.print(typeOverride == null ? "MDP" : typeOverride);
@@ -724,14 +777,14 @@ if (DEBUG_doParsing)  System.out.println("</ImportPrismPreprocFile partOf='Prism
 					srf = new File(importStateRewardsFilename);
 				}
 				mainLog.println("...");
-if (DEBUG_doParsing)  System.out.println("<LoadModelFromExplicitFiles partOf='PrismCL.doParsing()'>");
+if (DEBUG_doParsing)  System.out.println("\n<LoadModelFromExplicitFiles calledWithin='src/prism/PrismCL.doParsing()'>");
 				modulesFile = prism.loadModelFromExplicitFiles(sf, new File(modelFilename), lf, srf, typeOverride);
-if (DEBUG_doParsing)  System.out.println("</LoadModelFromExplicitFiles partOf='PrismCL.doParsing()'>");
+if (DEBUG_doParsing)  System.out.println("\n</LoadModelFromExplicitFiles calledWithin='src/prism/PrismCL.doParsing()'>\n");
 			} else {
-if (DEBUG_doParsing)  System.out.println("<ParseModelFile partOf='PrismCL.doParsing()'>");
+if (DEBUG_doParsing)  System.out.println("\n<ParseModelFile calledWithin='PrismCL.doParsing()'>");
 				mainLog.print("\nParsing model file \"" + modelFilename + "\"...\n");
 				modulesFile = prism.parseModelFile(new File(modelFilename), typeOverride);
-if (DEBUG_doParsing)  System.out.println("</ParseModelFile partOf='PrismCL.doParsing()'>");
+if (DEBUG_doParsing)  System.out.println("\n</ParseModelFile calledWithin='PrismCL.doParsing()'>\n");
 			}
 		} catch (FileNotFoundException e) {
 			errorAndExit("File \"" + modelFilename + "\" not found");
@@ -744,14 +797,16 @@ if (DEBUG_doParsing)  System.out.println("</ParseModelFile partOf='PrismCL.doPar
 		try {
 			// if properties file specified...
 			if (propertiesFilename != null) {
-if (DEBUG_doParsing)  System.out.println("<ParsePropertiesFile partOf='PrismCL.doParsing()'>");
+if (DEBUG_doParsing)  System.out.println("\n<ParsePropertiesFile calledWithin='PrismCL.doParsing()'>\n");
 				mainLog.print("\nParsing properties file \"" + propertiesFilename + "\"...\n");
 				propertiesFile = prism.parsePropertiesFile(modulesFile, new File(propertiesFilename));
-if (DEBUG_doParsing)  System.out.println("</ParsePropertiesFile partOf='PrismCL.doParsing()'>");
+if (DEBUG_doParsing)  System.out.println("\n</ParsePropertiesFile calledWithin='PrismCL.doParsing()'>\n");
 			}
 			// if properties were given on command line...
 			else if (!propertyString.equals("")) {
+if (DEBUG_doParsing)  System.out.println("\n<ParsePropertiesString calledWithin='PrismCL.doParsing()'>\n");
 				propertiesFile = prism.parsePropertiesString(modulesFile, propertyString);
+if (DEBUG_doParsing)  System.out.println("\n</ParsePropertiesString calledWithin='PrismCL.doParsing()'>\n");
 			} else {
 				propertiesFile = null;
 			}
@@ -770,18 +825,19 @@ if (DEBUG_doParsing)  System.out.println("</ParsePropertiesFile partOf='PrismCL.
 				mainLog.println("(" + (i + 1) + ") " + propertiesFile.getPropertyObject(i));
 			}
 		}
+else if (DEBUG_doParsing)  System.out.println("<ParsePropertiesFile wontHappenBecauseNull=true  calledWithin='PrismCL.doParsing() />");
 
 		// Load model into PRISM (if not done already)
 		try {
 			if (!importtrans) {
-if (DEBUG_doParsing)  System.out.println("<LoadPRISMModel calledFrom='PrismCL.doParsing()' invokedOn='prism instance'>");
+if (DEBUG_doParsing)  System.out.println("\n<LoadPRISMModel calledFrom='PrismCL.doParsing()' invokedOn='prism instance'>\n");
 				prism.loadPRISMModel(modulesFile);
-if (DEBUG_doParsing)  System.out.println("</LoadPRISMModel calledFrom='PrismCL.doParsing()'>");
+if (DEBUG_doParsing)  System.out.println("\n</LoadPRISMModel calledFrom='PrismCL.doParsing()'>\n");
 			}
 		} catch (PrismException e) {
 			errorAndExit(e.getMessage());
 		}
-if (DEBUG_doParsing)  System.out.println("</doParsing methodLocatedIn='PrismCL.java'>");
+if (DEBUG_doParsing)  System.out.println("\n</doParsing methodLocatedIn='prism/PrismCL.java' note='method now concluded>\n\n");
 	}
 
 	/**
@@ -2256,6 +2312,8 @@ if (DEBUG_doParsing)  System.out.println("</doParsing methodLocatedIn='PrismCL.j
 			mainLog.print(" " + s);
 		}
 		mainLog.println();
+//ADDED BY SHANE:
+mainLog.println("TOP reports will have prefix: " + PrismNative.makeRandomTopReportPrefix());
 	}
 
 	/**

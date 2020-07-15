@@ -35,7 +35,7 @@ import prism.PrismLangException;
  */
 public class EvaluatePartially extends ASTTraverseModify
 {
-public static boolean DEBUG = true && DEBUG_SHOW_ENABLED;
+public static boolean DEBUG = DEBUG_SHOW_ENABLED;
 	private EvaluateContext ec;
 	
 	public EvaluatePartially(EvaluateContext ec)
@@ -48,8 +48,10 @@ public static boolean DEBUG = true && DEBUG_SHOW_ENABLED;
 if (DEBUG) System.out.println("EvaluatePartially.visit(ExprConst) called for : " + e);
 		Object val = ec.getConstantValue(e.getName());
 		if (val == null) {
+if (DEBUG) System.out.println(" Because val is null, returning the original: " + e);
 			return e;
 		} else {
+if (DEBUG) System.out.println(" Going to replace (return) with a new ExpressionLiteral: ");
 			return new ExpressionLiteral(e.getType(), val);
 		}
 	}
@@ -59,9 +61,22 @@ if (DEBUG) System.out.println("EvaluatePartially.visit(ExprConst) called for : "
 if (DEBUG) System.out.println("EvaluatePartially.visit(ExprVar) called for : " + e);
 		Object val = ec.getVarValue(e.getName(), e.getIndex());
 		if (val == null) {
+if (DEBUG) System.out.println(" Because val is null, returning the original: " + e);
 			return e;
 		} else {
+if (DEBUG) System.out.println(" Going to replace (return) with a new ExpressionLiteral: ");
 			return new ExpressionLiteral(e.getType(), val);
 		}
 	}
+
+/* The following IS NOT NEEDED. In fact, when it was added, it prevented the simulator from getting past the first step! The ASTTravModify is sufficient to replace constants that occur within the index-access expressions, and restriction expressions.
+	public Object visit(ExpressionIndexedSetAccess eisa) throws PrismLangException
+	{
+System.out.println("EvaluatePartially.visit called on an ExpressionIndexedSetAccess object - WHAT WILL YOU DO HERE??? (Currently doing NOTHING!!)");
+System.out.println("The object is: " + eisa);
+
+		return eisa;
+	}
+*/
+
 }

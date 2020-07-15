@@ -77,27 +77,37 @@ jlong __jlongpointer s	// start state
 		Cudd_Ref(init);
 		reach = DD_PermuteVariables(ddman, init, rvars, cvars, num_rvars);
 		if (reach == NULL) return ptr_to_jlong(NULL);
+printf("\nsrc/mtbdd/PM_Reachability.cc: Commencing Reachability() the REACH_BFS block - Will continue until we converge to 'reach'.\n");
 		
 		while (!done) {
+printf("\nstill in Reachability() - doing iter %d\n", iters);
 			iters++;
 			// output info on progress
 			if (info > 0) {
-				PM_PrintToMainLog(env, "Iteration %d:", iters);
+				PM_PrintToMainLog(env, "\nsrc/mtbdd/PM_Reachability.cc - in Reachability() - Iteration %d:", iters);
 				PM_PrintToMainLog(env, " %0.f states", DD_GetNumMinterms(ddman, reach, num_rvars));
-				PM_PrintToMainLog(env, " (%d nodes)", DD_GetNumNodes(ddman, reach));
+				PM_PrintToMainLog(env, " (%d nodes)\n", DD_GetNumNodes(ddman, reach));
 				start2 = util_cpu_time();
 			}
 			// perform iteration
 			Cudd_Ref(reach);
+printf("PM_R: Begin Swapping variables (permute)\n");
 			tmp = DD_PermuteVariables(ddman, reach, cvars, rvars, num_cvars);
+printf("PM_R: Finished Swapping variables (permute)\n");
 			if (tmp == NULL) return ptr_to_jlong(NULL);
 			Cudd_Ref(trans01);
+printf("PM_R: Doing AND...");
 			tmp = DD_And(ddman, tmp, trans01);
+printf(" Done AND\n");
 			if (tmp == NULL) return ptr_to_jlong(NULL);
+printf("PM_R: Doing ThereExists...");
 			tmp = DD_ThereExists(ddman, tmp, rvars, num_rvars);
+printf(" Done ThereExists\n");
 			if (tmp == NULL) return ptr_to_jlong(NULL);
 			Cudd_Ref(reach);
+printf("PM_R: Doing OR...");
 			tmp = DD_Or(ddman, reach, tmp);
+printf(" Done OR\n");
 			if (tmp == NULL) return ptr_to_jlong(NULL);
 			// check convergence
 			if (tmp == reach) {
@@ -108,13 +118,16 @@ jlong __jlongpointer s	// start state
 			// output info on progress
 			if (info > 0) {
 				stop = util_cpu_time();
-				PM_PrintToMainLog(env, " (%.2f seconds)\n", (double)(stop - start2)/1000);
+				PM_PrintToMainLog(env, "Iteration %d took %.2f seconds\n",iters, (double)(stop - start2)/1000);
+printf("Total time since Reachability began has been %.0f seconds\n",( double) (stop - start1) / 1000);
 			}
 		}
+printf("\nsrc/mtbdd/PM_Reachability.cc: Finished the while loop (to converge), now calling DD_PermuteVariables to get resultant 'reach'\n");
 		reach = DD_PermuteVariables(ddman, reach, cvars, rvars, num_cvars);
 		if (reach == NULL) return ptr_to_jlong(NULL);
 	}
 	else {
+printf("\nsrc/mtbdd/PM_Reachability.cc: Commencing Reachability() the non-REACH_BFS block\n");
 		// initialise
 		done = false;
 		iters = 0;

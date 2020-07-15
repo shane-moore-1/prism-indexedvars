@@ -42,6 +42,16 @@
 #include "Measures.h"
 #include <new>
 
+/*SHANE added these to control his debug outputs to different levels of granularity*/
+#define DEBUG_LV1 true
+#define DEBUG_LV2 false
+#define DEBUG_LV2HALF false
+#define DEBUG_LV3 false
+#define DEBUG_LV4 false
+#define DEBUG_CSV_LONG false
+#define DEBUG_CSV_BRIEF false
+
+
 //------------------------------------------------------------------------------
 
 JNIEXPORT jlong __jlongpointer JNICALL Java_sparse_PrismSparse_PS_1NondetReachReward
@@ -79,8 +89,20 @@ jboolean min				// min or max probabilities (true = min, false = max)
 	DdNode *inf = jlong_to_DdNode(in); 				// 'inf' states
 	DdNode *maybe = jlong_to_DdNode(m); 			// 'maybe' states
 
-PS_PrintToMainLog(env,"<NondetReachReward>\n");
-PS_PrintToMainLog(env,"PS_NondetReachReward.cc: Place 1\n");
+if (DEBUG_LV1) PS_PrintToMainLog(env,"\n<NondetReachReward>\n");
+if (DEBUG_LV1) PS_PrintToMainLog(env,"PS_NondetReachReward.cc: Place 1 - start of NondetReachReward().\n");
+if (DEBUG_LV1) {
+  PS_PrintToMainLog(env,"in PS_NondetReachReward, the following are the settings for the debug flags:\n");
+  PS_PrintToMainLog(env,"DEBUG_LV2 is %s\n", (DEBUG_LV2) ? "On" : "Off" );
+  PS_PrintToMainLog(env,"DEBUG_LV2HALF is %s\n", (DEBUG_LV2HALF) ? "On" : "Off" );
+  PS_PrintToMainLog(env,"DEBUG_LV3 is %s\n", (DEBUG_LV3) ? "On" : "Off" );
+  PS_PrintToMainLog(env,"DEBUG_LV4 is %s\n", (DEBUG_LV4) ? "On" : "Off" );
+  PS_PrintToMainLog(env,"DEBUG_CSV_LONG is %s\n", (DEBUG_CSV_LONG) ? "On" : "Off" );
+  PS_PrintToMainLog(env,"DEBUG_CSV_BRIEF is %s\n", (DEBUG_CSV_BRIEF) ? "On" : "Off" );
+}
+else {
+  PS_PrintToMainLog(env,"\n(in PS_NondetReachReward, DEBUG_LV1 is Off)\n\n");
+}
 
 	// mtbdds
 	DdNode *a, *tmp = NULL;
@@ -119,25 +141,25 @@ PS_PrintToMainLog(env,"PS_NondetReachReward.cc: Place 1\n");
 	// get number of states
 	n = odd->eoff + odd->toff;
 
-PS_PrintToMainLog(env,"PS_NondetReachReward.cc: Place 2\n");
+if (DEBUG_LV1) PS_PrintToMainLog(env,"PS_NondetReachReward.cc: Place 2\n");
 	// filter out rows (goal states and infinity states) from matrix
 	Cudd_Ref(trans);
 	Cudd_Ref(maybe);
 	a = DD_Apply(ddman, APPLY_TIMES, trans, maybe);
 	
-PS_PrintToMainLog(env,"PS_NondetReachReward.cc: Place 3\n");
+if (DEBUG_LV1) PS_PrintToMainLog(env,"PS_NondetReachReward.cc: Place 3\n");
 	// also remove goal and infinity states from state rewards vector
 	Cudd_Ref(state_rewards);
 	Cudd_Ref(maybe);
 	state_rewards = DD_Apply(ddman, APPLY_TIMES, state_rewards, maybe);
 	
-PS_PrintToMainLog(env,"PS_NondetReachReward.cc: Place 4\n");
+if (DEBUG_LV1) PS_PrintToMainLog(env,"PS_NondetReachReward.cc: Place 4\n");
 	// and from transition rewards matrix
 	Cudd_Ref(trans_rewards);
 	Cudd_Ref(maybe);
 	trans_rewards = DD_Apply(ddman, APPLY_TIMES, trans_rewards, maybe);
 	
-PS_PrintToMainLog(env,"PS_NondetReachReward.cc: Place 5\n");
+if (DEBUG_LV1) PS_PrintToMainLog(env,"PS_NondetReachReward.cc: Place 5\n");
 	// build sparse matrix (probs)
 	PS_PrintToMainLog(env, "\nBuilding sparse matrix (transitions)... ");
 	ndsm = build_nd_sparse_matrix(ddman, a, rvars, cvars, num_rvars, ndvars, num_ndvars, odd);
@@ -150,7 +172,7 @@ PS_PrintToMainLog(env,"PS_NondetReachReward.cc: Place 5\n");
 	PS_PrintToMainLog(env, "[n=%d, nc=%d, nnz=%ld, k=%d] ", n, nc, nnz, ndsm->k);
 	PS_PrintMemoryToMainLog(env, "[", kb, "]\n");
 
-PS_PrintToMainLog(env,"PS_NondetReachReward.cc: Place 6\n");
+if (DEBUG_LV1) PS_PrintToMainLog(env,"PS_NondetReachReward.cc: Place 6\n");
 	// if needed, and if info is available, build a vector of action indices for the MDP
 	if (export_adv_enabled != EXPORT_ADV_NONE) {
 		if (trans_actions != NULL) {
@@ -172,7 +194,7 @@ PS_PrintToMainLog(env,"PS_NondetReachReward.cc: Place 6\n");
 		}
 	}
 	
-PS_PrintToMainLog(env,"PS_NondetReachReward.cc: Place 7\n");
+if (DEBUG_LV1) PS_PrintToMainLog(env,"PS_NondetReachReward.cc: Place 7\n");
 	// build sparse matrix (rewards)
 	PS_PrintToMainLog(env, "Building sparse matrix (transition rewards)... ");
 	ndsm_r = build_sub_nd_sparse_matrix(ddman, a, trans_rewards, rvars, cvars, num_rvars, ndvars, num_ndvars, odd);
@@ -185,7 +207,7 @@ PS_PrintToMainLog(env,"PS_NondetReachReward.cc: Place 7\n");
 	kbt += kb;
 	PS_PrintMemoryToMainLog(env, "[", kb, "]\n");
 	
-PS_PrintToMainLog(env,"PS_NondetReachReward.cc: Place 8\n");
+if (DEBUG_LV1) PS_PrintToMainLog(env,"PS_NondetReachReward.cc: Place 8\n");
 	// get vector for state rewards
 	PS_PrintToMainLog(env, "Creating vector for state rewards... ");
 	sr_vec = mtbdd_to_double_vector(ddman, state_rewards, rvars, num_rvars, odd);
@@ -193,15 +215,15 @@ PS_PrintToMainLog(env,"PS_NondetReachReward.cc: Place 8\n");
 	kbt += kb;
 	PS_PrintMemoryToMainLog(env, "[", kb, "]\n");
 	
-PS_PrintToMainLog(env,"PS_NondetReachReward.cc: Place 9\n");
+if (DEBUG_LV1) PS_PrintToMainLog(env,"PS_NondetReachReward.cc: Place 9\n");
 	// get vector for yes
-	PS_PrintToMainLog(env, "Creating vector for inf... ");
+	PS_PrintToMainLog(env, "Creating vector for yes (the inf_vec)... ");
 	inf_vec = mtbdd_to_double_vector(ddman, inf, rvars, num_rvars, odd);
 	kb = n*8.0/1024.0;
 	kbt += kb;
 	PS_PrintMemoryToMainLog(env, "[", kb, "]\n");
 	
-PS_PrintToMainLog(env,"PS_NondetReachReward.cc: Place 10\n");
+if (DEBUG_LV1) PS_PrintToMainLog(env,"PS_NondetReachReward.cc: Place 10\n");
 	// create solution/iteration vectors
 	PS_PrintToMainLog(env, "Allocating iteration vectors... ");
 	soln = new double[n];
@@ -212,7 +234,7 @@ PS_PrintToMainLog(env,"PS_NondetReachReward.cc: Place 10\n");
 
 	// if required, create storage for adversary and initialise
 	if (export_adv_enabled != EXPORT_ADV_NONE) {
-PS_PrintToMainLog(env,"PS_NondetReachReward.cc: Place 11\n");
+if (DEBUG_LV1) PS_PrintToMainLog(env,"PS_NondetReachReward.cc: Place 11\n");
 		PS_PrintToMainLog(env, "Allocating adversary vector... ");
 		adv = new int[n];
 		kb = n*sizeof(int)/1024.0;
@@ -227,12 +249,12 @@ PS_PrintToMainLog(env,"PS_NondetReachReward.cc: Place 11\n");
 	// print total memory usage
 	PS_PrintMemoryToMainLog(env, "TOTAL: [", kbt, "]\n");
 
-PS_PrintToMainLog(env,"PS_NondetReachReward.cc: Place 12\n");
+if (DEBUG_LV1) PS_PrintToMainLog(env,"PS_NondetReachReward.cc: Place 12\n");
 	// initial solution is infinity in 'inf' states, zero elsewhere
 	for (i = 0; i < n; i++) {
-///*SHANE*/ if (inf_vec[i] > 0 && inf_vec[i] < 40) 
+///*SHANE Not sure why ever, but not needed now. */ if (inf_vec[i] > 0 && inf_vec[i] < 40) 
 		soln[i] = (inf_vec[i] > 0) ? HUGE_VAL : 0.0;
-/*SHANE*/ PS_PrintToMainLog(env, "inf_vec[%d]=%f, so soln[%d]=%f\n ",i, inf_vec[i],i,soln[i]);
+/*SHANE*/ if (DEBUG_LV2) PS_PrintToMainLog(env, "inf_vec[%d]=%f, so soln[%d]=%f\n ",i, inf_vec[i],i,soln[i]);
 	}
 
 	std::unique_ptr<ExportIterations> iterationExport;
@@ -251,7 +273,7 @@ PS_PrintToMainLog(env,"PS_NondetReachReward.cc: Place 12\n");
 	// start iterations
 	iters = 0;
 	done = false;
-PS_PrintToMainLog(env,"PS_NondetReachReward.cc: Place 13\n");
+if (DEBUG_LV1) PS_PrintToMainLog(env,"PS_NondetReachReward.cc: Place 13\n");
 	PS_PrintToMainLog(env, "\nStarting iterations...\n");
 
 	// open file to store adversary (if required)
@@ -286,6 +308,7 @@ PS_PrintToMainLog(env,"PS_NondetReachReward.cc: Place 13\n");
 /*SHANE LOOP for OUTPUT ONLY*/
 
 // In the following sets, I believe I have the correct upper limits.
+if (DEBUG_CSV_LONG) {
 
 PS_PrintToMainLog(env,"\nCSV-LONG,");
 for (i = 0; i < nnz; i++) {
@@ -331,6 +354,8 @@ for (i = 0; i < n; i++) {
 /*SHANE*/PS_PrintToMainLog(env,"row_c[%d]=%d,",i,row_counts[i]);
 }
 
+}   // END OF if Debug-CSV-long
+
 PS_PrintToMainLog(env,"\n");
 
 
@@ -340,101 +365,115 @@ PS_PrintToMainLog(env,"\n");
 
 
 /*SHANE - Make a CSV row that GREP can extract*/
-/*SHANE*/ PS_PrintToMainLog(env,"CSV-LONG,");
-/*SHANE*/for (i = 0; i < n; i++) 
+/*SHANE*/ if (DEBUG_CSV_LONG) {
+/*SHANE*/  PS_PrintToMainLog(env,"CSV-LONG,");
+/*SHANE*/  for (i = 0; i < n; i++) 
 ///*SHANE*/  if (!(inf_vec[i] > 0)) 
-/*SHANE*/   PS_PrintToMainLog(env,"soln[%d],",i);
-/*SHANE*/ PS_PrintToMainLog(env,"\n");
+/*SHANE*/    PS_PrintToMainLog(env,"soln[%d],",i);
+/*SHANE*/  PS_PrintToMainLog(env,"\n");
+/*SHANE*/ }
 
 /*SHANE - Make a CSV row that GREP can extract - this one hopefully skips (only) columns which are INF */
-/*SHANE*/ PS_PrintToMainLog(env,"CSV-BRIEF,");
-/*SHANE*/for (i = 0; i < n; i++) 
-/*SHANE*/  if (!(inf_vec[i] > 0)) 
-/*SHANE*/   PS_PrintToMainLog(env,"soln[%d],",i);
-/*SHANE*/ PS_PrintToMainLog(env,"\n");
+/*SHANE*/ if (DEBUG_CSV_BRIEF) {
+/*SHANE*/  PS_PrintToMainLog(env,"CSV-BRIEF,");
+/*SHANE*/  for (i = 0; i < n; i++) 
+/*SHANE*/   if (!(inf_vec[i] > 0)) 
+/*SHANE*/    PS_PrintToMainLog(env,"soln[%d],",i);
+/*SHANE*/  PS_PrintToMainLog(env,"\n");
+/*SHANE*/ }
 
 /*SHANE*/PS_PrintToMainLog(env,"About to start while loop...\n");
 	while (!done && iters < max_iters) {
 	
 		iters++;
-/*SHANE*/PS_PrintToMainLog(env,"<ITERATION iter_num=\"%d\">\n",iters);
+/*SHANE*/if (DEBUG_LV2) PS_PrintToMainLog(env,"<ITERATION iter_num=\"%d\">\n",iters);
 
 		// do matrix multiplication and min/max
 		h1 = h2 = h2_r = 0;
 		// loop through states
 		for (i = 0; i < n; i++) {
-/*SHANE*/if (!(inf_vec[i] > 0)) PS_PrintToMainLog(env,"[%d beg, iter %d]\n",i,iters);
+/*SHANE*/if (!(inf_vec[i] > 0)) if (DEBUG_LV3) PS_PrintToMainLog(env,"[%d beg of state %d]\n",i,iters);
 			d1 = 0.0; // initial value doesn't matter
 			first = true; // (because we also remember 'first')
 			// get pointers to nondeterministic choices for state i
 			if (!use_counts) { l1 = row_starts[i]; h1 = row_starts[i+1]; }
 			else { l1 = h1; h1 += row_counts[i]; }
-/*SHANE*/PS_PrintToMainLog(env," @P: Reset d1 [for 'best' we encounter] to %f\n",d1);
-/*SHANE*/PS_PrintToMainLog(env," @R: Number of choices at this state: %d\n",h1-l1);
+/*SHANE*/if (DEBUG_LV3) PS_PrintToMainLog(env," @P: Reset d1 [for 'best' we encounter] to %f\n",d1);
+/*SHANE*/if (DEBUG_LV3) PS_PrintToMainLog(env," @R: Number of choices at this state: %d\n",h1-l1);
 			// loop through those choices
 			for (j = l1; j < h1; j++) {
 				// compute the reward value for state i for this iteration
 				// start with state reward for this state
 				d2 = sr_vec[i];
-/*SHANE*/PS_PrintToMainLog(env,"   @S: Dealing with choice %d - reset d2 to state-reward value %f\n",j-l1+1,d2);
+/*SHANE*/if (DEBUG_LV4) PS_PrintToMainLog(env,"   @S: Dealing with choice %d - reset d2 to state-reward value %f\n",j-l1+1,d2);
 				// get pointers to transitions
 				if (!use_counts) { l2 = choice_starts[j]; h2 = choice_starts[j+1]; }
 				else { l2 = h2; h2 += choice_counts[j]; }
 				// and get pointers to transition rewards
 				if (!use_counts_r) { l2_r = choice_starts_r[j]; h2_r = choice_starts_r[j+1]; }
 				else { l2_r = h2_r; h2_r += choice_counts_r[j]; }
-/*SHANE*/PS_PrintToMainLog(env,"   @T: This choice has this many Transitions: %d\n",h2-l2);
-/*SHANE*/PS_PrintToMainLog(env,"       This choice has this many Transition Rewards: %d, pointers %d to %d\n",h2_r-l2_r,l2_r,h2_r-1);
+/*SHANE*/if (DEBUG_LV4) PS_PrintToMainLog(env,"   @T: This choice has this many Transitions: %d\n",h2-l2);
+/*SHANE*/if (DEBUG_LV4) PS_PrintToMainLog(env,"       This choice has this many Transition Rewards: %d, pointers %d to %d\n",h2_r-l2_r,l2_r,h2_r-1);
 				// loop through transitions
 				for (k = l2; k < h2; k++) {
-   PS_PrintToMainLog(env,"    @U: Considering Transition %d  (this means k=%d;  and cols[k] is %u)\n",k-l2+1,k,cols[k]);
+/*SHANE*/if (DEBUG_LV4) PS_PrintToMainLog(env,"    @U: Considering Transition %d  (this means k=%d;  and cols[k] is %u)\n",k-l2+1,k,cols[k]);
 					// find corresponding transition reward if any
 					k_r = l2_r;
-///*SHANE*/PS_PrintToMainLog(env,"    @W: Transition %d has reward #%d (i.e. k_r).\n    Thus cols_r[k]=%u and cols[k]=%u ",k-l2+1,k_r,cols_r[k_r],cols[k]);
+///*SHANE*/if (DEBUG_LV4) PS_PrintToMainLog(env,"    @W: Transition %d has reward #%d (i.e. k_r).\n    Thus cols_r[k]=%u and cols[k]=%u ",k-l2+1,k_r,cols_r[k_r],cols[k]);
 ///*SHANE*/if (k_r < h2_r) {
-///*SHANE*/PS_PrintToMainLog(env,"- And k_r < h2_r");
+///*SHANE*/if (DEBUG_LV4) PS_PrintToMainLog(env,"- And k_r < h2_r");
 ///*SHANE*/  if (cols_r[k_r] != cols[k]) {
-///*SHANE*/PS_PrintToMainLog(env,"- And cols_r[k_r] != cols[k], so loop will run.");
+///*SHANE*/if (DEBUG_LV4) PS_PrintToMainLog(env,"- And cols_r[k_r] != cols[k], so loop will run.");
 ///*SHANE*/  }
-///*SHANE*/else PS_PrintToMainLog(env,"- BUT NOT cols_r[k_r] != cols[k], so loop won\'t run.");
+///*SHANE*/else if (DEBUG_LV4) PS_PrintToMainLog(env,"- BUT NOT cols_r[k_r] != cols[k], so loop won\'t run.");
 ///*SHANE*/}
-///*SHANE*/else PS_PrintToMainLog(env,"- But NOT k_r < h2_r, so loop won\'t run.");
-///*SHANE*/PS_PrintToMainLog(env,"\n");
+///*SHANE*/else if (DEBUG_LV4) PS_PrintToMainLog(env,"- But NOT k_r < h2_r, so loop won\'t run.");
+///*SHANE*/if (DEBUG_LV4) PS_PrintToMainLog(env,"\n");
 /*SHANE*/if (k_r < h2_r) {
+ if (DEBUG_LV4) {
    PS_PrintToMainLog(env,"       @X: MIGHT need to search cols[?] to find the corresponding Transition Reward Pointer.\n");
    PS_PrintToMainLog(env,"           since cols[k=%d] is %u, and cols_r[k_r=%d] is %u\n",k,cols[k],k_r,cols_r[k_r]);
    if (cols_r[k_r] != cols[k])
    PS_PrintToMainLog(env,"           WILL search - since those two (cols and cols_r) don\'t match.\n");
    else PS_PrintToMainLog(env,"           WON\'T search - since those two (cols and cols_r) already match.\n");
-/*SHANE*/} else PS_PrintToMainLog(env,"       @X: The last option for the corresponding Transition Reward Pointer.\n");
-					 
+ }
+
+/*SHANE*/} else {
+ if (DEBUG_LV4) 
+    PS_PrintToMainLog(env,"       @X: The last option for the corresponding Transition Reward Pointer.\n");
+}					 
+
+
+
 					while (k_r < h2_r && cols_r[k_r] != cols[k]) {	// SHANE has expanded body, to enable debug output.
-/*SHANE*/PS_PrintToMainLog(env,"      @E: cols_r[%d]=%u and cols[%d]=%u\n",k_r,cols_r[k_r],k,cols[k]);
+/*SHANE*/if (DEBUG_LV4) PS_PrintToMainLog(env,"      @E: cols_r[%d]=%u and cols[%d]=%u\n",k_r,cols_r[k_r],k,cols[k]);
 						k_r++;
 					}
 					// if there is one, add reward * prob to reward value
 					if (k_r < h2_r) { 		// SHANE has expanded body...
 						d2 += non_zeros_r[k_r] * non_zeros[k]; 
-/*SHANE*/PS_PrintToMainLog(env,"       @Y: Found as option #%d, non_zeros_r[k_r=%d] is %f and non_zeros[%d] is %f\n",k_r-l2_r+1,k_r,non_zeros_r[k_r],k_r,non_zeros[k]);
-/*SHANE*/PS_PrintToMainLog(env,"           which multiply as %f, to be added to d2 to make d2 now: %f\n",non_zeros[k] * non_zeros_r[k_r],d2);
+/*SHANE*/if (DEBUG_LV4) PS_PrintToMainLog(env,"       @Y: Found as option #%d, non_zeros_r[k_r=%d] is %f and non_zeros[%d] is %f\n",k_r-l2_r+1,k_r,non_zeros_r[k_r],k_r,non_zeros[k]);
+/*SHANE*/if (DEBUG_LV4) PS_PrintToMainLog(env,"           which multiply as %f, to be added to d2 to make d2 now: %f\n",non_zeros[k] * non_zeros_r[k_r],d2);
 
 						k_r++; 
 					}
-/*SHANE*/else PS_PrintToMainLog(env,"       @Y: Not Found - thus d2 not increased by this Transition, and is still: %f\n",d2);
+/*SHANE*/else if (DEBUG_LV4) {
+   PS_PrintToMainLog(env,"       @Y: Not Found - thus d2 not increased by this Transition, and is still: %f\n",d2);
 
 /*SHANE*/PS_PrintToMainLog(env,"       @V: k=%d, cols[k] (i.e. cols[%d]) is %d\n",k,k,cols[k]);
 /*SHANE*/PS_PrintToMainLog(env,"           non_zeros[%d] is %f; soln[%d] is %f (apparently from previous iteration)\n",k,non_zeros[k],cols[k],soln[cols[k]]);
 /*SHANE*/PS_PrintToMainLog(env,"           which multiplied together is %f\n",non_zeros[k] * soln[cols[k]]);
+}
 					// add prob * corresponding reward from previous iteration
 					d2 += non_zeros[k] * soln[cols[k]];
-/*SHANE*/PS_PrintToMainLog(env,"           which added to d2 to make d2 now: %f\n",d2);
+/*SHANE*/if (DEBUG_LV4) PS_PrintToMainLog(env,"           which added to d2 to make d2 now: %f\n",d2);
 
-//OLD /*SHANE*/PS_PrintToMainLog(env,"    @Z: After adding the previous iteration's value from soln[cols[k=%d]=%u], d2 is %f\n",k,cols[k],d2);
-   PS_PrintToMainLog(env,"    @u: Finished Considering Transition %d\n",k-l2+1);
+//OLD /*SHANE*/if (DEBUG_LV4) PS_PrintToMainLog(env,"    @Z: After adding the previous iteration's value from soln[cols[k=%d]=%u], d2 is %f\n",k,cols[k],d2);
+   if (DEBUG_LV4) PS_PrintToMainLog(env,"    @u: Finished Considering Transition %d\n",k-l2+1);
 				}
 				// see if this value is the min/max so far
 				if (first || (min&&(d2<d1)) || (!min&&(d2>d1))) {
-/*SHANE*/PS_PrintToMainLog(env,"   @s: End of considering Choice %d. Updating d1 [best this iteration, for this state] from %f to %f\n\n",j-l1+1,d1,d2);
+/*SHANE*/if (DEBUG_LV3) PS_PrintToMainLog(env,"   @s: End of considering Choice %d. Updating d1 [best this iteration, for this state] from %f to %f\n\n",j-l1+1,d1,d2);
 					d1 = d2;
 					// if adversary generation is enabled, remember optimal choice
 					if (export_adv_enabled != EXPORT_ADV_NONE) {
@@ -452,21 +491,29 @@ PS_PrintToMainLog(env,"\n");
 						}
 					}
 				}
-/*SHANE*/else PS_PrintToMainLog(env,"   @s: End of considering Choice %d, but NOT Updating d1 from %f\n",j-l1+1,d1);
+/*SHANE*/else if (DEBUG_LV3) PS_PrintToMainLog(env,"   @s: End of considering Choice %d, but NOT Updating d1 from %f\n",j-l1+1,d1);
 				first = false;
 			}
-if (h1 > l1)
-/*SHANE*/PS_PrintToMainLog(env,"   Since there was at least 1 choice, we use value d1 for soln2[], which is %f\n",d1);
-/*SHANE*/else {PS_PrintToMainLog(env,"   Since there was just 1 choice, we consider value inf_vec[state=i=%d] which is: %f\n",i,inf_vec[i]);
-/*SHANE*/   if (inf_vec[i] > 0) PS_PrintToMainLog(env,"   and so sol2[] will be set to HUGE_VAL.\n");
-/*SHANE*/   else PS_PrintToMainLog(env,"   and so sol2[] will be set to 0 also.\n");
+/*SHANE*/if (DEBUG_LV2HALF) {
+/*SHANE*/ if (h1 > l1 )
+/*SHANE*/  PS_PrintToMainLog(env,"   Since there was at least 1 choice, we use value d1 for soln2[], which is %f\n",d1);
+/*SHANE*/ else {PS_PrintToMainLog(env,"   Since there was just 1 choice, we consider value inf_vec[state=i=%d] which is: %f\n",i,inf_vec[i]);
+/*SHANE*/        if (inf_vec[i] > 0) PS_PrintToMainLog(env,"   and so sol2[] will be set to HUGE_VAL.\n");
+/*SHANE*/        else PS_PrintToMainLog(env,"   and so sol2[] will be set to 0 also.\n");
+/*SHANE*/ }
 /*SHANE*/}
 			// set vector element
 			// (if there were no choices from this state, reward is zero/infinity)
 			soln2[i] = (h1 > l1) ? d1 : inf_vec[i] > 0 ? HUGE_VAL : 0;
-/*SHANE*/if (!(inf_vec[i] > 0)) PS_PrintToMainLog(env,"[%d end] %c ",i, (soln[i] > 0) ? ((h1 <= l1 && inf_vec[i] > 0) ? '*':'-') : (h1 <= l1 && inf_vec[i] > 0) ? '+':' ' );  /* Asterisk the i values which are 'INFINITY' */
-/*SHANE*/if (!(inf_vec[i] > 0) && soln[i] != soln2[i]) PS_PrintToMainLog(env,"soln[%d] was %f, soln2[%d] is now %f",i,soln[i],i,soln2[i]);
-PS_PrintToMainLog(env,"\n");
+
+/*SHANE*/
+if (DEBUG_LV2HALF) {
+  if (!(inf_vec[i] > 0)) PS_PrintToMainLog(env,"[%d end] %c ",i, (soln[i] > 0) ? ((h1 <= l1 && inf_vec[i] > 0) ? '*':'-') : (h1 <= l1 && inf_vec[i] > 0) ? '+':' ' );  /* Asterisk the i values which are 'INFINITY' */
+  if (!(inf_vec[i] > 0) && soln[i] != soln2[i]) PS_PrintToMainLog(env,"soln[%d] was %f, soln2[%d] is now %f",i,soln[i],i,soln2[i]);
+  PS_PrintToMainLog(env,"\n");
+}
+
+
 		}
 
 		if (iterationExport)
@@ -475,9 +522,9 @@ PS_PrintToMainLog(env,"\n");
 		// check convergence
 		measure.reset();
 		measure.measure(soln, soln2, n);
-/*SHANE*/PS_PrintToMainLog(env,"Checked Convergence after iteration %d. measure.value()=%f, term_crit_param=%f\n",iters,measure.value(),term_crit_param);
+/*SHANE*/if (DEBUG_LV2HALF) PS_PrintToMainLog(env,"Checked Convergence after iteration %d. measure.value()=%f, term_crit_param=%f\n",iters,measure.value(),term_crit_param);
 		if (measure.value() < term_crit_param) {
-/*SHANE*/PS_PrintToMainLog(env,"So COMPLETED now.\n");
+/*SHANE*/if (DEBUG_LV2HALF) PS_PrintToMainLog(env,"So COMPLETED now.\n");
 			done = true;
 		}
 
@@ -493,28 +540,33 @@ PS_PrintToMainLog(env,"\n");
 		soln = soln2;
 		soln2 = tmpsoln;
 /*SHANE*/for (i = 0; i < n; i++) 
-/*SHANE*/  if (!(inf_vec[i] > 0)) PS_PrintToMainLog(env,"soln[%d] is now %f (previously was %f)\n",i,soln[i],soln2[i]);
+/*SHANE*/  if (!(inf_vec[i] > 0)) if (DEBUG_LV2HALF) PS_PrintToMainLog(env,"soln[%d] is now %f (previously was %f)\n",i,soln[i],soln2[i]);
 
 /*SHANE - Make a CSV row that GREP can extract*/
-/*SHANE*/ PS_PrintToMainLog(env,"CSV-LONG,");
-/*SHANE*/for (i = 0; i < n; i++) 
+/*SHANE*/ if (DEBUG_CSV_LONG) {
+/*SHANE*/  PS_PrintToMainLog(env,"CSV-LONG,");
+/*SHANE*/  for (i = 0; i < n; i++) 
 ///*SHANE*/  if (!(inf_vec[i] > 0)) 
 /*SHANE*/   PS_PrintToMainLog(env,"%f,",soln[i]);
-/*SHANE*/ PS_PrintToMainLog(env,"\n");
+/*SHANE*/  PS_PrintToMainLog(env,"\n");
+/*SHANE*/ }  // End of IF DEBUG_CSV_LONG
 
 /*SHANE - Make a CSV row that GREP can extract - This one SKIPS the INF columns, hopefully.*/
-/*SHANE*/ PS_PrintToMainLog(env,"CSV-BRIEF,");
-/*SHANE*/for (i = 0; i < n; i++) 
-/*SHANE*/  if (!(inf_vec[i] > 0)) 
-/*SHANE*/   PS_PrintToMainLog(env,"%f,",soln[i]);
-/*SHANE*/ PS_PrintToMainLog(env,"\n");
+/*SHANE*/ if (DEBUG_CSV_BRIEF) {
+/*SHANE*/  PS_PrintToMainLog(env,"CSV-BRIEF,");
+/*SHANE*/  for (i = 0; i < n; i++) 
+/*SHANE*/   if (!(inf_vec[i] > 0)) 
+/*SHANE*/    PS_PrintToMainLog(env,"%f,",soln[i]);
+/*SHANE*/  PS_PrintToMainLog(env,"\n");
+/*SHANE*/ }
 
 
-/*SHANE*/PS_PrintToMainLog(env,"</ITERATION>\n\n");
+/*SHANE*/if (DEBUG_LV2) PS_PrintToMainLog(env,"</ITERATION>\n\n");
 
 	}
 
-/*SHANE*/PS_PrintToMainLog(env,"PS_NondetReachReward.cc: Place 14 (conclusion of the while loop.)\n");
+/*SHANE*/if (DEBUG_LV1) PS_PrintToMainLog(env,"PS_NondetReachReward.cc: Place 14 (conclusion of the while loop.)\n");
+/*SHANE*/if (DEBUG_LV1) PS_PrintToMainLog(env,"PS_NondetReachReward.cc: Place 14B Completed %d iterations\n",iters);
 	
 	// Traverse matrix to extract adversary
 	if (export_adv_enabled != EXPORT_ADV_NONE) {
@@ -563,7 +615,7 @@ PS_PrintToMainLog(env,"\n");
 	time_taken = (double)(stop - start1)/1000;
 	
 	// print iterations/timing info
-PS_PrintToMainLog(env,"PS_NondetReachReward.cc: Place 15\n");
+if (DEBUG_LV1) PS_PrintToMainLog(env,"PS_NondetReachReward.cc: Place 15\n");
 	PS_PrintToMainLog(env, "\nIterative method: %d iterations in %.2f seconds (average %.6f, setup %.2f)\n", iters, time_taken, time_for_iters/iters, time_for_setup);
 	
 	// if the iterative method didn't terminate, this is an error
@@ -575,7 +627,7 @@ PS_PrintToMainLog(env,"PS_NondetReachReward.cc: Place 15\n");
 		PS_PrintToMainLog(env, "\nAdversary written to file \"%s\".\n", export_adv_filename);
 	}
 
-/*SHANE*/PS_PrintToMainLog(env,"</NondetReachReward>\n");
+/*SHANE*/if (DEBUG_LV1) PS_PrintToMainLog(env,"</NondetReachReward>\n");
 	
 	// catch exceptions: register error, free memory
 	} catch (std::bad_alloc e) {

@@ -40,6 +40,7 @@ import prism.PrismLangException;
 
 public class IndexedSetCheckForVarAccess extends ASTTraverseModify
 {
+private static boolean DEBUG_SHOW_PREPOST = false && DEBUG_Update;
 	@SuppressWarnings("unused")
 	private ModulesFile modulesFile;
 
@@ -55,12 +56,16 @@ public class IndexedSetCheckForVarAccess extends ASTTraverseModify
 
 	public void visitPre(Command e) throws PrismLangException
 	{
+if (DEBUG_SHOW_PREPOST) {
 System.out.println("\nNOTE\nvisitPre(Command) has occurred for this command:\n"+e+"\n(Exiting)\n");
+}
 	}
 
 	public void visitPost(Command e) throws PrismLangException
 	{
+if (DEBUG_SHOW_PREPOST) {
 System.out.println("\nNOTE\nvisitPost(Command) has occurred for this command:\n"+e+"\n(Exiting)\n");
+}
 	}
 
 	// We will check to see if the update access-expression 
@@ -93,7 +98,7 @@ if (DEBUG_Update) {	// Declared in ASTTraverse
 				// And there is potential that two update elements of the same update try to alter the one same item
 				// in a particular indexed set.
 				// We could maybe issue a 'warning' onto mainLog.
-				System.out.println("Update element " + (i+1) + " of the following update modifies an indexed-set element: " + e);
+				System.out.println("ISCFVA - Update element " + (i+1) + " of the following update modifies an indexed-set element: " + e);
 				System.out.println("If more than one element of the same Update alters the same index, there may be indeterminable behavior"); 
 if (DEBUG_Update) {
    System.out.println("  Nothing was checked by this Visitor, because it was targeting an indexed-set access.");

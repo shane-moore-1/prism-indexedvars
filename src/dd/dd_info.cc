@@ -49,6 +49,17 @@ DdNode *dd
 
 //------------------------------------------------------------------------------
 
+int DD_ShaneGetRefCount
+(
+DdManager *ddman,
+DdNode *dd
+)
+{
+	return Cudd_ShaneGetRefCount(dd);
+}
+
+//------------------------------------------------------------------------------
+
 int DD_GetNumTerminals
 (
 DdManager *ddman,

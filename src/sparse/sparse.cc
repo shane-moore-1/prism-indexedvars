@@ -31,6 +31,18 @@
 #include "PrismSparseGlob.h"
 #include <new>
 
+#define INDEX_OF_INTEREST 376833
+#define DEBUG_SHANE_SPECIFIC false
+#define DEBUG_SHANE false
+#define DEBUG_SHANE_ALWAYS false
+#define DEBUG_SHANE_NAVIG false 
+#define DEBUG_SHANE_BRICKS false 
+
+static int starts_MAX, starts2_MAX;		// Intended to store (preserve) the number of elements in each array, to check for out of bounds
+// Whether to display information about attempts to access indexes that are out of bounds of the relevant array (starts or starts2)
+#define DEBUG_ACC_ERROR false
+static int highest_starts2;		// Highest seen attempted access to starts2 beyond its boundary.
+
 //------------------------------------------------------------------------------
 
 // local function prototypes
@@ -215,6 +227,10 @@ RMSparseMatrix *build_rm_sparse_matrix(DdManager *ddman, DdNode *matrix, DdNode 
 	rmsm->non_zeros = new double[nnz];
 	rmsm->cols = new unsigned int[nnz];
 	starts = NULL; starts = new int[n+1];
+starts_MAX = n+1;	// Store the total number of elements, so that bounds checking can be done later.
+if (DEBUG_SHANE) printf("Set the bounds checking to check starts is not accessed above position %d\n",starts_MAX);
+
+if (DEBUG_SHANE) printf("Created starts[] (for row-major) to have %d int elements (%lu)\n",n+1,sizeof(starts));
 	
 	// first traverse the mtbdd to compute how many entries are in each row
 	for (i = 0; i < n+1; i++) starts[i] = 0;
@@ -241,6 +257,7 @@ RMSparseMatrix *build_rm_sparse_matrix(DdManager *ddman, DdNode *matrix, DdNode 
 		rmsm->row_counts = new unsigned char[n];
 		for (i = 0; i < n; i++) rmsm->row_counts[i] = (unsigned char)(starts[i+1] - starts[i]);
 		delete[] starts; starts = NULL;
+starts_MAX = 0;
 		rmsm->mem = (nnz * (sizeof(double) + sizeof(unsigned int)) + n * sizeof(unsigned char)) / 1024.0;
 	} else {
 		rmsm->row_counts = (unsigned char*)starts;
@@ -285,6 +302,8 @@ CMSparseMatrix *build_cm_sparse_matrix(DdManager *ddman, DdNode *matrix, DdNode 
 	cmsm->non_zeros = new double[nnz];
 	cmsm->rows = new unsigned int[nnz];
 	starts = NULL; starts = new int[n+1];
+starts_MAX = n+1;	// Store the total number of elements, so that bounds checking can be done later.
+if (DEBUG_SHANE) printf("Set the bounds checking to check starts is not accessed above position %d\n",starts_MAX);
 	
 	// first traverse the mtbdd to compute how many entries are in each column
 	for (i = 0; i < n+1; i++) starts[i] = 0;
@@ -311,6 +330,7 @@ CMSparseMatrix *build_cm_sparse_matrix(DdManager *ddman, DdNode *matrix, DdNode 
 		cmsm->col_counts = new unsigned char[n];
 		for (i = 0; i < n; i++) cmsm->col_counts[i] = (unsigned char)(starts[i+1] - starts[i]);
 		delete[] starts; starts = NULL;
+starts_MAX = 0;
 		cmsm->mem = (nnz * (sizeof(double) + sizeof(unsigned int)) + n * sizeof(unsigned char)) / 1024.0;
 	} else {
 		cmsm->col_counts = (unsigned char*)starts;
@@ -418,6 +438,8 @@ CMSRSparseMatrix *build_cmsr_sparse_matrix(DdManager *ddman, DdNode *matrix, DdN
 	
 	// allocate temporary array to store start of each row
 	starts = NULL; starts = new int[n+1];
+starts_MAX = n+1;	// Store the total number of elements, so that bounds checking can be done later.
+if (DEBUG_SHANE) printf("Set the bounds checking to check starts is not accessed above position %d\n",starts_MAX);
 	
 	// first traverse the mtbdd to compute how many entries are in each row
 	for (i = 0; i < n+1; i++) starts[i] = 0;
@@ -447,6 +469,7 @@ CMSRSparseMatrix *build_cmsr_sparse_matrix(DdManager *ddman, DdNode *matrix, DdN
 		cmsrsm->row_counts = new unsigned char[n];
 		for (i = 0; i < n; i++) cmsrsm->row_counts[i] = (unsigned char)(starts[i+1] - starts[i]);
 		delete[] starts; starts = NULL;
+starts_MAX = 0;
 		cmsrsm->mem = (cmsrsm->dist_num * sizeof(double) + nnz * sizeof(unsigned int) + n * sizeof(unsigned char)) / 1024.0;
 	} else {
 		cmsrsm->row_counts = (unsigned char*)starts;
@@ -512,6 +535,8 @@ CMSCSparseMatrix *build_cmsc_sparse_matrix(DdManager *ddman, DdNode *matrix, DdN
 	
 	// allocate temporary array to store start of each row
 	starts = NULL; starts = new int[n+1];
+starts_MAX = n+1;	// Store the total number of elements, so that bounds checking can be done later.
+if (DEBUG_SHANE) printf("Set the bounds checking to check starts is not accessed above position %d\n",starts_MAX);
 	
 	// first traverse the mtbdd to compute how many entries are in each column
 	for (i = 0; i < n+1; i++) starts[i] = 0;
@@ -541,6 +566,7 @@ CMSCSparseMatrix *build_cmsc_sparse_matrix(DdManager *ddman, DdNode *matrix, DdN
 		cmscsm->col_counts = new unsigned char[n];
 		for (i = 0; i < n; i++) cmscsm->col_counts[i] = (unsigned char)(starts[i+1] - starts[i]);
 		delete[] starts; starts = NULL;
+starts_MAX = 0;
 		cmscsm->mem = (cmscsm->dist_num * sizeof(double) + nnz * sizeof(unsigned int) + n * sizeof(unsigned char)) / 1024.0;
 	} else {
 		cmscsm->col_counts = (unsigned char*)starts;
@@ -562,64 +588,141 @@ CMSCSparseMatrix *build_cmsc_sparse_matrix(DdManager *ddman, DdNode *matrix, DdN
 // build nondeterministic (mdp) sparse matrix
 // throws std::bad_alloc on out-of-memory
 
+char* ShaneNavigation;
+char* ShaneNav2;
+
 NDSparseMatrix *build_nd_sparse_matrix(DdManager *ddman, DdNode *mdp, DdNode **rvars, DdNode **cvars, int num_vars, DdNode **ndvars, int num_ndvars, ODDNode *odd)
 {
 	int i, n, nm, nc, nnz, max, max2;
 	DdNode *tmp = NULL, **matrices = NULL, **matrices_bdds = NULL;
 	
+int p;	// Shane loop variable
+if (DEBUG_SHANE) printf("in prism/sparse/sparse.cc :: build_nd_sparse_matrix(), START,\nnum_vars is %d, num_ndvars is %d\n, and the sum of eoff and toff is %ld\n",num_vars,num_ndvars, (long) (odd->eoff + odd->toff));
 	// try/catch for memory allocation/deallocation
 	try {
-	
+
+ShaneNavigation = new char[num_vars+3]; ShaneNavigation[0] = '\0';	// An empty string	
+ShaneNav2 = new char[num_vars+3]; ShaneNav2[0] = '\0';
+
 	// create new data structure
 	ndsm = NULL; ndsm = new NDSparseMatrix();
 	
 	// get number of states from odd
 	n = ndsm->n = odd->eoff+odd->toff;
 	// get num of choices (prob. distributions)
+if (DEBUG_SHANE_ALWAYS) printf("build_nd_sp_mat - PLACE 2 - determined n as being %d\n",n);
 	Cudd_Ref(mdp);
 	tmp = DD_ThereExists(ddman, DD_Not(ddman, DD_Equals(ddman, mdp, 0)), cvars, num_vars);
 	nc = ndsm->nc = (int)DD_GetNumMinterms(ddman, tmp, num_vars+num_ndvars);
+if (DEBUG_SHANE_ALWAYS) printf("build_nd_sp_mat - PLACE 3 - determined nc as being %d\n",nc);
 	// get num of transitions
 	nnz = ndsm->nnz = (int)DD_GetNumMinterms(ddman, mdp, num_vars*2+num_ndvars);
 	// break the mdp mtbdd into several (nm) mtbdds
+if (DEBUG_SHANE_ALWAYS) printf("build_nd_sp_mat - PLACE 4 - nc is %d, nnz is %d\n",nc,nnz);
 	tmp = DD_ThereExists(ddman, tmp, rvars, num_vars);
 	nm = (int)DD_GetNumMinterms(ddman, tmp, num_ndvars);
+if (DEBUG_SHANE_ALWAYS) printf("build_nd_sp_mat - PLACE 5 - nm is %d - that's how many DdNodes are to be allocated (size each is %lu)\n",nm,sizeof(DdNode*) );
 	Cudd_RecursiveDeref(ddman, tmp);
 	matrices = new DdNode*[nm];
 	count = 0;
+if (DEBUG_SHANE_ALWAYS) printf("build_nd_sp_mat - PLACE 6A - about to call split_mdp_rec...\n");
 	split_mdp_rec(ddman, mdp, ndvars, num_ndvars, 0, matrices);
+if (DEBUG_SHANE_ALWAYS) printf("build_nd_sp_mat - PLACE 6B - returned from call to split_mdp_rec; allocating again, starting loop\n");
 	// and for each one create a bdd storing which rows/choices are non-empty
 	matrices_bdds = new DdNode*[nm];
+if (DEBUG_SHANE_ALWAYS) printf("build_nd_sp_mat - PLACE 7 about to make the independent matrices (%d of them = nm in quantity)\n",nm);
 	for (i = 0; i < nm; i++) {
 		Cudd_Ref(matrices[i]);
 		matrices_bdds[i] = DD_ThereExists(ddman, DD_Not(ddman, DD_Equals(ddman, matrices[i], 0)), cvars, num_vars);
 	}
 	
+if (DEBUG_SHANE_ALWAYS) printf("Reminder: size of double is %lu, size of an int is %lu.\n",sizeof(double),sizeof(int));
+//if (DEBUG_SHANE) printf("build_nd_sp_mat - PLACE 8A (doing more allocations: %d doubles and uints, %d ints and %d ints)\n",nnz,n+1,nc+1);
 	// create arrays
 	ndsm->non_zeros = new double[nnz];
 	ndsm->cols = new unsigned int[nnz];
 	starts = NULL; starts = new int[n+1];
+starts_MAX = n+1;	// Store the total number of elements, so that bounds checking can be done later.
+if (DEBUG_SHANE) printf("Set the bounds checking [in build_nd_sp_mat] to check starts is not accessed above position %d\n",starts_MAX);
 	starts2 = NULL; starts2 = new int[nc+1];
+        starts2_MAX = nc+1;	// Store the total number of elements, so that bounds checking can be done later.
+//TEMPORARY, to make it bigger so it might not fail...  Which actually worked, but then later PLACE markers don't honour the larger size.
+//starts2_MAX = n*2;//TEMPORARY
+//starts2 = NULL; starts2 = new int[starts2_MAX];	// TEMPORARY, MADE LARGER
+if (DEBUG_SHANE) printf("Set the bounds checking to check starts2 is not accessed above position %d\n",starts2_MAX);
+highest_starts2 = 1;
+if (DEBUG_SHANE) printf("The highest starts2 value is initialised to be: %d\n",highest_starts2);	//hopefully it might change (in the erroneous case)
+
+if (DEBUG_SHANE_ALWAYS) {
+  printf("build_nd_sp_mat - PLACE 8A - created `non-zeros' (correpsonds to 'vals' in Parker) to have %d int elements (which is nnz)\n",nnz);
+  printf("build_nd_sp_mat - PLACE 8B - created `cols' to have %d int elements (which is nnz also)\n",nnz);
+  printf("build_nd_sp_mat - PLACE 8C - created starts[] to have %d int elements (which is n + 1)\n",n+1);
+  printf("build_nd_sp_mat - PLACE 8D - created starts2[] to have %d int elements (which is nc + 1)\n", nc+1);
+}
 	
 	// first traverse mtbdds to compute how many choices are in each row
 	for (i = 0; i < n+1; i++) starts[i] = 0;
+
+if (DEBUG_SHANE_ALWAYS) printf("build_nd_sp_mat - PLACE 8E - initialised starts[] to all blank 0's\n");
+
+if (DEBUG_SHANE_BRICKS) printf("PLACE 8X: starts[855638016] is %d - should be 0\n",starts[855638016]);
+
+if (DEBUG_SHANE_ALWAYS) printf("build_nd_sp_mat - PLACE 9A - About to cycle over each JDD var for rowvars, to call traverse_mtbdd_vect_rec with code 1\n");
 	for (i = 0; i < nm; i++) {
+//if (DEBUG_SHANE) printf("build_nd_sp_mat - PLACE 9 (in loop, iteration %d of %d)\n",i+1,nm);
 		traverse_mtbdd_vect_rec(ddman, matrices_bdds[i], rvars, num_vars, 0, odd, 0, 1);
+if (DEBUG_SHANE_BRICKS) printf("PLACE 9B: after iter %d, starts[855638016] is %d\n",i,starts[855638016]);
 	}
+
+// This loop takes several minutes for the brick scenario (and several Gigabytes of disk space)
+/*if (DEBUG_SHANE) {
+printf("PLACE 8F - the following elements of the starts[] array are not currently 1 (if none show, they are all 1):\n");
+	for (i = 0 ; i < n+1; i++) if (starts[i] != 1) printf("starts[%d] is %d\n",i,starts[i]);
+//start2 Not Initialised Yet:	for (i = 1 ; i < nc+1; i++) printf("starts2[%d] is %d\n",i,starts2[i]);
+
+}
+*/
+
 	// and use this to compute the starts information
 	// (and at same time, compute max num choices in a state)
 	max = 0;
+
+if (DEBUG_SHANE_BRICKS) printf("PLACE 8K: starts[855638016] is %d\n",starts[855638016]);
+
+if (DEBUG_SHANE_ALWAYS) printf("PLACE 9C: About to compute the 'starts' information (apparently by increasing each pos by the sum of its cur and its prev, i.e. offsets)...\n");
+
 	for (i = 1 ; i < n+1; i++) {
+
+//if (i >229370 && i < 229379) printf("PLACE 9Z: starts[%d] is %d\n",i,starts[i]);
+//if (i >376830 && i < 376835) printf("PLACE 9Z: starts[%d] is %d\n",i,starts[i]);
+
+// WAY TOO MAY ITERATIONS to output for. Most of them say '1'
+//if (DEBUG_SHANE) printf("build_nd_sp_mat - PLACE 9A (in loop, iteration %d of %d) - max is %d, starts[%d] is %d ",i,n,max,i,starts[i]);
+//if (DEBUG_SHANE) printf(" %s\n",(starts[i] > max) ? " set as new max ": " no change");
+// Shorter way, possibly:
+if (DEBUG_SHANE_ALWAYS && starts[i] > max) printf("PLACE 9D: In iter %d (i.e. considering starts[%d]), setting new max to be %d\n",i,i,starts[i]);
 		if (starts[i] > max) max = starts[i];
 		starts[i] += starts[i-1];
+//if (DEBUG_SHANE && starts[i] > i) printf("PLACE 9B: increased starts[%d] by amount in starts[%d-1], to now be %d\n",i,i,starts[i]);
 	}
 	ndsm->k = max;
+if (DEBUG_SHANE_ALWAYS) printf("build_nd_sp_mat - PLACE 9E (after loop) max is %d\n",max);
+if (DEBUG_SHANE && !DEBUG_SHANE_BRICKS) {
+   for (p = 1; p < n; p++) if (starts[p] != 0) printf("PLACE 9F -  starts[%d] is %d\n",p,starts[p]);
+}
 	
 	// now traverse mtbdds to compute how many transitions in each choice
 	for (i = 0; i < nc+1; i++) starts2[i] = 0;
 	for (i = 0; i < nm; i++) {
+if (DEBUG_SHANE_ALWAYS) printf("build_nd_sp_mat - PLACE 10A (in loop, iteration %d of %d)\n",i+1,nm);
 		traverse_mtbdd_matr_rec(ddman, matrices[i], rvars, cvars, num_vars, 0, odd, odd, 0, 0, 10, false);
+if (DEBUG_SHANE_ALWAYS) printf("build_nd_sp_mat - PLACE 10B (in loop, iteration %d of %d) - highest beyond-bound access of starts2 so far is: %d\n",i+1,nm,highest_starts2);
 		traverse_mtbdd_vect_rec(ddman, matrices_bdds[i], rvars, num_vars, 0, odd, 0, 2);
+if (DEBUG_SHANE && !DEBUG_SHANE_BRICKS) {
+   for (p = 1; p < n; p++) printf("PLACE 10C for (iteration %d), starts[%d] is %d\n",i+1,p,starts[p]);
+printf("Also\n");
+   for (p = 1; p < nc+1; p++) printf("PLACE 10E for (iteration %d), starts2[%d] is %d\n",i+1,p,starts2[p]);
+}
 	}
 	// and use this to compute the starts2 information
 	// (and at same time, compute max num transitions in a choice)
@@ -631,46 +734,67 @@ NDSparseMatrix *build_nd_sparse_matrix(DdManager *ddman, DdNode *mdp, DdNode **r
 	// recompute starts (because we altered them during last traversal)
 	for (i = n; i > 0; i--) {
 		starts[i] = starts[i-1];
+if (DEBUG_SHANE && !DEBUG_SHANE_BRICKS) printf("build_nd_sp_mat - PLACE 11B (in second loop, iteration %d of %d)i: starts[%d] is %d\n",n-i+1,nm,i,starts[i]);
 	}
+if (DEBUG_SHANE_ALWAYS) printf("build_nd_sp_mat - PLACE 11C - the starts[] array has been reset again.\n");
 	starts[0] = 0;
 	
+if (DEBUG_SHANE_ALWAYS) printf("build_nd_sp_mat - PLACE 12 - starts[] has been reset to values originally as at step 9D\n");
 	// max num choices/transitions determines whether we store counts or starts:
 	ndsm->use_counts = (max < (unsigned int)(1 << (8*sizeof(unsigned char))));
 	ndsm->use_counts &= (max2 < (unsigned int)(1 << (8*sizeof(unsigned char))));
 	
 	// now traverse the mtbdd again to get the actual matrix entries
 	for (i = 0; i < nm; i++) {
+if (DEBUG_SHANE_ALWAYS) printf("build_nd_sp_mat - PLACE 13A (in loop, iteration %d of %d)\n",i+1,nm);
 		traverse_mtbdd_matr_rec(ddman, matrices[i], rvars, cvars, num_vars, 0, odd, odd, 0, 0, 11, false);
+if (DEBUG_SHANE_ALWAYS) printf("build_nd_sp_mat - PLACE 13B (in loop, iteration %d of %d)\n",i+1,nm);
 		traverse_mtbdd_vect_rec(ddman, matrices_bdds[i], rvars, num_vars, 0, odd, 0, 2);
 	}
 	// recompute starts (because we altered them during last traversal)
 	for (i = n; i > 0; i--) {
 		starts[i] = starts[i-1];
+//if (DEBUG_SHANE && !DEBUG_SHANE_BRICKS) printf("build_nd_sp_mat - PLACE 14 (in loop, iteration %d of %d): starts[%d] is %d\n",n-i+1,n,i,starts[i]);
 	}
+if (DEBUG_SHANE_ALWAYS) printf("build_nd_sp_mat - PLACE 14 - the starts[] array has been reset again.\n");
+
 	starts[0] = 0;
 	// recompute starts2 (likewise)
 	for (i = nc; i > 0; i--) {
 		starts2[i] = starts2[i-1];
+if (DEBUG_SHANE) printf("build_nd_sp_mat - PLACE 15 (in loop, iteration %d of %d): starts[%d] is %d\n",nc-i,nc,i,starts[i]);
 	}
 	starts2[0] = 0;
 	
+if (DEBUG_SHANE)
+{
+	printf("These are the final arrays:");
+	for (i = 0; i < n; i++)
+	    printf("starts[%d] is %d\n",i,starts[i]);
+	for (i = 0; i < nc; i++)
+	    printf("starts2[%d] is %d\n",i,starts2[i]);
+}
 	// if it's safe to do so, replace starts/starts2 with (smaller) arrays of counts
 	if (ndsm->use_counts) {
 		ndsm->row_counts = new unsigned char[n];
 		for (i = 0; i < n; i++) ndsm->row_counts[i] = (unsigned char)(starts[i+1] - starts[i]);
 		delete[] starts; starts = NULL;
+starts_MAX = 0;
 		ndsm->choice_counts = new unsigned char[nc];
 		for (i = 0; i < nc; i++) ndsm->choice_counts[i] = (unsigned char)(starts2[i+1] - starts2[i]);
 		delete[] starts2; starts2 = NULL;
+starts2_MAX = 0;
 		ndsm->mem = (nnz * (sizeof(double) + sizeof(unsigned int)) + (n+nc) * sizeof(unsigned char)) / 1024.0;
 	} else {
 		ndsm->row_counts = (unsigned char*)starts;
 		ndsm->choice_counts = (unsigned char*)starts2;
 		ndsm->mem = (nnz * (sizeof(double) + sizeof(unsigned int)) + (n+nc) * sizeof(int)) / 1024.0;
 	}
+if (DEBUG_SHANE) printf("build_nd_sp_mat - PLACE 17\n");
 	
 	// try/catch for memory allocation/deallocation
 	} catch(std::bad_alloc e) {
+if (DEBUG_SHANE) printf("build_nd_sp_mat - PLACE 19 - Error Block\n");
 		if (ndsm) delete ndsm;
 		if (matrices) delete[] matrices;
 		if (matrices_bdds) {
@@ -739,7 +863,12 @@ NDSparseMatrix *build_sub_nd_sparse_matrix(DdManager *ddman, DdNode *mdp, DdNode
 	ndsm->non_zeros = new double[nnz];
 	ndsm->cols = new unsigned int[nnz];
 	starts = NULL; starts = new int[n+1];
+starts_MAX = n+1;	// Store the total number of elements, so that bounds checking can be done later.
+if (DEBUG_SHANE) printf("Set the bounds checking to check starts is not accessed above position %d\n",starts_MAX);
 	starts2 = NULL; starts2 = new int[nc+1];
+starts2_MAX = nc+1;	// Store the total number of elements, so that bounds checking can be done later.
+if (DEBUG_SHANE) printf("Set the bounds checking to check starts2 is not accessed above position %d\n",starts2_MAX);
+
 	
 	// first traverse mtbdds to compute how many choices are in each row (USING MDP)
 	for (i = 0; i < n+1; i++) starts[i] = 0;
@@ -799,9 +928,11 @@ NDSparseMatrix *build_sub_nd_sparse_matrix(DdManager *ddman, DdNode *mdp, DdNode
 		ndsm->row_counts = new unsigned char[n];
 		for (i = 0; i < n; i++) ndsm->row_counts[i] = (unsigned char)(starts[i+1] - starts[i]);
 		delete[] starts; starts = NULL;
+starts_MAX = 0;
 		ndsm->choice_counts = new unsigned char[nc];
 		for (i = 0; i < nc; i++) ndsm->choice_counts[i] = (unsigned char)(starts2[i+1] - starts2[i]);
 		delete[] starts2; starts2 = NULL;
+starts2_MAX = 0;
 		ndsm->mem = (nnz * (sizeof(double) + sizeof(unsigned int)) + (n+nc) * sizeof(unsigned char)) / 1024.0;
 	} else {
 		ndsm->row_counts = (unsigned char*)starts;
@@ -877,6 +1008,8 @@ void build_nd_action_vector(DdManager *ddman, DdNode *mdp, DdNode *trans_actions
 	// create arrays
 	actions = NULL; actions = new int[nc];
 	starts = NULL; starts = new int[n+1];
+starts_MAX = n+1;	// Store the total number of elements, so that bounds checking can be done later.
+if (DEBUG_SHANE) printf("Set the bounds checking to check starts is not accessed above position %d\n",starts_MAX);
 	
 	// build the (temporary) array 'starts' (like was done when building the sparse matrix for the mdp).
 	// in fact, this information is retrievable from the sparse matrix, but it may have
@@ -995,42 +1128,75 @@ void split_mdp_and_sub_mdp_rec(DdManager *ddman, DdNode *dd, DdNode *subdd, DdNo
 // traverses the mtbdd and gets all the MATRIX entries out
 // does different things depending on the value of 'code'
 // if tranpose flag is true, actually extract from tranpose of matrix
+static unsigned int ShaneID = 1;
 
 void traverse_mtbdd_matr_rec(DdManager *ddman, DdNode *dd, DdNode **rvars, DdNode **cvars, int num_vars, int level, ODDNode *row, ODDNode *col, int r, int c, int code, bool transpose)
 {
 	DdNode *e, *t, *ee, *et, *te, *tt;
 	int i, dist_num;
 	double *dist, d;
-	
+int index;
+
+unsigned int occurrence = ShaneID++;
+
+ShaneNavigation[level] = 'a';
+ShaneNavigation[level+1] = '\0';
+if (DEBUG_SHANE_NAVIG) printf("%d %s [%d]\n",occurrence,ShaneNavigation,level);
 	// base case - zero terminal
-	if (dd == Cudd_ReadZero(ddman)) return;
+	if (dd == Cudd_ReadZero(ddman)) 
+{
+ShaneNavigation[level] = 'R';
+if (DEBUG_SHANE_NAVIG) printf("%d %s [%d]\n",occurrence,ShaneNavigation,level);
+	   return;
+}
 	
 	// base case - non zero terminal
 	if (level == num_vars) {
+//if (DEBUG_SHANE) printf("%d for code is: %d\n",code);
 		switch (code) {
 		
 		// row major - first pass
 		case 1:
+		  index = (transpose?c:r) + 1;
+		  if (index >= starts_MAX) {
+		    if (DEBUG_ACC_ERROR) printf("ERROR: Out of bounds accessing starts[%d > %d]\n",index,starts_MAX);
+		  } else {
 			starts[(transpose?c:r)+1]++;
+		  }
 			break;
 			
 		// row major - second pass
 		case 2:
+		  index = (transpose?c:r);
+		  if (index >= starts_MAX) {
+		    if (DEBUG_ACC_ERROR) printf("ERROR: Out of bounds accessing starts[%d > %d]\n",index,starts_MAX);
+		  } else {
 			rmsm->non_zeros[starts[(transpose?c:r)]] = Cudd_V(dd);
 			rmsm->cols[starts[(transpose?c:r)]] = (transpose?r:c);
 			starts[(transpose?c:r)]++;
+                  }
 			break;
 			
 		// column major - first pass
 		case 3:
+		  index = (transpose?r:c) + 1;
+		  if (index >= starts_MAX) {
+		    if (DEBUG_ACC_ERROR) printf("ERROR: Out of bounds accessing starts[%d > %d]\n",index,starts_MAX);
+		  } else {
 			starts[(transpose?r:c)+1]++;
+		  }
 			break;
 			
 		// column major - second pass
 		case 4:
+		  index = (transpose?r:c);
+		  if (index >= starts_MAX) {
+		    if (DEBUG_ACC_ERROR) printf("ERROR: Out of bounds accessing starts[%d > %d]\n",index,starts_MAX);
+		  } else {
 			cmsm->non_zeros[starts[(transpose?r:c)]] = Cudd_V(dd);
 			cmsm->rows[starts[(transpose?r:c)]] = (transpose?c:r);
 			starts[(transpose?r:c)]++;
+		  }
 			break;
 			
 		// row/column - only pass
@@ -1043,7 +1209,12 @@ void traverse_mtbdd_matr_rec(DdManager *ddman, DdNode *dd, DdNode **rvars, DdNod
 			
 		// compact modified sparse row - first pass
 		case 6:
+		  index = (transpose?c:r) + 1;
+		  if (index >= starts_MAX) {
+		    if (DEBUG_ACC_ERROR) printf("ERROR: Out of bounds accessing starts[%d > %d]\n",index,starts_MAX);
+		  } else {
 			starts[(transpose?c:r)+1]++;
+		  }
 			break;
 			
 		// compact modified sparse row - second pass
@@ -1059,13 +1230,23 @@ void traverse_mtbdd_matr_rec(DdManager *ddman, DdNode *dd, DdNode **rvars, DdNod
 				cmsrsm->dist_num++;
 			}
 			// store info
+		  index = (transpose?r:c);
+		  if (index >= starts_MAX) {
+		    if (DEBUG_ACC_ERROR) printf("ERROR: Out of bounds accessing starts[%d > %d]\n",index,starts_MAX);
+		  } else {
 			cmsrsm->cols[starts[(transpose?c:r)]] = (unsigned int)(((unsigned int)(transpose?r:c) << cmsrsm->dist_shift) + (unsigned int)i);
 			starts[(transpose?c:r)]++;
+		  }
 			break;
 			
 		// compact modified sparse column - first pass
 		case 8:
+		  index = (transpose?r:c) + 1;
+		  if (index >= starts_MAX) {
+		    if (DEBUG_ACC_ERROR) printf("ERROR: Out of bounds accessing starts[%d > %d]\n",index,starts_MAX);
+		  } else {
 			starts[(transpose?r:c)+1]++;
+		  }
 			break;
 			
 		// compact modified sparse column - second pass
@@ -1081,20 +1262,57 @@ void traverse_mtbdd_matr_rec(DdManager *ddman, DdNode *dd, DdNode **rvars, DdNod
 				cmscsm->dist_num++;
 			}
 			// store info
+		  index = (transpose?r:c);
+		  if (index >= starts_MAX) {
+		    if (DEBUG_ACC_ERROR) printf("ERROR: Out of bounds accessing starts[%d > %d]\n",index,starts_MAX);
+		  } else {
 			cmscsm->rows[starts[(transpose?r:c)]] = (unsigned int)(((unsigned int)(transpose?c:r) << cmscsm->dist_shift) + (unsigned int)i);
 			starts[(transpose?r:c)]++;
+		  }
 			break;
 			
 		// mdp - first pass
 		case 10:
+		  index = (transpose?c:r) + 1;
+// if (DEBUG_SHANE) printf("case 10: index: %d\n",index);
+		  if (index >= starts_MAX) {
+		    if (DEBUG_ACC_ERROR) printf("ERROR: Out of bounds accessing starts[%d > %d]\n",index,starts_MAX);
+		  } else {
+		    index = starts[(transpose?c:r)]+1;	// the index into starts2 that will be used, needs to be checked first...
+		    if (index >= starts2_MAX) {
+		      if (index > highest_starts2) {
+			highest_starts2 = index;
+		        if (DEBUG_ACC_ERROR) {
+			  printf("ERROR: Out of bounds accessing starts2[%d > %d] (%d)\n",index,starts2_MAX,highest_starts2);
+			}
+		      }
+		    } else {	// both indexes will be valid, we can safely access the arrays...
+if (DEBUG_SHANE) {
+printf("PLACE 66: transpose is %s, c (for true case) is %d, r (for false case) is %d\n", (transpose ? "true" : "false"),c,r);
+printf(" starts[%d] is %d, and starts[%d] is %d\n",c,starts[c],r,starts[r]);
+printf("Using the starts[c or r] element value PLUS 1 to access starts2[%d] which will increase by 1 from %d\n",starts[(transpose?c:r)]+1,starts2[starts[(transpose?c:r)]+1]);
+}
 			starts2[starts[(transpose?c:r)]+1]++;
+		     }
+		  }
 			break;
 			
 		// mdp - second pass
 		case 11:
+		  index = (transpose?c:r);
+		  if (index >= starts_MAX) {
+		    if (DEBUG_ACC_ERROR) printf("ERROR: Out of bounds accessing starts[%d > %d]\n",index,starts_MAX);
+		  } else {
+		     index = starts[(transpose?c:r)];	// the index into starts2 that will be used, needs to be checked first...
+		     if (index >= starts2_MAX) {
+		       highest_starts2 = index;
+		       if (DEBUG_ACC_ERROR) { printf("ERROR: Out of bounds accessing starts2[%d > %d]\n",index,starts2_MAX); }
+		     } else {
 			ndsm->non_zeros[starts2[starts[(transpose?c:r)]]] = Cudd_V(dd);
 			ndsm->cols[starts2[starts[(transpose?c:r)]]] = (transpose?r:c);
 			starts2[starts[(transpose?c:r)]]++;
+		     }
+		  }
 			break;
 		}
 		return;
@@ -1127,10 +1345,25 @@ void traverse_mtbdd_matr_rec(DdManager *ddman, DdNode *dd, DdNode **rvars, DdNod
 		}
 	}
 
+ShaneNavigation[level] = 'A';
+ShaneNavigation[level+1] = '\0';
+if (DEBUG_SHANE_NAVIG) printf("%d %s [%d]\n",occurrence,ShaneNavigation,level);
 	traverse_mtbdd_matr_rec(ddman, ee, rvars, cvars, num_vars, level+1, row->e, col->e, r, c, code, transpose);
+ShaneNavigation[level] = 'B';
+ShaneNavigation[level+1] = '\0';
+if (DEBUG_SHANE_NAVIG) printf("%d %s [%d]\n",occurrence,ShaneNavigation,level);
 	traverse_mtbdd_matr_rec(ddman, et, rvars, cvars, num_vars, level+1, row->e, col->t, r, c+col->eoff, code, transpose);
+ShaneNavigation[level] = 'C';
+ShaneNavigation[level+1] = '\0';
+if (DEBUG_SHANE_NAVIG) printf("%d %s [%d]\n",occurrence,ShaneNavigation,level);
 	traverse_mtbdd_matr_rec(ddman, te, rvars, cvars, num_vars, level+1, row->t, col->e, r+row->eoff, c, code, transpose);
+ShaneNavigation[level] = 'D';
+ShaneNavigation[level+1] = '\0';
+if (DEBUG_SHANE_NAVIG) printf("%d %s [%d]\n",occurrence,ShaneNavigation,level);
 	traverse_mtbdd_matr_rec(ddman, tt, rvars, cvars, num_vars, level+1, row->t, col->t, r+row->eoff, c+col->eoff, code, transpose);
+ShaneNavigation[level] = 'Z';
+ShaneNavigation[level+1] = '\0';
+if (DEBUG_SHANE_NAVIG) printf("%d %s [%d]\n",occurrence,ShaneNavigation,level);
 }
 
 //------------------------------------------------------------------------------
@@ -1138,10 +1371,13 @@ void traverse_mtbdd_matr_rec(DdManager *ddman, DdNode *dd, DdNode **rvars, DdNod
 // traverses the mtbdd and gets all the VECTOR entries out
 // does different things depending on the value of 'code'
 
+
 void traverse_mtbdd_vect_rec(DdManager *ddman, DdNode *dd, DdNode **vars, int num_vars, int level, ODDNode *odd, int i, int code)
 {
 	DdNode *e, *t;
-	
+ShaneNav2[level] = 'A'; ShaneNav2[level+1] = '\0';
+//if (DEBUG_SHANE && i == 385563016)
+// printf("TV: %p %3d %d %s\n",dd,level,i,ShaneNav2);	
 	// base case - zero terminal
 	if (dd == Cudd_ReadZero(ddman)) return;
 	
@@ -1151,17 +1387,36 @@ void traverse_mtbdd_vect_rec(DdManager *ddman, DdNode *dd, DdNode **vars, int nu
 		
 		// mdp - first pass
 		case 1:
+		  if (i >= starts_MAX) {
+		    if (DEBUG_ACC_ERROR) printf("ERROR: Out of bounds accessing starts[%d]\n",i);
+		  } else {
 			starts[i+1]++;
+		  }
 			break;
 			
 		// mdp - second pass
 		case 2:
+		  if ((i+1) >= starts_MAX) {
+		    if (DEBUG_ACC_ERROR) printf("ERROR: Out of bounds accessing starts[%d]\n",i);
+		  } else {
+if (DEBUG_SHANE_SPECIFIC && i == INDEX_OF_INTEREST)
+   printf("trav_mt_vec Case 2: starts of interest is: %d\n%s\n",starts[i+1],ShaneNav2);
+//else if (DEBUG_SHANE) printf("TMVR-C2: i is %d so starts[i= %d] will be incremented from %d\n",i,i,starts[i]);
+
 			starts[i]++;
+		  }
 			break;
 			
 		// mdp action vector - single pass
 		case 3:
+		  if ((i+1) >= starts_MAX) {
+		    if (DEBUG_ACC_ERROR) printf("ERROR: Out of bounds accessing starts[%d]\n",i);
+		  } else {
+if (DEBUG_SHANE_SPECIFIC && i == INDEX_OF_INTEREST)
+   printf("trav_mt_vec Case 3: starts of interest is: %d\n%s\n",starts[i+1],ShaneNav2);
+//else if (DEBUG_SHANE) printf("TMVR-C3: i is %d starts[%d] which is %d will be used as index into actions[]\n",i,i,starts[i]);
 			actions[starts[i]] = (int)Cudd_V(dd);
+		  }
 			break;
 		}
 		
@@ -1177,7 +1432,9 @@ void traverse_mtbdd_vect_rec(DdManager *ddman, DdNode *dd, DdNode **vars, int nu
 		t = Cudd_T(dd);
 	}
 
+ShaneNav2[level] = 'B';
 	traverse_mtbdd_vect_rec(ddman, e, vars, num_vars, level+1, odd->e, i, code);
+ShaneNav2[level] = 'C'; ShaneNav2[level+1] = '\0';
 	traverse_mtbdd_vect_rec(ddman, t, vars, num_vars, level+1, odd->t, i+odd->eoff, code);
 }
 

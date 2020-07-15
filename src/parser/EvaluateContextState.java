@@ -33,32 +33,39 @@ package parser;
  */
 public class EvaluateContextState implements EvaluateContext
 {
-public static boolean DEBUG_Constructors = false;
+public static boolean DEBUG_Constructors = true;
 public static boolean DEBUG_getCV = true;
+
+public static int nextInstanceID = 0;
 
 	private Values constantValues;
 	private Object[] varValues;
+private int InstanceID;
 
 	public EvaluateContextState(State state)
 	{
-Exception e = new Exception("Constructor 1 of parser.EvaluateContextState");
-if (DEBUG_Constructors) e.printStackTrace(System.out);
 		this.constantValues = null;
 		this.varValues = state.varValues;
+this.InstanceID = ++nextInstanceID;
+if (DEBUG_Constructors) {
+  System.out.println("Constructor 1 of parser.EvaluateContextState - making ECS #"+InstanceID);
+  Exception stackTr = new Exception("STACK TRACE ONLY");
+  stackTr.printStackTrace(System.out);
+}
 	}
 
 	public EvaluateContextState(Values constantValues, State state)
 	{
-Exception e = new Exception("Constructor 2 of parser.EvaluateContextState");
-if (DEBUG_Constructors) e.printStackTrace(System.out);
 		this.constantValues = constantValues;
 		this.varValues = state.varValues;
+this.InstanceID = ++nextInstanceID;
+if (DEBUG_Constructors) System.out.println("Constructor 2 of parser.EvaluateContextState - making ECS #"+InstanceID);
 	}
 
 	public Object getConstantValue(String name)
 	{
 if (DEBUG_getCV) {
-System.out.println("\n~~ in parser.EvaluateContextState: Looking for constant: " + name);
+System.out.println("\n~~ in parser.EvaluateContextState (Instance #"+InstanceID+"): Looking for constant: " + name);
 if (constantValues == null)
 System.out.println(" -- but the constantValues is null!!");
 }
@@ -80,7 +87,7 @@ if (DEBUG_getCV && i == -1) {
 	public Object getVarValue(String name, int index)
 	{
 if (DEBUG_getCV) {
-	System.out.println("\n~~ in parser.EvaluateContextState: Looking for variable: " + name + " using index " + index);
+	System.out.println("\n~~ in parser.EvaluateContextState (Instance #"+InstanceID+"): Looking for variable: " + name + " using index " + index);
 }
 		// Use index to look up value
 		return index == -1 ? null : varValues[index];

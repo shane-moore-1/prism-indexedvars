@@ -324,6 +324,8 @@ public class PrismSparse
 	public static DoubleVector NondetReachReward(JDDNode trans, JDDNode transActions, List<String> synchs, JDDNode sr, JDDNode trr, ODDNode odd, JDDVars rows, JDDVars cols, JDDVars nondet, JDDNode goal, JDDNode inf, JDDNode maybe, boolean minmax) throws PrismException
 	{
 		checkNumStates(odd);
+Exception e = new Exception("CALL STACK");
+e.printStackTrace(System.out);
 
 		long ptr = PS_NondetReachReward(trans.ptr(), (transActions == null) ? 0 : transActions.ptr(), synchs, sr.ptr(), trr.ptr(), odd.ptr(), rows.array(), rows.n(), cols.array(), cols.n(), nondet.array(), nondet.n(), goal.ptr(), inf.ptr(), maybe.ptr(), minmax);
 		if (ptr == 0) throw generateExceptionForError();

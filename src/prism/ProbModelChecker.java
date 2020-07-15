@@ -2340,17 +2340,22 @@ mainLog.println("in PMC.crr Place 2B-1 F");
 				lower = JDD.ITE(maybe.copy(), JDD.Constant(lowerBound), JDD.Constant(0));
 mainLog.println("in PMC.crr Place 2B-1 G");
 			}
+mainLog.println("in PMC.crr Place 2B-2");
 
 			mainLog.println("\nComputing remaining rewards...");
 			mainLog.println("Engine: " + Prism.getEngineString(engine));
 			try {
 				switch (engine) {
 				case Prism.MTBDD:
+mainLog.println("in PMC.crr Place 3A-1");
 					if (doIntervalIteration) {
+mainLog.println("in PMC.crr Place 3A-2A - doIntervalIteration true");
 						rewardsMTBDD = PrismMTBDD.ProbReachRewardInterval(tr, sr, trr, odd, allDDRowVars, allDDColVars, b, inf, maybe, lower, upper, prism.getIntervalIterationFlags());
 					} else {
+mainLog.println("in PMC.crr Place 3A-2B - doIntervalIteration false");
 						rewardsMTBDD = PrismMTBDD.ProbReachReward(tr, sr, trr, odd, allDDRowVars, allDDColVars, b, inf, maybe);
 					}
+mainLog.println("in PMC.crr Place 3A-3");
 					rewards = new StateValuesMTBDD(rewardsMTBDD, model);
 					break;
 				case Prism.SPARSE:
@@ -2367,11 +2372,15 @@ mainLog.println("in PMC.crr Place 3B-4");
 					rewards = new StateValuesDV(rewardsDV, model);
 					break;
 				case Prism.HYBRID:
+mainLog.println("in PMC.crr Place 3C-1");
 					if (doIntervalIteration) {
+mainLog.println("in PMC.crr Place 3C-2A - doIntervalIteration is true - doing PrismHybrid.ProbReachRewardInterval...");
 						rewardsDV = PrismHybrid.ProbReachRewardInterval(tr, sr, trr, odd, allDDRowVars, allDDColVars, b, inf, maybe, lower, upper, prism.getIntervalIterationFlags());
 					} else {
+mainLog.println("in PMC.crr Place 3C-2A - doIntervalIteration is false");
 						rewardsDV = PrismHybrid.ProbReachReward(tr, sr, trr, odd, allDDRowVars, allDDColVars, b, inf, maybe);
 					}
+mainLog.println("in PMC.crr Place 3C-3");
 					rewards = new StateValuesDV(rewardsDV, model);
 					break;
 				default:
@@ -2386,12 +2395,15 @@ mainLog.println("in PMC.crr Place 3B-4");
 			}
 		}
 
+mainLog.println("in PMC.crr Place 4A");
 		if (doIntervalIteration) {
+mainLog.println("in PMC.crr Place 4B-1A");
 			double max_v = rewards.maxFiniteOverBDD(maybe);
 			if (max_v != Double.NEGATIVE_INFINITY) {
 				mainLog.println("Maximum finite value in solution vector at end of interval iteration: " + max_v);
 			}
 		}
+mainLog.println("in PMC.crr Place 5 [end]");
 
 		// derefs
 		JDD.Deref(inf);

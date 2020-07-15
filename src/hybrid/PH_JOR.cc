@@ -192,7 +192,7 @@ jdouble omega		// omega (over-relaxation parameter)
 	
 	// build b vector (if present)
 	if (b != NULL) {
-		PH_PrintToMainLog(env, "Creating vector for RHS... ");
+		PH_PrintToMainLog(env, "Creating vector for RHS... in PH_JOR ");
 		b_vec = mtbdd_to_double_vector(ddman, b, rvars, num_rvars, odd);
 		// try and convert to compact form if required
 		compact_b = false;
@@ -209,7 +209,7 @@ jdouble omega		// omega (over-relaxation parameter)
 	}
 	
 	// create solution/iteration vectors
-	PH_PrintToMainLog(env, "Allocating iteration vectors... ");
+	PH_PrintToMainLog(env, "Allocating iteration vectors... in PH_JOR");
 	soln = mtbdd_to_double_vector(ddman, init, rvars, num_rvars, odd);
 	
 	soln2 = new double[n];
@@ -243,8 +243,10 @@ jdouble omega		// omega (over-relaxation parameter)
 	PH_PrintToMainLog(env, "\nStarting iterations...\n");
 	
 	while (!done && iters < max_iters) {
-		
 		iters++;
+
+printf("in PH_JOR doing iteration %d (max_iters is %d)\n",iters,max_iters);		
+PH_PrintToMainLog(env, "time taken so far: %.2f sec\n", ((double)(util_cpu_time() - start2)/1000));
 		
 		// matrix multiply
 		
@@ -257,8 +259,10 @@ jdouble omega		// omega (over-relaxation parameter)
 			for (i = 0; i < n; i++) { soln2[i] = b_dist->dist[b_dist->ptrs[i]]; }
 		}
 		
+printf("in PH_JOR doing iteration %d - PLACE 2, about to call jor_rec\n",iters);		
 		// do matrix vector multiply bit
 		jor_rec(hdd, 0, 0, 0, transpose);
+printf("in PH_JOR doing iteration %d - PLACE 3, finished call jor_rec\n",iters);		
 		
 		// divide by diagonal
 		if (!compact_d) {
@@ -267,6 +271,7 @@ jdouble omega		// omega (over-relaxation parameter)
 			for (i = 0; i < n; i++) { soln2[i] *= diags_dist->dist[diags_dist->ptrs[i]]; }
 		}
 		
+printf("in PH_JOR doing iteration %d - PLACE 4, finished call jor_rec\n",iters);		
 		// do over-relaxation if necessary
 		if (omega != 1) {
 			for (i = 0; i < n; i++) {
@@ -331,51 +336,81 @@ jdouble omega		// omega (over-relaxation parameter)
 
 //------------------------------------------------------------------------------
 
+const int SHANE_INTERVAL = 400000;
+
 static void jor_rec(HDDNode *hdd, int level, int row_offset, int col_offset, bool transpose)
 {
 	HDDNode *e, *t;
+static char* ShaneNavig = new char[num_levels+4];
+
+static int counter = 0;
+
+ShaneNavig[level] = '0';
+ShaneNavig[level+1] = '\0';
+counter++;
+if (counter > SHANE_INTERVAL) counter = 0;
 	
 	// if it's the zero node
 	if (hdd == zero) {
+//printf("in jor_rec: %3d %s - hdd == zero, returning\n",level,ShaneNavig);
+ShaneNavig[level] = '\0';
 		return;
 	}
 	// or if we've reached a submatrix
 	// (check for non-null ptr but, equivalently, we could just check if level==l_sm)
 	else if (hdd->sm.ptr) {
 		if (!compact_sm) {
+if (counter == SHANE_INTERVAL) printf("in jor_rec: %3d %s - calling jor_rm\n",level,ShaneNavig);
 			jor_rm((RMSparseMatrix *)hdd->sm.ptr, row_offset, col_offset);
 		} else {
+if (counter == SHANE_INTERVAL) printf("in jor_rec: %3d %s - calling jor_cmsr\n",level,ShaneNavig);
 			jor_cmsr((CMSRSparseMatrix *)hdd->sm.ptr, row_offset, col_offset);
 		}
+ShaneNavig[level] = '\0';
 		return;
 	}
 	// or if we've reached the bottom
 	else if (level == num_levels) {
+//if (counter == SHANE_INTERVAL) printf("in jor_rec: %3d %s - reached leaf: (%d,%d)=%f\n",level,ShaneNavig,row_offset,col_offset,hdd->type.val());
 		//printf("(%d,%d)=%f\n", row_offset, col_offset, hdd->type.val);
 		soln2[row_offset] -= soln[col_offset] * hdd->type.val;
+ShaneNavig[level] = '\0';
 		return;
 	}
 	// otherwise recurse
 	e = hdd->type.kids.e;
 	if (e != zero) {
 		if (!transpose) {
+ShaneNavig[level] = 'A';
 			jor_rec(e->type.kids.e, level+1, row_offset, col_offset, transpose);
+ShaneNavig[level] = 'B';
 			jor_rec(e->type.kids.t, level+1, row_offset, col_offset+e->off.val, transpose);
+ShaneNavig[level] = 'M';
 		} else {
+ShaneNavig[level] = 'A';
 			jor_rec(e->type.kids.e, level+1, row_offset, col_offset, transpose);
+ShaneNavig[level] = 'B';
 			jor_rec(e->type.kids.t, level+1, row_offset+e->off.val, col_offset, transpose);
+ShaneNavig[level] = 'M';
 		}
 	}
 	t = hdd->type.kids.t;
 	if (t != zero) {
 		if (!transpose) {
+ShaneNavig[level] = 'X';
 			jor_rec(t->type.kids.e, level+1, row_offset+hdd->off.val, col_offset, transpose);
+ShaneNavig[level] = 'Y';
 			jor_rec(t->type.kids.t, level+1, row_offset+hdd->off.val, col_offset+t->off.val, transpose);
+ShaneNavig[level] = 'Z';
 		} else {
+ShaneNavig[level] = 'X';
 			jor_rec(t->type.kids.e, level+1, row_offset, col_offset+hdd->off.val, transpose);
+ShaneNavig[level] = 'Y';
 			jor_rec(t->type.kids.t, level+1, row_offset+t->off.val, col_offset+hdd->off.val, transpose);
+ShaneNavig[level] = 'Z';
 		}
 	}
+ShaneNavig[level] = '\0';
 }
 
 //-----------------------------------------------------------------------------------

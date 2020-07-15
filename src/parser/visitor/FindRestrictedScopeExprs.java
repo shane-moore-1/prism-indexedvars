@@ -38,7 +38,7 @@ import java.util.List;
 
 public class FindRestrictedScopeExprs extends ASTTraverse
 {
-public static boolean DEBUG = true;
+public static boolean DEBUG = false;
 	private ArrayList<RestrictedScopeExpression> rseList = new ArrayList<RestrictedScopeExpression>();
 
 	public FindRestrictedScopeExprs ()

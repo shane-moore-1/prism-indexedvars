@@ -133,6 +133,13 @@ Cudd_Ref(
 } /* end of Cudd_Ref */
 
 
+// TEMPORARY for SHANE DEBUG - to see the current reference count value for a node.
+
+int Cudd_ShaneGetRefCount ( DdNode *n)
+{
+	return n->ref;
+}
+
 /**Function********************************************************************
 
   Synopsis    [Decreases the reference count of node n.]

@@ -41,7 +41,7 @@ import java.util.List;
 // way of determining rather than extracting out from other guards? (If I can't get this one to work in all cases...)
 public class FindRelOpInvolvingVar extends ASTTraverse
 {
-public static boolean DEBUG = true;
+public static boolean DEBUG = false;
 	private String varNameToFind;
 	private ArrayList<ExpressionBinaryOp> expressionsThatInvolve = new ArrayList<ExpressionBinaryOp>();
 

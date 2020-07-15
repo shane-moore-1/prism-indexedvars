@@ -31,9 +31,17 @@ public class ReplaceIndexSpecifiers extends ASTTraverseModify {
 	{
 if (DEBUG) {
    System.out.println("<ReplaceIndSpec>\nThe ReplaceIndexSpecifiers.visit(EISA) method has been invoked for: " + e);
+   System.out.println("with the following substitutions: [" + substitutions + "]");
 }
-		ExpressionIndexedSetAccess copyToReturn = (ExpressionIndexedSetAccess) e.deepCopy();
-		copyToReturn = (ExpressionIndexedSetAccess) copyToReturn.evaluatePartially(null,substitutions);
+		ExpressionIndexedSetAccess copyToReturn =  (ExpressionIndexedSetAccess) e.deepCopy();  //<-- Did not work, partic for RHS of any update.
+//WORKED for RHS of Update: But does it break other things like LHS of update or Guards
+//		ExpressionIndexedSetAccess copyToReturn = e;// (ExpressionIndexedSetAccess) e.deepCopy();  <-- Did not work, partic for RHS of any update.
+System.out.println("The Index Access Expression is: " + copyToReturn.getIndexExpression() + "  and its type is " + copyToReturn.getIndexExpression().getClass().getName());
+		copyToReturn.setIndexExpression( (Expression) copyToReturn.getIndexExpression().evaluatePartially(null,substitutions));		// Apply substitutions to the access expression
+System.out.println("Returning: " + copyToReturn);
+		// But that may not cater for indexed-set access expressions inside the access expression (i.e. recursive)
+// OLD, won't work:	copyToReturn = (ExpressionIndexedSetAccess) copyToReturn.evaluatePartially(null,substitutions);
+// BECAUSE the evaluatePartially is done by the visitor called EvaluatePartially, which doesn't know how to work for an ExpressionIndexedSetAccess.
 
 if (DEBUG) {
    System.out.println("</ReplaceIndSpec>\n");

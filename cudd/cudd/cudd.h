@@ -949,6 +949,7 @@ extern DdNode * Cudd_bddClosestCube (DdManager *dd, DdNode * f, DdNode *g, int *
 extern int Cudd_addRead (FILE *fp, DdManager *dd, DdNode **E, DdNode ***x, DdNode ***y, DdNode ***xn, DdNode ***yn_, int *nx, int *ny, int *m, int *n, int bx, int sx, int by, int sy);
 extern int Cudd_bddRead (FILE *fp, DdManager *dd, DdNode **E, DdNode ***x, DdNode ***y, int *nx, int *ny, int *m, int *n, int bx, int sx, int by, int sy);
 extern void Cudd_Ref (DdNode *n);
+extern int Cudd_ShaneGetRefCount ( DdNode *n);
 extern void Cudd_RecursiveDeref (DdManager *table, DdNode *n);
 extern void Cudd_IterDerefBdd (DdManager *table, DdNode *n);
 extern void Cudd_DelayedDerefBdd (DdManager * table, DdNode * n);

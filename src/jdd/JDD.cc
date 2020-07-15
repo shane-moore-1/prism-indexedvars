@@ -485,6 +485,14 @@ JNIEXPORT jint JNICALL Java_jdd_JDD_DD_1GetNumTerminals(JNIEnv *env, jclass cls,
 //------------------------------------------------------------------------------
 
 
+JNIEXPORT jint JNICALL Java_jdd_JDD_DD_1ShaneGetRefCount(JNIEnv *env, jclass cls, jlong __jlongpointer dd)
+{
+	return DD_ShaneGetRefCount(ddman, jlong_to_DdNode(dd));
+}
+
+//------------------------------------------------------------------------------
+
+
 JNIEXPORT jdouble JNICALL Java_jdd_JDD_DD_1GetNumMinterms(JNIEnv *env, jclass cls, jlong __jlongpointer dd, jint num_vars)
 {
 	return DD_GetNumMinterms(ddman, jlong_to_DdNode(dd), num_vars);

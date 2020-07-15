@@ -46,6 +46,7 @@ public class Update extends ASTElement
 public static boolean DEBUG_MSG = false;
 public static boolean DEBUG_GetVarIndex = false;
 public static boolean DEBUG_VPE = true;		// Whether to show the getVarPositionEISAs progress.
+public static boolean DEBUG_UPD_ST = true;	// Whether to show the simulation-time Updates being done
 
 // SHANE Has Replaced These individual ArrayLists, with a new internal class type (below, see ElementOfUpdate)
 	// Lists of variable/expression pairs (and types)
@@ -366,18 +367,23 @@ System.out.println();
 	{
 		int i, n, indexOfVarToUpdate;
 		n = elements.size();
+if (DEBUG_UPD_ST) {
+System.out.println("Update.update(State,State,"+exact+") has begun.\noldState is: " + oldState + "\nNewState is: " + newState + "\n");
+}
 		for (i = 0; i < n; i++) {
-if (DEBUG_MSG) System.out.println("in Update.update(State,State,bool), dealing with element "+i+" which is "+ getVarIdent(i) + " and type is " + getVarIdent(i).getType() );
+if (DEBUG_UPD_ST) System.out.println("in Update.update(State,State,bool), dealing with update-element "+i+" which is "+ getVarIdent(i) + " and type is " + getVarIdent(i).getType() );
 
 // ADDED by SHANE
 			// Determine if we are dealing with an IndexedSet element, or not:
 			if (getVarIdent(i) instanceof ExpressionIndexedSetAccess)
 			{
+if (DEBUG_UPD_ST) System.out.println("It is an instance of ExpressionIndexedSetAccess, so doing that extra block of code");
 				// we cannot rely on getVarIndex(i), because that would be the IndexedSet itself.
 				// so perform runtime evaluation of the expression specified in the sourcecode modules file.
 				ExpressionIndexedSetAccess eisa = (ExpressionIndexedSetAccess) getVarIdent(i); // HMM? Should it be getVarIndex instead? (Says me after 2 weeks away from the code, while it was unfinished before the break)
+
 				Object evaluatedIndex = eisa.getIndexExpression().evaluate(oldState);		// 2018: Do I need to add a parameter for Prism 4.4 ?? Probably not, since the kept bit from below just uses this call.
-if (DEBUG_MSG) System.out.println("evaluatedIndex is " + evaluatedIndex + ", its classType is " + evaluatedIndex.getClass().getName() );
+if (DEBUG_UPD_ST) System.out.println("evaluatedIndex is " + evaluatedIndex + ", its classType is " + evaluatedIndex.getClass().getName() );
 				if (evaluatedIndex instanceof Integer)
 				{
 					// Construct the hoped-for name of the specific variable to be updated.
@@ -385,7 +391,7 @@ if (DEBUG_MSG) System.out.println("evaluatedIndex is " + evaluatedIndex + ", its
 					// Check it exists. If it doesn't, then it is either mis-use of IndexedSet notation
 					// or else it is outside the bounds of the declared number of elements.
 					indexOfVarToUpdate = parent.getParent().getParent().getParent().getVarIndex(varNameToUpdate);
-if (DEBUG_MSG) System.out.println("In Update.update() @376: Chose indexOfVarToUpdate to be " + indexOfVarToUpdate);
+if (DEBUG_UPD_ST) System.out.println("In Update.update() @376: Chose indexOfVarToUpdate to be " + indexOfVarToUpdate);
 					
 					if (indexOfVarToUpdate == -1)		// It wasn't found as a valid variable, index was obviously wrong.
 						throw new PrismLangException("Attempt to access undefined element of IndexedSet: " + varNameToUpdate, getExpression(i));
@@ -396,10 +402,10 @@ if (DEBUG_MSG) System.out.println("In Update.update() @376: Chose indexOfVarToUp
 			else {
 			// NOT Update of an indexed variable, just an ordinary variable being updated.  
 				indexOfVarToUpdate = getVarIndex(i);
-if (DEBUG_MSG) System.out.println("In Update.update() @387: Chose indexOfVarToUpdate to be " + indexOfVarToUpdate);
+if (DEBUG_UPD_ST) System.out.println("In Update.update() @405: It is NOT an ExpressionIndexedSetAccess.\n Chose indexOfVarToUpdate to be " + indexOfVarToUpdate);
 			}
 
-if (DEBUG_MSG) System.out.println("Will use index " + indexOfVarToUpdate + " as the one which gets modified.");	
+if (DEBUG_UPD_ST) System.out.println("Will use index " + indexOfVarToUpdate + " as the variable which gets modified for: " + getVarIdent(i));	
 
 // The following bit is original code from Prism 4.4:
 			Object newValue;
@@ -412,6 +418,9 @@ if (DEBUG_MSG) System.out.println("Will use index " + indexOfVarToUpdate + " as 
 			}
 			newState.setValue(indexOfVarToUpdate, newValue);
 		}
+if (DEBUG_UPD_ST) {
+System.out.println("Update.update(State,State,"+exact+") has ended.\n");
+}
 	}
 
 	/**
@@ -526,29 +535,31 @@ if (DEBUG_MSG) System.out.println("Will use index " + indexOfVarToUpdate + " as 
 		int i, n;
 
 		n = getNumElements();
-if (Expression.DEBUG_VPEISA || DEBUG_VPE) System.out.println("in Update: " + toString() + " There are " + n + " update-elements to consider");
+if (Expression.DEBUG_VPEISA || DEBUG_VPE) System.out.println("getVPE for Update: " + toString() + " There are " + n + " update-elements to consider");
 		for (i = 0; i < n; i++) {
-if (Expression.DEBUG_VPEISA || DEBUG_VPE) System.out.println(" Considering varIdent: " + getVarIdent(i).toString());
+if (Expression.DEBUG_VPEISA || DEBUG_VPE) System.out.println("getVPE is Dealing with Update: " + toString());
+if (Expression.DEBUG_VPEISA || DEBUG_VPE) System.out.println(" Now considering Update Element " + i + "'s varIdent (the target) which is: " + getVarIdent(i).toString());
 			// See whether each of the targets is an Indexed Set whose access expression is indeterminate
 			tmp = getVarIdent(i).getVariablePosEISAs();
 if (Expression.DEBUG_VPEISA || DEBUG_VPE) {
-    System.out.println(" Finished considering varIdent: " + getVarIdent(i).toString());
-    if (tmp != null) System.out.println("  It has this many indeterminate access-expressions: " + tmp.size());
+    System.out.println(" Finished considering Update Element " + i + "'s varIdent (the target) which was: " + getVarIdent(i).toString());
+    if (tmp != null) System.out.println("  It has this many indeterminate access-expressions: " + tmp.size() + " which are: " + tmp );
     else System.out.println("  It has 0 indeterminate access-expressions.");
 }
 			if (tmp != null && tmp.size() > 0)
 				varPosEISAs.addAll(tmp);
 
 			// See whether each of the calculation expressions involves an Indexed Set whose access expression is indeterminate
-if (Expression.DEBUG_VPEISA || DEBUG_VPE) System.out.println(" Considering calcExpr: " + getExpression(i).toString());
+if (Expression.DEBUG_VPEISA || DEBUG_VPE) System.out.println(" Now considering Update Element " + i + "'s calcExpr: " + getExpression(i).toString() + "[type is " + getExpression(i).getClass().getName() + "]");
 			tmp = getExpression(i).getVariablePosEISAs();
 if (Expression.DEBUG_VPEISA || DEBUG_VPE) {
-    System.out.println(" Finished Considering calcExpr: " + getExpression(i).toString());
-    if (tmp != null) System.out.println("  It has this many indeterminate access-expressions: " + tmp.size());
+    System.out.println(" Finished Considering Update Element " + i + "'s calcExpr: " + getExpression(i).toString());
+    if (tmp != null) System.out.println("  It has this many indeterminate access-expressions: " + tmp.size() + " which are : " + tmp);
     else System.out.println("  It has 0 indeterminate access-expressions.");
 }
 			if (tmp != null && tmp.size() > 0)
 				varPosEISAs.addAll(tmp);
+if (Expression.DEBUG_VPEISA || DEBUG_VPE) System.out.println("getVPE has finished dealing with update element" + i + "\n");
 		}
 if (Expression.DEBUG_VPEISA || DEBUG_VPE) System.out.println("Finished considering this Update: " + toString());
 		return varPosEISAs;

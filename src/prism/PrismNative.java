@@ -172,6 +172,51 @@ public class PrismNative
 	public static native void PN_PrintToFile(long fp, String s);
 	public static native void PN_FlushFile(long fp);
 	public static native void PN_CloseFile(long fp);
+
+// THINGS ADDED BY SHANE
+private static String TopReportPrefix = null;
+	public static void ShaneSetTopReportPrefix(String prefix)
+	{
+		TopReportPrefix = prefix;
+	}
+
+	public static String makeRandomTopReportPrefix()
+	{
+		java.util.Random rr = new java.util.Random();
+		int length = 6 + rr.nextInt(4);		// Length between 6 and 10 chars
+		String fileName = "top-rpt-";		// prefix part
+		String alphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+		for (int pos = 0; pos < length; pos++)
+		{
+			int randVal = rr.nextInt(alphabet.length());
+			fileName += alphabet.charAt(randVal);
+		}
+		TopReportPrefix = fileName;
+		return fileName;
+	}
+
+//	public static native void PN_MakeTopReport(String filePrefixString, String fileEndString);
+	public static native void PN_MakeTopReportMsg(String fileString, String messageBefore);
+	public static void ShaneMakeTopReportMsg(String message)
+	{
+		if (TopReportPrefix == null)
+			makeRandomTopReportPrefix();
+System.out.println("Generating a TOP report to file: " +TopReportPrefix + " with message: " + message);
+		PN_MakeTopReportMsg(TopReportPrefix, message);
+	}
+/*OBS	public static void ShaneMakeTopReport(String filenameEndingString)
+	{
+		if (TopReportPrefix == null)
+			makeRandomTopReportPrefix();
+System.out.println("Generating a TOP report to file: " +TopReportPrefix+"-"+filenameEndingString);
+		PN_MakeTopReport(TopReportPrefix, filenameEndingString);
+	}
+*/	private static int reportAutoNum = 0;
+	public static void ShaneMakeTopReportNextAutoNum()
+	{
+		reportAutoNum++;
+		ShaneMakeTopReportMsg("auto"+reportAutoNum);
+	}
 }
 
 //------------------------------------------------------------------------------

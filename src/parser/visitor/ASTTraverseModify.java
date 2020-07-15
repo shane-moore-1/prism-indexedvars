@@ -45,14 +45,14 @@ public class ASTTraverseModify implements ASTVisitor
 {
 public static boolean DEBUG_TraceCalls = false;		// If this is true, some methods simply show they are beginning/ending (but no detail)
 public static boolean DEBUG_SHOW_ENABLED = false;
-public static boolean DEBUG_Decl = true && DEBUG_SHOW_ENABLED ;
+public static boolean DEBUG_Decl = false && DEBUG_SHOW_ENABLED ;
 public static boolean DEBUG_DeclTypeIndS = false && DEBUG_SHOW_ENABLED;
-public static boolean DEBUG_Module = true && DEBUG_SHOW_ENABLED;// parser.ast.Module.DEBUG & DEBUG_SHOW_ENABLED;		// Maybe the preceding should also be set similarly!
-public static boolean DEBUG_Command = true && DEBUG_SHOW_ENABLED;
-public static boolean DEBUG_Update = true && DEBUG_SHOW_ENABLED;
-public static boolean DEBUG_ExprIdent = true && DEBUG_SHOW_ENABLED;
-public static boolean DEBUG_ExpIndSetAcc = true ;//&& DEBUG_SHOW_ENABLED;
-public static boolean DEBUG_RSE = true ;// && DEBUG_SHOW_ENABLED;
+public static boolean DEBUG_Module = false && DEBUG_SHOW_ENABLED;// parser.ast.Module.DEBUG & DEBUG_SHOW_ENABLED;		// Maybe the preceding should also be set similarly!
+public static boolean DEBUG_Command = false && DEBUG_SHOW_ENABLED;
+public static boolean DEBUG_Update = false && DEBUG_SHOW_ENABLED;
+public static boolean DEBUG_ExprIdent = false && DEBUG_SHOW_ENABLED;
+public static boolean DEBUG_ExpIndSetAcc = false;//&& DEBUG_SHOW_ENABLED;
+public static boolean DEBUG_RSE = false ;// && DEBUG_SHOW_ENABLED;
 
 	public void defaultVisitPre(ASTElement e) throws PrismLangException {}
 	public void defaultVisitPost(ASTElement e) throws PrismLangException {}

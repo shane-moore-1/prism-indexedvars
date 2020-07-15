@@ -1,0 +1,2 @@
+If java code I have added, doesn't appear to be being called, it is probably because of the lib/prism.jar file not
+being rebuilt as part of 'make'. You could 'hide' the jar file, and then it will definitely use the 'classes' folder.

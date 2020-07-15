@@ -896,6 +896,7 @@ cuddCacheResize(
     double offset;
     int moved = 0;
     extern DD_OOMFP MMoutOfMemory;
+    long timeBefore;		/* Added by SHANE to get a sense of time taken for some steps (when large amounts of memory are concerned) */
     DD_OOMFP saveHandler;
 #ifndef DD_CACHE_PROFILE
     ptruint misalignment;
@@ -906,6 +907,15 @@ cuddCacheResize(
     oldacache = table->acache;
     oldslots = table->cacheSlots;
     slots = table->cacheSlots = oldslots << 1;
+
+/* SHANE TEMPORARY */
+printf("\n[ShaneNote in cudd/cuddCache.c::cuddCacheResize()]\n[ShaneNote ...] Resizing the CUDD cache from %d entries (oldSlots) to %d entries.\n",oldslots, slots);
+printf("[ShaneNote ...]  Size of a single DdCache is %lu, hence going allocate %lu MiB for %d slots\n",sizeof(DdCache),(sizeof(DdCache)*slots+1)/1048576,slots+1);
+printf("[ShaneNote ...]  Cache Info: hits = %g\tmisses = %g\thit ratio = %5.3f\n",
+		   table->cacheHits, table->cacheMisses,
+		   table->cacheHits / (table->cacheHits + table->cacheMisses));
+printf("[ShaneNote ...] Address of cache before new allocation: %p\n",table->cache);
+printf("[ShaneNote ...] Address of acache before new allocation: %p\n",table->acache);
 
 #ifdef DD_VERBOSE
     (void) fprintf(table->err,"Resizing the cache from %d to %d entries\n",
@@ -919,9 +929,13 @@ cuddCacheResize(
     saveHandler = MMoutOfMemory;
     MMoutOfMemory = Cudd_OutOfMem;
     table->acache = cache = ALLOC(DdCache,slots+1);
+
+printf("[ShaneNote ...] Address of new acache after allocation: %p\n",table->acache);
+
     MMoutOfMemory = saveHandler;
     /* If we fail to allocate the new table we just give up. */
     if (cache == NULL) {
+printf("[ShaneNote ...] FAILED to resize - but this line won't be executed!");
 #ifdef DD_VERBOSE
 	(void) fprintf(table->err,"Resizing failed. Giving up.\n");
 #endif
@@ -937,17 +951,22 @@ cuddCacheResize(
     ** DD_CACHE_PROFILE is not defined. */
 #ifdef DD_CACHE_PROFILE
     table->cache = cache;
+printf("[ShaneNote ...] Updated (type A) table->cache to be: %p\n",table->cache);
 #else
     mem = (DdNodePtr *) cache;
     misalignment = (ptruint) mem & (sizeof(DdCache) - 1);
+printf("[ShaneNote ...] calculated 'misalignment' to be: %lu, and 'sizeof(DdCache)' is %lu\n",misalignment,sizeof(DdCache));
     mem += (sizeof(DdCache) - misalignment) / sizeof(DdNodePtr);
     table->cache = cache = (DdCache *) mem;
+printf("[ShaneNote ...] Updated (type B) table->cache to be: %p\n",table->cache);
     assert(((ptruint) table->cache & (sizeof(DdCache) - 1)) == 0);
 #endif
     shift = --(table->cacheShift);
     table->memused += (slots - oldslots) * sizeof(DdCache);
+printf("[ShaneNote ...] table->memused (Total Memory used by Cudd cache) is now %lu MiB\n",table->memused / (1048576));
     table->cacheSlack -= slots; /* need these many slots to double again */
 
+	timeBefore = util_cpu_time();
     /* Clear new cache. */
     for (i = 0; (unsigned) i < slots; i++) {
 	cache[i].data = NULL;
@@ -956,9 +975,14 @@ cuddCacheResize(
 	cache[i].count = 0;
 #endif
     }
+printf("[ShaneNote ...] time taken to clear the new cache: %.2f sec\n", ((double)(util_cpu_time() - timeBefore)/1000));
 
+	timeBefore = util_cpu_time();
+
+printf("[ShaneNote ...] Copying from old cache to new cache ...\n");
     /* Copy from old cache to new one. */
     for (i = 0; (unsigned) i < oldslots; i++) {
+/*ShaneNote*/if ((i % 1000000) == 0) printf("i = %d\t",i);
 	old = &oldcache[i];
 	if (old->data != NULL) {
 	    posn = ddCHash2(old->h,old->f,old->g,shift);
@@ -973,8 +997,13 @@ cuddCacheResize(
 	    moved++;
 	}
     }
+printf("\n[ShaneNote ...] 'i' got to %d, oldslots was %u\n",i,oldslots);
+printf("[ShaneNote ...] time taken to copy the old cache to new cache: %.2f sec\n", ((double)(util_cpu_time() - timeBefore)/1000));
 
+printf("\n[ShaneNote ...] About to FREE the oldacache pointer %p ...\n",oldacache);
     FREE(oldacache);
+printf("[ShaneNote ...] Address of cache before exiting cacheResize: %p\n",table->cache);
+printf("[ShaneNote ...] Address of acache before exiting: %p\n",table->acache);
 
     /* Reinitialize measurements so as to avoid division by 0 and
     ** immediate resizing.

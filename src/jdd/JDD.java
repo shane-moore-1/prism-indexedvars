@@ -98,6 +98,7 @@ private static boolean SHANE_DEBUG = false;
 	// dd_info
 	private static native int DD_GetNumNodes(long dd);
 	private static native int DD_GetNumTerminals(long dd);
+private static native int DD_ShaneGetRefCount(long dd);
 	private static native double DD_GetNumMinterms(long dd, int num_vars);
 	private static native double DD_GetNumPaths(long dd);
 	private static native void DD_PrintInfo(long dd, int num_vars);
@@ -220,10 +221,10 @@ private static boolean SHANE_DEBUG = false;
 		PLUS_INFINITY = JDD.PlusInfinity();
 		MINUS_INFINITY = JDD.MinusInfinity();
 // TEMPORARY BY SHANE, for debugging purposes:
-ZERO.setPurpose("%% Constant rep. value 0 %%");
-ONE.setPurpose("%% Constant rep. value 1 %%");
-PLUS_INFINITY.setPurpose("%% Repr. +INFINITY %%");
-MINUS_INFINITY.setPurpose("%% Repr. -INFINITY %%");
+//ZERO.setPurpose("%% Constant rep. value 0 %%");
+//ONE.setPurpose("%% Constant rep. value 1 %%");
+//PLUS_INFINITY.setPurpose("%% Repr. +INFINITY %%");
+//MINUS_INFINITY.setPurpose("%% Repr. -INFINITY %%");
 	}
 		
 	/**
@@ -238,10 +239,10 @@ MINUS_INFINITY.setPurpose("%% Repr. -INFINITY %%");
 		PLUS_INFINITY = JDD.PlusInfinity();
 		MINUS_INFINITY = JDD.MinusInfinity();
 // TEMPORARY BY SHANE, for debugging purposes:
-ZERO.setPurpose("%% Constant rep. value 0 %%");
-ONE.setPurpose("%% Constant rep. value 1 %%");
-PLUS_INFINITY.setPurpose("%% Repr. +INFINITY %%");
-MINUS_INFINITY.setPurpose("%% Repr. -INFINITY %%");
+//ZERO.setPurpose("%% Constant rep. value 0 %%");
+//ONE.setPurpose("%% Constant rep. value 1 %%");
+//PLUS_INFINITY.setPurpose("%% Repr. +INFINITY %%");
+//MINUS_INFINITY.setPurpose("%% Repr. -INFINITY %%");
 	}
 		
 	/**
@@ -837,6 +838,7 @@ MINUS_INFINITY.setPurpose("%% Repr. -INFINITY %%");
 	 */
 	public static JDDNode MaxAbstract(JDDNode dd, JDDVars vars)
 	{
+System.out.println("MaxAbstract has been called.");
 		if (DebugJDD.debugEnabled)
 			DebugJDD.DD_Method_Argument(dd);
 		return ptrToNode(DD_MaxAbstract(dd.ptr(), vars.array(), vars.n()));
@@ -1011,6 +1013,13 @@ MINUS_INFINITY.setPurpose("%% Repr. -INFINITY %%");
 		checkForCuddError();
 		return rv;
 	}
+
+public static int ShaneGetRefCount(JDDNode dd)
+{
+	int count = DD_ShaneGetRefCount(dd.ptr());
+	checkForCuddError();
+	return count;
+}
 	
 	/**
 	 * returns number of terminals in dd
@@ -1269,6 +1278,10 @@ MINUS_INFINITY.setPurpose("%% Repr. -INFINITY %%");
 	 * sets element in vector dd
 	 * <br>[ REFS: <i>result</i>, DEREFS: dd ]
 	 */
+// SHANE NOTE:  This method receives a JDDVars, which specifies the set of JDD Nodes which describe a particular variable, e.g. the PRE or POST update version,
+// and the 'index' specifies the particular value whose binary representation describes the path to a leaf node, and 'value' is what will become the leaf node
+// for that path. For example, if there are 2 JDD nodes (a 4-possibilities variable), and index is '2', that means the first JDDVar will be 1, then the second level
+// will be 0.  It returns the JDDNode that represents this path. You then might need to combine the returned value with other JDD nodes representing other paths.
 	public static JDDNode SetVectorElement(JDDNode dd, JDDVars vars, long index, double value)
 	{
 if (SHANE_DEBUG) {

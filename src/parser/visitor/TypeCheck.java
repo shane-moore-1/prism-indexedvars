@@ -37,8 +37,9 @@ import prism.PrismLangException;
 public class TypeCheck extends ASTTraverse
 {
 public static boolean DEBUG = false && DEBUG_SHOW_ENABLED;
-public static boolean DEBUG_Upd = true;
+public static boolean DEBUG_Upd = false;
 public static boolean SHANE_REMINDER = true;
+public static boolean DEBUG_ExpBinOp = false;
 
 	private PropertiesFile propertiesFile = null;
 
@@ -302,13 +303,17 @@ if (DEBUG_Upd) System.out.println("  - Yes, it can (otherwise an exception would
 		case ExpressionBinaryOp.OR:
 		case ExpressionBinaryOp.AND:
 			if (!(t1 instanceof TypeBool) && !(t1 instanceof TypePathBool)) {
-Exception eee = new Exception("op1 is " + e.getOperand1() + " and op2 is " + e.getOperand2() );
-eee.printStackTrace(System.out);
+if (DEBUG_ExpBinOp){
+ Exception eee = new Exception("op1 is " + e.getOperand1() + " and op2 is " + e.getOperand2() );
+ eee.printStackTrace(System.out);
+}
 				throw new PrismLangException("Type error: " + e.getOperatorSymbol() + " applied to non-Boolean expression", e.getOperand1());
 			}
 			if (!(t2 instanceof TypeBool) && !(t2 instanceof TypePathBool)) {
-Exception eee = new Exception("op1 is " + e.getOperand1() + " and op2 is " + e.getOperand2() );
-eee.printStackTrace(System.out);
+if (DEBUG_ExpBinOp){
+ Exception eee = new Exception("op1 is " + e.getOperand1() + " and op2 is " + e.getOperand2() );
+ eee.printStackTrace(System.out);
+}
 				throw new PrismLangException("Type error: " + e.getOperatorSymbol() + " applied to non-Boolean expression", e.getOperand2());
 			}
 			e.setType(t1 instanceof TypePathBool || t2 instanceof TypePathBool ? TypePathBool.getInstance() : TypeBool.getInstance());

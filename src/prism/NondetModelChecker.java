@@ -80,15 +80,15 @@ import explicit.MinMax;
  */
 public class NondetModelChecker extends NonProbModelChecker
 {
-private static boolean DEBUG_CRR = true;		// show checkReachReward's steps
-private static boolean DEBUG_CompRR = true;		// show computeReachRewards' stages
-private static boolean DEBUG_ChkExpr = true;		// Show the checkExpression method's steps
-private static boolean DEBUG_CERwd = true;		// Show the checkExpressionReward method's steps
-private static boolean DEBUG_CExPr = true;		// Show the checkExpressionProb method's steps
-private static boolean DEBUG_ChkPPFS = true;
-private static boolean DEBUG_ChkPrU = true;
-private static boolean DEBUG_CPUnt2 = true;
-private static boolean DEBUG_ComputeUntPr = true;	// Show the stages of computeUntilProbs
+private static boolean DEBUG_CRR = false;		// show checkReachReward's steps
+private static boolean DEBUG_CompRR = false;		// show computeReachRewards' stages
+public static boolean DEBUG_ChkExpr = false;		// Show the checkExpression method's steps
+private static boolean DEBUG_CERwd = false;		// Show the checkExpressionReward method's steps
+private static boolean DEBUG_CExPr = false;		// Show the checkExpressionProb method's steps
+private static boolean DEBUG_ChkPPFS = false;
+private static boolean DEBUG_ChkPrU = false;
+private static boolean DEBUG_CPUnt2 = false;
+private static boolean DEBUG_ComputeUntPr = false;	// Show the stages of computeUntilProbs
 
 	// Model (MDP)
 	protected NondetModel model;
@@ -163,22 +163,25 @@ private static boolean DEBUG_ComputeUntPr = true;	// Show the stages of computeU
 	public StateValues checkExpression(Expression expr, JDDNode statesOfInterest) throws PrismException
 	{
 		StateValues res;
-if (DEBUG_ChkExpr) System.out.println("<NMC_ChkExpr expr='" + expr + "'>");
 
 		// <<>> or [[]] operator
 		if (expr instanceof ExpressionStrategy) {
+if (DEBUG_ChkExpr) System.out.println("<NMC_ChkExpr expr='" + expr + "' exprInstanceOf='ExpressionStrategy'>");
 			res = checkExpressionStrategy((ExpressionStrategy) expr, statesOfInterest);
 		}
 		// P operator
 		else if (expr instanceof ExpressionProb) {
+if (DEBUG_ChkExpr) System.out.println("<NMC_ChkExpr expr='" + expr + "' exprInstanceOf='ExpressionProb'>");
 			res = checkExpressionProb((ExpressionProb) expr, statesOfInterest);
 		}
 		// R operator
 		else if (expr instanceof ExpressionReward) {
+if (DEBUG_ChkExpr) System.out.println("<NMC_ChkExpr expr='" + expr + "' exprInstanceOf='ExpressionReward'>");
 			res = checkExpressionReward((ExpressionReward) expr, statesOfInterest);
 		}
 		// Multi-objective
 		else if (expr instanceof ExpressionFunc) {
+if (DEBUG_ChkExpr) System.out.println("<NMC_ChkExpr expr='" + expr + "' exprInstanceOf='ExpressionFunc'>");
 			// Detect "multi" function
 			if (((ExpressionFunc) expr).getName().equals("multi")) {
 				res = checkExpressionMultiObjective((ExpressionFunc) expr, statesOfInterest);
@@ -190,7 +193,7 @@ if (DEBUG_ChkExpr) System.out.println("<NMC_ChkExpr expr='" + expr + "'>");
 		}
 		// Otherwise, use the superclass
 		else {
-if (DEBUG_ChkExpr) System.out.println("(Deferring to superclass version of checkExpression)");
+if (DEBUG_ChkExpr) System.out.println("(NondetModelChecker.checkExpression's catch-all else block, is Deferring call up to superclass version of checkExpression)");
 			res = super.checkExpression(expr, statesOfInterest);
 		}
 
@@ -342,23 +345,23 @@ if (DEBUG_CERwd) System.out.println("<NMC_ChkExpRwd expr='"+ expr + "'>");
 if (DEBUG_CERwd) System.out.println("forAll is " + forAll + ", and statesOfInterest is: " + statesOfInterest);
 
 		// Get info from R operator
-if (DEBUG_CERwd) System.out.println("!NMC_ChkExpRwd Place 1a - about to call getRelopBoundInfo");
+if (DEBUG_CERwd) System.out.println("NMC_ChkExpRwd Place 1a - about to call getRelopBoundInfo");
 		OpRelOpBound opInfo = expr.getRelopBoundInfo(constantValues);
-if (DEBUG_CERwd) System.out.println("!NMC_ChkExpRwd Place 1b - about to call getMinMax");
+if (DEBUG_CERwd) System.out.println("NMC_ChkExpRwd Place 1b - about to call getMinMax");
 		MinMax minMax = opInfo.getMinMax(model.getModelType(), forAll);
 
 		// Get rewards
-if (DEBUG_CERwd) System.out.println("!NMC_ChkExpRwd Place 2a - about to call getRewardStructIndex");
+if (DEBUG_CERwd) System.out.println("NMC_ChkExpRwd Place 2a - about to call getRewardStructIndex");
 		Object rs = expr.getRewardStructIndex();
-if (DEBUG_CERwd) System.out.println("!NMC_ChkExpRwd Place 2b - about to call getStateRewardsByIndexObject");
+if (DEBUG_CERwd) System.out.println("NMC_ChkExpRwd Place 2b - about to call getStateRewardsByIndexObject");
 		JDDNode stateRewards = getStateRewardsByIndexObject(rs, model, constantValues);
-if (DEBUG_CERwd) System.out.println("!NMC_ChkExpRwd Place 2c - about to call getTransitionRewardsByIndexObject");
+if (DEBUG_CERwd) System.out.println("NMC_ChkExpRwd Place 2c - about to call getTransitionRewardsByIndexObject");
 		JDDNode transRewards = getTransitionRewardsByIndexObject(rs, model, constantValues);
 
 		// Compute rewards
 		StateValues rewards = null;
 		Expression expr2 = expr.getExpression();
-if (DEBUG_CERwd) System.out.println("!NMC_ChkExpRwd Place 3, expr2 is " + expr2);
+if (DEBUG_CERwd) System.out.println("NMC_ChkExpRwd Place 3, expr2 is " + expr2);
 		if (expr2.getType() instanceof TypePathDouble) {
 			ExpressionTemporal exprTemp = (ExpressionTemporal) expr2;
 			switch (exprTemp.getOperator()) {
@@ -1511,7 +1514,7 @@ if (DEBUG_CPUnt2) System.out.println("END of DDBB version of checkProbUntil");
 	{
 		JDDNode b;
 		StateValues rewards = null;
-if (DEBUG_CRR) System.out.println("<ChkRwdRch>\nNondetMC.checkRewardReach called for this expr: " + expr);
+if (DEBUG_CRR) System.out.println("\n<ChkRwdRch>\nNondetMC.checkRewardReach called for this expr: " + expr);
 
 		if (fairness && !min) {
 			// Rmax with fairness not supported; Rmin computation is unaffected
@@ -1527,11 +1530,11 @@ if (DEBUG_CRR) System.out.println("<ChkRwdRch>\nNondetMC.checkRewardReach called
 			throw new PrismNotSupportedException("R operator cannot contain a bounded F operator: " + expr);
 		}
 		
-if (DEBUG_CRR) System.out.println("!ChkRwdRch about to call checkExpressionDD on operand2, with a copy of model.getReach as statesOfInterest");
+if (DEBUG_CRR) System.out.println("NondetModelChecker.ChkRwdRch is about to call checkExpressionDD on operand2 [ "+expr.getOperand2()+"], with a copy of model.getReach as statesOfInterest");
 		// model check operand first, statesOfInterest = all
 		b = checkExpressionDD(expr.getOperand2(), model.getReach().copy());
-if (DEBUG_CRR) System.out.println("! Returned to ChkRwdRch for " + expr + " (after checkExpressionDD call)\n  the 'b' is now: " + b);
-// SHANE: Assumes the 'b' is the set of states that signify the moments in state sequence that the filter is true, or that lead to it being true (and states afterwards are disabled).
+if (DEBUG_CRR) System.out.println("Returned to NMC.ChkRwdRch for " + expr + " (after checkExpressionDD call)\n  the 'b' is now: " + b);
+// SHANE: Assumes the 'b' is the set of states that signify the moments in state sequence that the AIM (the Reachable test) is true.
 
 		// print out some info about num states
 		// mainLog.print("\nb = " + JDD.GetNumMintermsString(b,

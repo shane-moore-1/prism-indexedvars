@@ -56,7 +56,9 @@ EXPORT int *mtbdd_to_integer_vector(DdManager *ddman, DdNode *dd, DdNode **vars,
 
 	// determine size
 	n = odd->eoff + odd->toff;
+printf("src/dv/iv.cc::mtbdd_to_integer_vector called, for dd: %p, and odd: %p, with n calc'd as =%ld (allocate int array of size n)\n",dd,odd,n);
 	// create array (if not supplied)
+if (!res) printf("  --> Need to allocate the array, because not provided one when called.\n"); else printf("  [Not needing to allocate array]\n");
 	if (!res) res = new int[n];
 	// initialise to zero
 	for (i = 0; i < n; i++) {
@@ -100,6 +102,7 @@ void mtbdd_to_integer_vector_rec(DdManager *ddman, DdNode *dd, DdNode **vars, in
 
 EXPORT DdNode *integer_vector_to_mtbdd(DdManager *ddman, int *vec, DdNode **vars, int num_vars, ODDNode *odd)
 {
+printf("src/dv/iv.cc::integer_vector_to_mtbdd called with supplied odd: %p\n\\n",odd);
 	return integer_vector_to_mtbdd_rec(ddman, vec, vars, num_vars, 0, odd, 0);
 }
 

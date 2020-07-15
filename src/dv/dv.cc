@@ -69,7 +69,9 @@ EXPORT double *mtbdd_to_double_vector(DdManager *ddman, DdNode *dd, DdNode **var
 
 	// determine size
 	n = odd->eoff + odd->toff;
+printf("src/dv/dv.cc::mtbdd_to_double_vector called, for dd: %p, and odd: %p, with n calc'd as =%ld (allocate int array of size n)\n",dd,odd,n);
 	// create array (if not supplied)
+if (!res) printf("   -> Need to make the new array\n"); else printf("   [Don't need to make an array, one was supplied]\n");
 	if (!res) res = new double[n];
 	// initialise to zero
 	for (i = 0; i < n; i++) {
@@ -113,6 +115,7 @@ void mtbdd_to_double_vector_rec(DdManager *ddman, DdNode *dd, DdNode **vars, int
 
 EXPORT DdNode *double_vector_to_mtbdd(DdManager *ddman, double *vec, DdNode **vars, int num_vars, ODDNode *odd)
 {
+printf("src/dv/dv.cc::double_vector_to_mtbdd called, supplying this odd: %p\n\n",odd);
 	return double_vector_to_mtbdd_rec(ddman, vec, vars, num_vars, 0, odd, 0);
 }
 
@@ -162,6 +165,7 @@ DdNode *double_vector_to_mtbdd_rec(DdManager *ddman, double *vec, DdNode **vars,
 
 EXPORT DdNode *double_vector_to_bdd(DdManager *ddman, double *vec, int rel_op, double value, DdNode **vars, int num_vars, ODDNode *odd)
 {
+printf("src/dv/dv.cc::double_vector_to_bdd called, supplying this odd: %p and giving this single value %g\n\n",odd,value);
 	return double_vector_to_bdd(ddman, vec, rel_op, value, 0, vars, num_vars, odd);
 }
 
@@ -219,6 +223,7 @@ DdNode *double_vector_to_bdd_rec(DdManager *ddman, double *vec, int rel_op, doub
 
 EXPORT void filter_double_vector(DdManager *ddman, double *vec, DdNode *filter, double d, DdNode **vars, int num_vars, ODDNode *odd)
 {
+printf("src/dv/dv.cc::filter_double_vector() called, supplying this odd: %p and giving this double value %g\n\n",odd,d);
 	filter_double_vector_rec(ddman, vec, filter, d, vars, num_vars, 0, odd, 0);
 }
 
@@ -286,6 +291,7 @@ EXPORT double get_first_from_bdd(DdManager *ddman, double *vec, DdNode *filter, 
 	// But we check for this anyway and return NaN.
 	// This is unfortunately indistinguishable from the case
 	// where the vector does actually contain NaN. Ho hum.
+printf("src/dv/dv.cc::get_first_from_bdd() called, supplying this odd: %p\n\n",odd);
 	if (filter == Cudd_ReadZero(ddman)) return NAN;
 	// Recurse...
 	else return get_first_from_bdd_rec(ddman, vec, filter, vars, num_vars, 0, odd, 0);
@@ -317,6 +323,7 @@ double get_first_from_bdd_rec(DdManager *ddman, double *vec, DdNode *filter, DdN
 
 EXPORT double min_double_vector_over_bdd(DdManager *ddman, double *vec, DdNode *filter, DdNode **vars, int num_vars, ODDNode *odd)
 {
+printf("src/dv/dv.cc::min_double_vector_over_bdd() called, supplying this odd: %p\n\n",odd);
 	return min_double_vector_over_bdd_rec(ddman, vec, filter, vars, num_vars, 0, odd, 0);
 }
 
@@ -353,6 +360,7 @@ double min_double_vector_over_bdd_rec(DdManager *ddman, double *vec, DdNode *fil
 
 EXPORT double max_double_vector_over_bdd(DdManager *ddman, double *vec, DdNode *filter, DdNode **vars, int num_vars, ODDNode *odd)
 {
+printf("src/dv/dv.cc::max_double_vector_over_bdd() called, supplying this odd: %p\n\n",odd);
 	return max_double_vector_over_bdd_rec(ddman, vec, filter, vars, num_vars, 0, odd, 0);
 }
 
@@ -386,6 +394,7 @@ double max_double_vector_over_bdd_rec(DdManager *ddman, double *vec, DdNode *fil
 
 EXPORT double max_finite_double_vector_over_bdd(DdManager *ddman, double *vec, DdNode *filter, DdNode **vars, int num_vars, ODDNode *odd)
 {
+printf("src/dv/dv.cc::max_finite_double_vector_over_bdd() called, supplying this odd: %p\n\n",odd);
 	return max_finite_double_vector_over_bdd_rec(ddman, vec, filter, vars, num_vars, 0, odd, 0);
 }
 
@@ -427,6 +436,7 @@ double max_finite_double_vector_over_bdd_rec(DdManager *ddman, double *vec, DdNo
 
 EXPORT double sum_double_vector_over_bdd(DdManager *ddman, double *vec, DdNode *filter, DdNode **vars, int num_vars, ODDNode *odd)
 {
+printf("src/dv/dv.cc::sum_double_vector_over_bdd() called, supplying this odd: %p\n\n",odd);
 	return sum_double_vector_over_bdd_rec(ddman, vec, filter, vars, num_vars, 0, odd, 0);
 }
 
@@ -463,6 +473,7 @@ double sum_double_vector_over_bdd_rec(DdManager *ddman, double *vec, DdNode *fil
 
 EXPORT double sum_double_vector_over_mtbdd(DdManager *ddman, double *vec, DdNode *mult, DdNode **vars, int num_vars, ODDNode *odd)
 {
+printf("src/dv/dv.cc::sum_double_vector_over_mtbdd() called, supplying this odd: %p\n\n",odd);
 	return sum_double_vector_over_mtbdd_rec(ddman, vec, mult, vars, num_vars, 0, odd, 0);
 }
 
@@ -496,6 +507,7 @@ double sum_double_vector_over_mtbdd_rec(DdManager *ddman, double *vec, DdNode *m
 
 EXPORT void sum_double_vector_over_dd_vars(DdManager *ddman, double *vec, double *vec2, DdNode **vars, int num_vars, int first_var, int last_var, ODDNode *odd, ODDNode *odd2)
 {
+printf("src/dv/dv.cc::sum_double_vector_dd_vars() called, supplying these 2 odds: %p and %p\n\n",odd,odd2);
 	return sum_double_vector_over_dd_vars_rec(ddman, vec, vec2, vars, num_vars, 0, first_var, last_var, odd, odd2, 0, 0);
 }
 

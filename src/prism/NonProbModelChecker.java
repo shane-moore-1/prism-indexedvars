@@ -69,14 +69,17 @@ public class NonProbModelChecker extends StateModelChecker
 
 		// E operator
 		if (expr instanceof ExpressionExists) {
+if (NondetModelChecker.DEBUG_ChkExpr) System.out.println("<NonProbMC_ChkExpr expr='" + expr + "' exprInstanceOf='ExpressionExists'>");
 			res = checkExpressionExists(((ExpressionExists) expr).getExpression(), statesOfInterest);
 		}
 		// A operator
 		else if (expr instanceof ExpressionForAll) {
+if (NondetModelChecker.DEBUG_ChkExpr) System.out.println("<NonProbMC_ChkExpr expr='" + expr + "' exprInstanceOf='ExpressionForAll'>");
 			res = checkExpressionForAll(((ExpressionForAll) expr).getExpression(), statesOfInterest);
 		}
 		// Otherwise, use the superclass
 		else {
+if (NondetModelChecker.DEBUG_ChkExpr) System.out.println("<NonProbMC_ChkExpr expr='" + expr + "'\n\tnote='is deferring up to its superclass to interpret checkExpression() call...'>");
 			res = super.checkExpression(expr, statesOfInterest);
 		}
 
@@ -85,6 +88,7 @@ public class NonProbModelChecker extends StateModelChecker
 		if (res instanceof StateValuesMTBDD)
 			res.filter(reach);
 
+if (NondetModelChecker.DEBUG_ChkExpr) System.out.println("</NonProbMC_ChkExpr>");
 		return res;
 	}
 
