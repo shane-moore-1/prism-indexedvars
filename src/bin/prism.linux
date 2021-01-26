@@ -75,6 +75,9 @@ if [ "$PRISM_HEADLESS" = "" ]; then
 	PRISM_HEADLESS=true
 fi
 
+# Inserted by Shane in src/bin/prism so that whenever Makefile is run it preserves the output of Java version information
+"$PRISM_JAVA" --version
+
 # Run PRISM through Java
 "$PRISM_JAVA" $PRISM_JAVA_DEBUG $PRISM_JAVAMAXMEM $PRISM_JAVASTACKSIZE -Djava.awt.headless=$PRISM_HEADLESS -Djava.library.path="$JAVA_LIBRARY_PATH" -classpath "$PRISM_CLASSPATH" $PRISM_MAINCLASS "$@"
 
