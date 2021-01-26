@@ -3637,7 +3637,7 @@ if (DEBUG_SUBSTITUTIONS || DEBUG_TCFV) System.out.println("\nThe command's inter
 				//new ExpressionUnaryOp(ExpressionUnaryOp.PARENTH,
 				extraGuard
 			);
-if (DEBUG_SUBSTITUTIONS || DEBUG_TCFV) System.out.println("\nThe command's final guard is: " + curGuard + "\n");
+if (DEBUG_SUBSTITUTIONS || DEBUG_TCFV) System.out.println("\nThe command's final guard (i.e. after substitutions) is: " + curGuard + "\n");
 		}
 else if (DEBUG_SUBSTITUTIONS || DEBUG_TCFV) System.out.println("\nThe command's final guard is unaltered from original - no extra guards added");
 

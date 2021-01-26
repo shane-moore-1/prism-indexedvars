@@ -334,32 +334,32 @@ if (DEBUG_ChkExpr && !DEBUG_HIDE_CHECK) {
 		if (expr instanceof ExpressionITE) {
 if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("treating as ExpressionITE");}
 			res = checkExpressionITE((ExpressionITE) expr, statesOfInterest);
-if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("finished treating "+expr+" as ExpressionITE");}
+if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("smc.chkExpr: finished treating "+expr+" as ExpressionITE");}
 		}
 		// Binary ops
 		else if (expr instanceof ExpressionBinaryOp) {
 if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("treating as ExpressionBinaryOp");}
 			res = checkExpressionBinaryOp((ExpressionBinaryOp) expr, statesOfInterest);
-if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("finished treating "+expr+" as ExpressionBinaryOp");}
+if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("smc.chkExpr: finished treating "+expr+" as ExpressionBinaryOp");}
 		}
 		// Unary ops
 		else if (expr instanceof ExpressionUnaryOp) {
 if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("treating as ExpressionUnaryOp");}
 			res = checkExpressionUnaryOp((ExpressionUnaryOp) expr, statesOfInterest);
-if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("finished treating "+expr+" as ExpressionUnaryOp");}
+if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("smc.chkExpr: finished treating "+expr+" as ExpressionUnaryOp");}
 		}
 		// Functions
 		else if (expr instanceof ExpressionFunc) {
 if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("treating as ExpressionFunc");}			
 			res = checkExpressionFunc((ExpressionFunc) expr, statesOfInterest);
-if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("finished treating "+expr+" as ExpressionFunc");}			
+if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("smc.chkExpr: finished treating "+expr+" as ExpressionFunc");}			
 		}
 		// Identifier for accessing an indexed set
 		else if (expr instanceof ExpressionIndexedSetAccess)		// ADDED BY SHANE
 		{
-if (DEBUG_ChkExpr_EISA) {PrintDebugIndent(); System.out.println("treating as *****   ExpressionIndexedSetAccess *****");}
+if (DEBUG_ChkExpr || DEBUG_ChkExpr_EISA) {PrintDebugIndent(); System.out.println("smc.chkExpr: treating the expr "+expr+" as *****   ExpressionIndexedSetAccess ***** (by calling chkExprIndSetAcc)");}
 			res = checkExpressionIndSetAcc((ExpressionIndexedSetAccess) expr,statesOfInterest);
-if (DEBUG_ChkExpr_EISA) {PrintDebugIndent(); System.out.println("finished treating "+expr+" as *****   ExpressionIndexedSetAccess *****");}
+if (DEBUG_ChkExpr || DEBUG_ChkExpr_EISA) {PrintDebugIndent(); System.out.println("smc.chkExpr: finished treating "+expr+" as *****   ExpressionIndexedSetAccess *****");}
 		}
 		// Identifiers (non-indexed)
 		else if (expr instanceof ExpressionIdent) {
@@ -370,20 +370,20 @@ if (DEBUG_ChkExpr_EISA) {PrintDebugIndent(); System.out.println("finished treati
 		else if (expr instanceof ExpressionLiteral) {
 if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("treating as ExpressionLiteral");}
 			res = checkExpressionLiteral((ExpressionLiteral) expr, statesOfInterest);
-if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("finished treating "+expr+" as ExpressionLiteral");}
+if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("smc.chkExpr: finished treating "+expr+" as ExpressionLiteral");}
 		}
 		// Constants
 		else if (expr instanceof ExpressionConstant) {
 if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("treating as ExpressionConstant");}
 			res = checkExpressionConstant((ExpressionConstant) expr, statesOfInterest);
-if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("finished treating "+expr+" as ExpressionConstant");}
+if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("smc.chkExpr: finished treating "+expr+" as ExpressionConstant");}
 		}
 		// Formulas
 		else if (expr instanceof ExpressionFormula) {
 if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("treating as ExpressionFormula");}
 			// This should have been defined or expanded by now.
 			if (((ExpressionFormula) expr).getDefinition() != null) {
-if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("finished treating "+expr+" as ExpressionFormula");}
+if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("smc.chkExpr: finished treating "+expr+" as ExpressionFormula");}
 				return checkExpression(((ExpressionFormula) expr).getDefinition(), statesOfInterest);
 			} else
 				throw new PrismException("Unexpanded formula \"" + ((ExpressionFormula) expr).getName() + "\"");
@@ -392,25 +392,25 @@ if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("finished treating "+
 		else if (expr instanceof ExpressionVar) {
 if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("treating as ExpressionVar");}
 			res = checkExpressionVar((ExpressionVar) expr, statesOfInterest);
-if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("finished treating "+expr+" as ExpressionVar");}
+if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("smc.chkExpr: finished treating "+expr+" as ExpressionVar");}
 		}
 		// Labels
 		else if (expr instanceof ExpressionLabel) {
 if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("treating as ExpressionLabel");}
 			res = checkExpressionLabel((ExpressionLabel) expr, statesOfInterest);
-if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("finished treating "+expr+" as ExpressionLabel");}
+if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("smc.chkExpr: finished treating "+expr+" as ExpressionLabel");}
 		}
 		// Property refs
 		else if (expr instanceof ExpressionProp) {
 if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("treating as ExpressionProp");}
 			res = checkExpressionProp((ExpressionProp) expr, statesOfInterest);
-if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("finished treating "+expr+" as ExpressionProp");}
+if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("smc.chkExpr: finished treating "+expr+" as ExpressionProp");}
 		}
 		// Filter
 		else if (expr instanceof ExpressionFilter) {
 if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("treating as ExpressionFilter");}
 			res = checkExpressionFilter((ExpressionFilter) expr, statesOfInterest);
-if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("finished treating "+expr+" as ExpressionFilter");}
+if (DEBUG_ChkExpr) {PrintDebugIndent(); System.out.println("smc.chkExpr: finished treating "+expr+" as ExpressionFilter");}
 		}
 		// Anything else - error
 		else {
@@ -1358,7 +1358,7 @@ if (DEBUG_CheckIndSetAcc) {
 
 		// A constant is provided, and its type is int  [maybe includes Literals??] 
 		if (accessExpr.isConstant() && accessExpr.getType() instanceof TypeInt) {
-if (DEBUG_CheckIndSetAcc_Highlight) System.out.println("ChkEISA - CASE 1: AccessExpression is constant, and integer");
+if (DEBUG_CheckIndSetAcc_Highlight) System.out.println("ChkEISA - Considering as CASE 1: AccessExpression is constant, and integer");
 
 //SHANE FEB 2020 - Should we de-ref this?? Or Not?
 			JDD.Deref(statesOfInterest);	// It is constant, so we don't need to worry about any state!!
@@ -1370,6 +1370,10 @@ if (DEBUG_CheckIndSetAcc) System.out.println("I believe you want to access speci
 
 			// Assemble the name of the variable in the model to retrieve.
 			s = eisa.getName() + "[" + evaluatedIndexPos + "]";
+if (DEBUG_CheckIndSetAcc_Highlight) {
+	PrintDebugIndent();
+	System.out.println("Resolved as meaning: " + s);
+} else
 if (DEBUG_CheckIndSetAcc)
 {
 	PrintDebugIndent();
@@ -1403,10 +1407,10 @@ if (DEBUG_CheckIndSetAcc_Highlight)
 }
 			return new StateValuesMTBDD(dd, model);
 		}
-// THE REMAINDER IS INCOMPLETE - but may not be required since an earlier phase generates versions of command which have specific indexes before coming to this metho.
+// THE REMAINDER IS INCOMPLETE - but may not be required since an earlier phase generates versions of command which have specific indexes before coming to this method.
 		else if (accessExpr instanceof ExpressionVar) 		// THIS ONE CANNOT BE USED DURING MODEL-CONSTRUCTION; ONLY DURING ACTUAL MODEL-CHECKING
 		{
-if (DEBUG_CheckIndSetAcc_Highlight) System.out.println("ChkEISA - CASE 2: AccessExpression is a Var expression");
+if (DEBUG_CheckIndSetAcc_Highlight) System.out.println("ChkEISA - Considering as CASE 2: AccessExpression is a Var expression");
 		    if (accessExpr.getType() instanceof TypeInt)
 		    {
 if (DEBUG_CheckIndSetAcc) System.out.println("SUBCASE A: the AccessExpression '"+accessExpr+"' is of type Int");
@@ -1554,7 +1558,7 @@ if (DEBUG_CheckIndSetAcc_Highlight)
 			throw new PrismException("Unable to model-check that type of index access expression: " + accessExpr);
 		    }
 		} else if (accessExpr instanceof ExpressionBinaryOp || accessExpr instanceof ExpressionUnaryOp) { // Some kind of arithmetic, presumbly.
-if (DEBUG_CheckIndSetAcc_Highlight) System.out.println("CASE 3: AccessExpression is something which needs calculation, namely:" + accessExpr.getClass().getName() );
+if (DEBUG_CheckIndSetAcc_Highlight) System.out.println("ChkEISA - Considering as CASE 3: AccessExpression is something which needs calculation, namely:" + accessExpr.getClass().getName() );
 System.out.println("access expression: " + accessExpr);
 System.out.println("object type of accessExpr: " + accessExpr.getClass().getName());
 System.out.println("getType on the expression: " + accessExpr.getType());
@@ -1565,7 +1569,7 @@ if (DEBUG_CheckIndSetAcc_Highlight)
 }
 			throw new PrismException("IMPLEMENTATION INCOMPLETE - Unable to model-check that type of index access expression: " + accessExpr + "\nthe object type is: "+accessExpr.getClass().getName());
 		}else { 	// For example, a
-if (DEBUG_CheckIndSetAcc_Highlight) System.out.println("CASE 4: AccessExpression is of an unhandled type, namely:" + accessExpr.getClass().getName() );
+if (DEBUG_CheckIndSetAcc_Highlight) System.out.println("ChkEISA - Considering as CASE 4: AccessExpression is of an unhandled type, namely:" + accessExpr.getClass().getName() );
 if (DEBUG_CheckIndSetAcc_Highlight)
 {
 	PrintDebugIndent();
