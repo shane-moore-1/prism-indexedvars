@@ -2,6 +2,7 @@ package parser.visitor;
 
 import java.util.Vector;
 
+import parser.ast.Module;
 import parser.ast.*;
 import prism.PrismLangException;
 
@@ -111,6 +112,10 @@ if (DEBUG) System.out.println(" About to replace IndexedSetDeclaration of " + in
 					// Preserve any deferral settings to the new variables.
 					d.setDeferCreateDD(e.getDeferCreateDDRound());
 					d.setIsPartOfIndexedVar();
+
+					// If there was a specified value for initial (all vars in set get same initial), set it:
+					d.setStart(e.getStart() );		// Later, may want to account for index-specific values
+
 					if (i == 0) {
 						returnVal = d;		// to replace original Declaration upon returning
 						currentModule.addIndexedSetDecl(e);	// Needed for SemanticCheck visitor
@@ -137,6 +142,10 @@ if (DEBUG) System.out.println(" It is from outside of any module. (No further de
 					Declaration d = new Declaration(indexedSetName + "[" + i + "]", elementsType);
 					if (i == 0) returnVal = d;		// to replace original Declaration
 					d.setIsPartOfIndexedVar();		// to enable bounds checking at evaluationTime
+
+					// If there was a specified value for initial (all vars in set get same initial), set it:
+					d.setStart(e.getStart() );		// Later, may want to account for index-specific values
+
 					currentModuleFile.addGlobal(d);
 					currentModuleFile.addIndexedSetName(indexedSetName);	// MAYBE Needed for SemanticCheck visitor
 						// But above line may not be needed any more for Semantic Check

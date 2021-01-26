@@ -1020,6 +1020,16 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
                             // a visitor will need to convert these Declarations into individual variable declarations 
                             // with names that include square brackets (and which each are distinct numbers).
                             decl = new Declaration(name, new DeclTypeIndexedSet(declType,size));
+    switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
+    case INIT:
+      jj_consume_token(INIT);
+      init = Expression(false, false);
+                                                                   decl.setStart(init);
+      break;
+    default:
+      jj_la1[22] = jj_gen;
+      ;
+    }
           {if (true) return decl;}
     throw new Error("Missing return statement in function");
   }
@@ -1045,7 +1055,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
                                                                    decl.setStart(init);
         break;
       default:
-        jj_la1[22] = jj_gen;
+        jj_la1[23] = jj_gen;
         ;
       }
       jj_consume_token(SEMICOLON);
@@ -1067,7 +1077,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
           {if (true) return null;}  /* INVALID PORDUCTION - SHOULD NOT HAVE BEEN PARSED!! */
       break;
     default:
-      jj_la1[23] = jj_gen;
+      jj_la1[24] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -1102,7 +1112,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
                       declType = new DeclarationClock();
       break;
     default:
-      jj_la1[24] = jj_gen;
+      jj_la1[25] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -1128,7 +1138,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
         ;
         break;
       default:
-        jj_la1[25] = jj_gen;
+        jj_la1[26] = jj_gen;
         break label_6;
       }
       var = Declaration();
@@ -1142,7 +1152,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
                                                                         module.setInvariant(invar);
       break;
     default:
-      jj_la1[26] = jj_gen;
+      jj_la1[27] = jj_gen;
       ;
     }
     label_7:
@@ -1152,7 +1162,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
         ;
         break;
       default:
-        jj_la1[27] = jj_gen;
+        jj_la1[28] = jj_gen;
         break label_7;
       }
       comm = Command();
@@ -1178,7 +1188,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
                                                     comm.setSynch(synch);
       break;
     default:
-      jj_la1[28] = jj_gen;
+      jj_la1[29] = jj_gen;
       ;
     }
     jj_consume_token(RBRACKET);
@@ -1243,7 +1253,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
             ;
             break;
           default:
-            jj_la1[29] = jj_gen;
+            jj_la1[30] = jj_gen;
             break label_8;
           }
           jj_consume_token(PLUS);
@@ -1254,7 +1264,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
         }
         break;
       default:
-        jj_la1[30] = jj_gen;
+        jj_la1[31] = jj_gen;
         jj_consume_token(-1);
         throw new ParseException();
       }
@@ -1277,7 +1287,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
           ;
           break;
         default:
-          jj_la1[31] = jj_gen;
+          jj_la1[32] = jj_gen;
           break label_9;
         }
         jj_consume_token(AND);
@@ -1288,7 +1298,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
       jj_consume_token(TRUE);
       break;
     default:
-      jj_la1[32] = jj_gen;
+      jj_la1[33] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -1326,7 +1336,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
         ;
         break;
       default:
-        jj_la1[33] = jj_gen;
+        jj_la1[34] = jj_gen;
         break label_10;
       }
       jj_consume_token(COMMA);
@@ -1397,7 +1407,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
         ;
         break;
       default:
-        jj_la1[34] = jj_gen;
+        jj_la1[35] = jj_gen;
         break label_11;
       }
             begin2 = getToken(1); s = null;
@@ -1410,13 +1420,13 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
           s = Identifier();
           break;
         default:
-          jj_la1[35] = jj_gen;
+          jj_la1[36] = jj_gen;
           ;
         }
         jj_consume_token(RBRACKET);
         break;
       default:
-        jj_la1[36] = jj_gen;
+        jj_la1[37] = jj_gen;
         ;
       }
       guard = Expression(false, false);
@@ -1547,7 +1557,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
           ;
           break;
         default:
-          jj_la1[37] = jj_gen;
+          jj_la1[38] = jj_gen;
           break label_14;
         }
         jj_consume_token(COMMA);
@@ -1588,7 +1598,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
         ;
         break;
       default:
-        jj_la1[38] = jj_gen;
+        jj_la1[39] = jj_gen;
         break label_15;
       }
       switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
@@ -1605,7 +1615,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
             ;
             break;
           default:
-            jj_la1[39] = jj_gen;
+            jj_la1[40] = jj_gen;
             break label_16;
           }
           jj_consume_token(COMMA);
@@ -1629,7 +1639,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
             ;
             break;
           default:
-            jj_la1[40] = jj_gen;
+            jj_la1[41] = jj_gen;
             break label_17;
           }
           jj_consume_token(COMMA);
@@ -1642,7 +1652,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
                   sys = rename;
         break;
       default:
-        jj_la1[41] = jj_gen;
+        jj_la1[42] = jj_gen;
         jj_consume_token(-1);
         throw new ParseException();
       }
@@ -1675,7 +1685,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
                                                       sys = new SystemBrackets(sys);
       break;
     default:
-      jj_la1[42] = jj_gen;
+      jj_la1[43] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -1743,7 +1753,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
                         exprTemp.setOperator(ExpressionTemporal.P_R);
         break;
       default:
-        jj_la1[43] = jj_gen;
+        jj_la1[44] = jj_gen;
         jj_consume_token(-1);
         throw new ParseException();
       }
@@ -1757,14 +1767,14 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
         TimeBound(exprTemp);
         break;
       default:
-        jj_la1[44] = jj_gen;
+        jj_la1[45] = jj_gen;
         ;
       }
       expr = ExpressionTemporalUnary(prop, pathprop);
                   exprTemp.setOperand2(expr); exprTemp.setPosition(begin, getToken(0)); ret = exprTemp;
       break;
     default:
-      jj_la1[45] = jj_gen;
+      jj_la1[46] = jj_gen;
       ;
     }
           {if (true) return ret;}
@@ -1795,7 +1805,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
                         exprTemp.setOperator(ExpressionTemporal.P_G);
         break;
       default:
-        jj_la1[46] = jj_gen;
+        jj_la1[47] = jj_gen;
         jj_consume_token(-1);
         throw new ParseException();
       }
@@ -1809,7 +1819,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
         TimeBound(exprTemp);
         break;
       default:
-        jj_la1[47] = jj_gen;
+        jj_la1[48] = jj_gen;
         ;
       }
       expr = ExpressionTemporalUnary(prop, pathprop);
@@ -1842,7 +1852,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
       ret = ExpressionITE(prop, pathprop);
       break;
     default:
-      jj_la1[48] = jj_gen;
+      jj_la1[49] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -1891,7 +1901,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
           uBound = Expression(false, false);
           break;
         default:
-          jj_la1[49] = jj_gen;
+          jj_la1[50] = jj_gen;
           jj_consume_token(-1);
           throw new ParseException();
         }
@@ -1934,7 +1944,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
           uBound = Expression(false, false);
           break;
         default:
-          jj_la1[50] = jj_gen;
+          jj_la1[51] = jj_gen;
           jj_consume_token(-1);
           throw new ParseException();
         }
@@ -1977,7 +1987,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
           lBound = Expression(false, false);
           break;
         default:
-          jj_la1[51] = jj_gen;
+          jj_la1[52] = jj_gen;
           jj_consume_token(-1);
           throw new ParseException();
         }
@@ -2020,7 +2030,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
           lBound = Expression(false, false);
           break;
         default:
-          jj_la1[52] = jj_gen;
+          jj_la1[53] = jj_gen;
           jj_consume_token(-1);
           throw new ParseException();
         }
@@ -2041,7 +2051,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
                                                      exprTemp.setEqualBounds(lBound);
       break;
     default:
-      jj_la1[53] = jj_gen;
+      jj_la1[54] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -2062,7 +2072,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
                   ret = new ExpressionITE(ret, left, right); ret.setPosition(begin, getToken(0));
       break;
     default:
-      jj_la1[54] = jj_gen;
+      jj_la1[55] = jj_gen;
       ;
     }
           {if (true) return ret;}
@@ -2082,7 +2092,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
         ;
         break;
       default:
-        jj_la1[55] = jj_gen;
+        jj_la1[56] = jj_gen;
         break label_18;
       }
       jj_consume_token(IMPLIES);
@@ -2106,7 +2116,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
         ;
         break;
       default:
-        jj_la1[56] = jj_gen;
+        jj_la1[57] = jj_gen;
         break label_19;
       }
       jj_consume_token(IFF);
@@ -2130,7 +2140,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
         ;
         break;
       default:
-        jj_la1[57] = jj_gen;
+        jj_la1[58] = jj_gen;
         break label_20;
       }
       jj_consume_token(OR);
@@ -2154,7 +2164,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
         ;
         break;
       default:
-        jj_la1[58] = jj_gen;
+        jj_la1[59] = jj_gen;
         break label_21;
       }
       jj_consume_token(AND);
@@ -2201,7 +2211,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
       ret = ExpressionEquality(prop, pathprop);
       break;
     default:
-      jj_la1[59] = jj_gen;
+      jj_la1[60] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -2224,7 +2234,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
         ;
         break;
       default:
-        jj_la1[60] = jj_gen;
+        jj_la1[61] = jj_gen;
         break label_22;
       }
       op = EqNeq();
@@ -2252,7 +2262,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
         ;
         break;
       default:
-        jj_la1[61] = jj_gen;
+        jj_la1[62] = jj_gen;
         break label_23;
       }
       op = LtGt();
@@ -2285,7 +2295,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
         ;
         break;
       default:
-        jj_la1[62] = jj_gen;
+        jj_la1[63] = jj_gen;
         break label_24;
       }
       switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
@@ -2298,7 +2308,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
                                                                        op = ExpressionBinaryOp.MINUS;
         break;
       default:
-        jj_la1[63] = jj_gen;
+        jj_la1[64] = jj_gen;
         jj_consume_token(-1);
         throw new ParseException();
       }
@@ -2324,7 +2334,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
         ;
         break;
       default:
-        jj_la1[64] = jj_gen;
+        jj_la1[65] = jj_gen;
         break label_25;
       }
       switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
@@ -2337,7 +2347,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
                                                                           op = ExpressionBinaryOp.DIVIDE;
         break;
       default:
-        jj_la1[65] = jj_gen;
+        jj_la1[66] = jj_gen;
         jj_consume_token(-1);
         throw new ParseException();
       }
@@ -2383,7 +2393,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
       ret = ExpressionBasic(prop, pathprop);
       break;
     default:
-      jj_la1[66] = jj_gen;
+      jj_la1[67] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -2445,7 +2455,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
       ret = ExpressionFilter(prop, pathprop);
       break;
     default:
-      jj_la1[67] = jj_gen;
+      jj_la1[68] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -2486,13 +2496,13 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
         jj_consume_token(RBRACKET);
         break;
       default:
-        jj_la1[68] = jj_gen;
+        jj_la1[69] = jj_gen;
         jj_consume_token(-1);
         throw new ParseException();
       }
       break;
     default:
-      jj_la1[69] = jj_gen;
+      jj_la1[70] = jj_gen;
       ;
     }
           ret.setPosition(begin, getToken(0)); {if (true) return ret;}
@@ -2514,7 +2524,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
                                                          s = "max";
       break;
     default:
-      jj_la1[70] = jj_gen;
+      jj_la1[71] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -2546,7 +2556,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
       s = Identifier();
       break;
     default:
-      jj_la1[71] = jj_gen;
+      jj_la1[72] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -2570,7 +2580,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
         ;
         break;
       default:
-        jj_la1[72] = jj_gen;
+        jj_la1[73] = jj_gen;
         break label_26;
       }
       jj_consume_token(COMMA);
@@ -2598,7 +2608,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
           ;
           break;
         default:
-          jj_la1[73] = jj_gen;
+          jj_la1[74] = jj_gen;
           break label_27;
         }
         jj_consume_token(COMMA);
@@ -2607,7 +2617,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
       }
       break;
     default:
-      jj_la1[74] = jj_gen;
+      jj_la1[75] = jj_gen;
       ;
     }
   }
@@ -2652,7 +2662,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
                   ret = new ExpressionLiteral(TypeBool.getInstance(), new Boolean(false));
       break;
     default:
-      jj_la1[75] = jj_gen;
+      jj_la1[76] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -2677,7 +2687,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
       ret = RestrictedScopeExpression(prop,pathprop,ret);
       break;
     default:
-      jj_la1[76] = jj_gen;
+      jj_la1[77] = jj_gen;
       ;
     }
           {if (true) return ret;}
@@ -2700,7 +2710,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
         ;
         break;
       default:
-        jj_la1[77] = jj_gen;
+        jj_la1[78] = jj_gen;
         break label_28;
       }
       jj_consume_token(COMMA);
@@ -2741,7 +2751,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
         jj_consume_token(RPARENTH);
         break;
       default:
-        jj_la1[78] = jj_gen;
+        jj_la1[79] = jj_gen;
         ;
       }
       switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
@@ -2771,7 +2781,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
                                        relOp = "max="; isBool = false;
         break;
       default:
-        jj_la1[79] = jj_gen;
+        jj_la1[80] = jj_gen;
         jj_consume_token(-1);
         throw new ParseException();
       }
@@ -2789,7 +2799,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
                                          relOp = "max="; isBool = false;
       break;
     default:
-      jj_la1[80] = jj_gen;
+      jj_la1[81] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -2800,7 +2810,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
       filter = Filter();
       break;
     default:
-      jj_la1[81] = jj_gen;
+      jj_la1[82] = jj_gen;
       ;
     }
     jj_consume_token(RBRACKET);
@@ -2838,7 +2848,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
         ;
         break;
       default:
-        jj_la1[82] = jj_gen;
+        jj_la1[83] = jj_gen;
         break label_29;
       }
       jj_consume_token(LBRACE);
@@ -2852,7 +2862,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
                           filter.setMaxRequested(true);
         break;
       default:
-        jj_la1[83] = jj_gen;
+        jj_la1[84] = jj_gen;
         jj_consume_token(-1);
         throw new ParseException();
       }
@@ -2889,7 +2899,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
         jj_consume_token(RPARENTH);
         break;
       default:
-        jj_la1[84] = jj_gen;
+        jj_la1[85] = jj_gen;
         ;
       }
       r = LtGt();
@@ -2902,7 +2912,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
                                  relOp = "="; isBool = false;
       break;
     default:
-      jj_la1[85] = jj_gen;
+      jj_la1[86] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -2913,7 +2923,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
       filter = Filter();
       break;
     default:
-      jj_la1[86] = jj_gen;
+      jj_la1[87] = jj_gen;
       ;
     }
     jj_consume_token(RBRACKET);
@@ -2957,7 +2967,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
         jj_consume_token(RPARENTH);
         break;
       default:
-        jj_la1[87] = jj_gen;
+        jj_la1[88] = jj_gen;
         ;
       }
       switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
@@ -2965,7 +2975,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
         RewardIndex(ret);
         break;
       default:
-        jj_la1[88] = jj_gen;
+        jj_la1[89] = jj_gen;
         ;
       }
       switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
@@ -2995,7 +3005,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
                                    relOp = "max="; isBool = false;
         break;
       default:
-        jj_la1[89] = jj_gen;
+        jj_la1[90] = jj_gen;
         jj_consume_token(-1);
         throw new ParseException();
       }
@@ -3013,7 +3023,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
                                          relOp = "max="; isBool = false;
       break;
     default:
-      jj_la1[90] = jj_gen;
+      jj_la1[91] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -3024,7 +3034,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
       filter = Filter();
       break;
     default:
-      jj_la1[91] = jj_gen;
+      jj_la1[92] = jj_gen;
       ;
     }
     jj_consume_token(RBRACKET);
@@ -3087,7 +3097,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
         index = Expression(false, false);
         break;
       default:
-        jj_la1[92] = jj_gen;
+        jj_la1[93] = jj_gen;
         jj_consume_token(-1);
         throw new ParseException();
       }
@@ -3133,7 +3143,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
           indexDiv = Expression(false, false);
           break;
         default:
-          jj_la1[93] = jj_gen;
+          jj_la1[94] = jj_gen;
           jj_consume_token(-1);
           throw new ParseException();
         }
@@ -3141,7 +3151,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
       jj_consume_token(RBRACE);
       break;
     default:
-      jj_la1[94] = jj_gen;
+      jj_la1[95] = jj_gen;
       ;
     }
                 exprRew.setRewardStructIndex(index);
@@ -3171,7 +3181,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
                 ret = new ExpressionTemporal(ExpressionTemporal.R_S, null, null);
         break;
       default:
-        jj_la1[95] = jj_gen;
+        jj_la1[96] = jj_gen;
         if (jj_2_18(2147483647)) {
           begin = jj_consume_token(C);
           jj_consume_token(LE);
@@ -3220,7 +3230,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
                                           ret = expr;
             break;
           default:
-            jj_la1[96] = jj_gen;
+            jj_la1[97] = jj_gen;
             jj_consume_token(-1);
             throw new ParseException();
           }
@@ -3283,7 +3293,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
       jj_consume_token(DRBRACKET);
       break;
     default:
-      jj_la1[97] = jj_gen;
+      jj_la1[98] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -3306,7 +3316,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
         expr = ExpressionReward(prop, pathprop);
         break;
       default:
-        jj_la1[98] = jj_gen;
+        jj_la1[99] = jj_gen;
         jj_consume_token(-1);
         throw new ParseException();
       }
@@ -3317,7 +3327,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
           ret.addOperand(expr);
       break;
     default:
-      jj_la1[99] = jj_gen;
+      jj_la1[100] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -3336,7 +3346,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
                       exprStrat.setCoalitionAllPlayers();
       break;
     default:
-      jj_la1[102] = jj_gen;
+      jj_la1[103] = jj_gen;
       switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
       case REG_INT:
       case REG_IDENT:
@@ -3349,7 +3359,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
             ;
             break;
           default:
-            jj_la1[100] = jj_gen;
+            jj_la1[101] = jj_gen;
             break label_30;
           }
           jj_consume_token(COMMA);
@@ -3358,7 +3368,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
         }
         break;
       default:
-        jj_la1[101] = jj_gen;
+        jj_la1[102] = jj_gen;
         ;
       }
           exprStrat.setCoalition(coalition);
@@ -3376,7 +3386,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
       jj_consume_token(REG_IDENT);
       break;
     default:
-      jj_la1[103] = jj_gen;
+      jj_la1[104] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -3401,7 +3411,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
                                                        s = "init";
       break;
     default:
-      jj_la1[104] = jj_gen;
+      jj_la1[105] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -3446,7 +3456,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
       op = Identifier();
       break;
     default:
-      jj_la1[105] = jj_gen;
+      jj_la1[106] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -3458,7 +3468,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
       filter = Expression(prop, pathprop);
       break;
     default:
-      jj_la1[106] = jj_gen;
+      jj_la1[107] = jj_gen;
       ;
     }
     jj_consume_token(RPARENTH);
@@ -3504,7 +3514,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
                                                                   ident="max";
       break;
     default:
-      jj_la1[107] = jj_gen;
+      jj_la1[108] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -3541,7 +3551,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
       jj_consume_token(RBRACKET);
       break;
     default:
-      jj_la1[108] = jj_gen;
+      jj_la1[109] = jj_gen;
       ;
     }
     jj_consume_token(PRIME);
@@ -3563,7 +3573,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
               {if (true) return ExpressionBinaryOp.NE;}
       break;
     default:
-      jj_la1[109] = jj_gen;
+      jj_la1[110] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -3590,7 +3600,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
               {if (true) return ExpressionBinaryOp.LE;}
       break;
     default:
-      jj_la1[110] = jj_gen;
+      jj_la1[111] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -3615,7 +3625,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
       step = Expression(false, false);
       break;
     default:
-      jj_la1[111] = jj_gen;
+      jj_la1[112] = jj_gen;
       ;
     }
     jj_consume_token(0);
@@ -3754,26 +3764,6 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
     finally { jj_save(17, xla); }
   }
 
-  static private boolean jj_3R_210() {
-    if (jj_scan_token(S)) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_178() {
-    if (jj_3R_49()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_120() {
-    if (jj_scan_token(MINUS)) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_209() {
-    if (jj_3R_35()) return true;
-    return false;
-  }
-
   static private boolean jj_3R_226() {
     if (jj_scan_token(DQUOTE)) return true;
     if (jj_3R_31()) return true;
@@ -3879,11 +3869,6 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
     return false;
   }
 
-  static private boolean jj_3_4() {
-    if (jj_scan_token(LABEL)) return true;
-    return false;
-  }
-
   static private boolean jj_3R_117() {
     Token xsp;
     xsp = jj_scanpos;
@@ -3907,9 +3892,8 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
     return false;
   }
 
-  static private boolean jj_3_3() {
+  static private boolean jj_3_4() {
     if (jj_scan_token(LABEL)) return true;
-    if (jj_scan_token(DQUOTE)) return true;
     return false;
   }
 
@@ -3945,6 +3929,12 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
     if (jj_scan_token(RBRACE)) return true;
     xsp = jj_scanpos;
     if (jj_3R_224()) jj_scanpos = xsp;
+    return false;
+  }
+
+  static private boolean jj_3_3() {
+    if (jj_scan_token(LABEL)) return true;
+    if (jj_scan_token(DQUOTE)) return true;
     return false;
   }
 
@@ -4524,13 +4514,6 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
     return false;
   }
 
-  static private boolean jj_3_1() {
-    if (jj_scan_token(MODULE)) return true;
-    if (jj_3R_31()) return true;
-    if (jj_scan_token(EQ)) return true;
-    return false;
-  }
-
   static private boolean jj_3R_107() {
     if (jj_3R_34()) return true;
     return false;
@@ -4566,6 +4549,13 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
 
   static private boolean jj_3R_101() {
     if (jj_3R_34()) return true;
+    return false;
+  }
+
+  static private boolean jj_3_1() {
+    if (jj_scan_token(MODULE)) return true;
+    if (jj_3R_31()) return true;
+    if (jj_scan_token(EQ)) return true;
     return false;
   }
 
@@ -5461,6 +5451,26 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
     return false;
   }
 
+  static private boolean jj_3R_210() {
+    if (jj_scan_token(S)) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_178() {
+    if (jj_3R_49()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_120() {
+    if (jj_scan_token(MINUS)) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_209() {
+    if (jj_3R_35()) return true;
+    return false;
+  }
+
   static private boolean jj_initialized_once = false;
   /** Generated Token Manager. */
   static public PrismParserTokenManager token_source;
@@ -5473,7 +5483,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
   static private Token jj_scanpos, jj_lastpos;
   static private int jj_la;
   static private int jj_gen;
-  static final private int[] jj_la1 = new int[112];
+  static final private int[] jj_la1 = new int[113];
   static private int[] jj_la1_0;
   static private int[] jj_la1_1;
   static private int[] jj_la1_2;
@@ -5483,13 +5493,13 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
       jj_la1_init_2();
    }
    private static void jj_la1_init_0() {
-      jj_la1_0 = new int[] {0xa28808c0,0xa08808c0,0x2000000,0x60341048,0x0,0x60341048,0x60341048,0x0,0x60341048,0x800,0x80000000,0x80,0x80000880,0x10000410,0x10000410,0x0,0x40,0x0,0x0,0x200,0x0,0x2000000,0x2000000,0x0,0x10000030,0x0,0x4000000,0x0,0x0,0x0,0x41741008,0x0,0x0,0x0,0x41741008,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x1400000,0x0,0x41741008,0x41741008,0x41741008,0x41741008,0x41741008,0x0,0x0,0x0,0x0,0x0,0x0,0x40341008,0x0,0x0,0x0,0x0,0x0,0x0,0x40341008,0x40341008,0x0,0x0,0x40000000,0x40000000,0x0,0x0,0x0,0x40000,0x0,0x0,0x0,0x40000000,0x0,0x0,0x0,0x40000000,0x0,0x0,0x0,0x0,0x0,0x40000000,0x0,0x0,0x41741008,0x41741008,0x0,0x0,0x49741108,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x2000000,0x40000000,0x0,0x40000000,0x0,0x0,0x0,0x0,};
+      jj_la1_0 = new int[] {0xa28808c0,0xa08808c0,0x2000000,0x60341048,0x0,0x60341048,0x60341048,0x0,0x60341048,0x800,0x80000000,0x80,0x80000880,0x10000410,0x10000410,0x0,0x40,0x0,0x0,0x200,0x0,0x2000000,0x2000000,0x2000000,0x0,0x10000030,0x0,0x4000000,0x0,0x0,0x0,0x41741008,0x0,0x0,0x0,0x41741008,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x1400000,0x0,0x41741008,0x41741008,0x41741008,0x41741008,0x41741008,0x0,0x0,0x0,0x0,0x0,0x0,0x40341008,0x0,0x0,0x0,0x0,0x0,0x0,0x40341008,0x40341008,0x0,0x0,0x40000000,0x40000000,0x0,0x0,0x0,0x40000,0x0,0x0,0x0,0x40000000,0x0,0x0,0x0,0x40000000,0x0,0x0,0x0,0x0,0x0,0x40000000,0x0,0x0,0x41741008,0x41741008,0x0,0x0,0x49741108,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x2000000,0x40000000,0x0,0x40000000,0x0,0x0,0x0,0x0,};
    }
    private static void jj_la1_init_1() {
-      jj_la1_1 = new int[] {0xc1f0a,0x40f08,0x81002,0x123cae1,0x80000000,0x123cae1,0x123cae1,0x80000000,0x123cae1,0x100,0x8,0x40000,0x40508,0x0,0x0,0xa00,0xa00,0x0,0x40000000,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x123c0e5,0x2000000,0x200000,0x0,0x123c0e5,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xc10000,0x0,0xc10000,0x4,0x0,0x123c0e5,0x123c0e5,0x123c0e5,0x123c0e5,0x123c0e5,0x0,0x0,0x8000000,0x10000000,0x4000000,0x2000000,0x123c0e1,0x0,0x0,0x0,0x0,0x0,0x0,0x23c0e1,0x23c0e1,0x0,0x0,0x1,0x1,0x0,0x0,0x2000,0x200000,0x100000,0x0,0x0,0x1,0xe0,0x0,0x0,0x1,0x0,0x0,0x0,0x0,0x0,0x1,0x1c000,0x0,0x123c0e5,0x123c0e5,0x0,0x20000,0x123c0e5,0x0,0x1c0e0,0x1c0e0,0x0,0x0,0x0,0x0,0x0,0x6000001,0x0,0x1,0x0,0x0,0x0,0x40000000,};
+      jj_la1_1 = new int[] {0xc1f0a,0x40f08,0x81002,0x123cae1,0x80000000,0x123cae1,0x123cae1,0x80000000,0x123cae1,0x100,0x8,0x40000,0x40508,0x0,0x0,0xa00,0xa00,0x0,0x40000000,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x123c0e5,0x2000000,0x200000,0x0,0x123c0e5,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0xc10000,0x0,0xc10000,0x4,0x0,0x123c0e5,0x123c0e5,0x123c0e5,0x123c0e5,0x123c0e5,0x0,0x0,0x8000000,0x10000000,0x4000000,0x2000000,0x123c0e1,0x0,0x0,0x0,0x0,0x0,0x0,0x23c0e1,0x23c0e1,0x0,0x0,0x1,0x1,0x0,0x0,0x2000,0x200000,0x100000,0x0,0x0,0x1,0xe0,0x0,0x0,0x1,0x0,0x0,0x0,0x0,0x0,0x1,0x1c000,0x0,0x123c0e5,0x123c0e5,0x0,0x20000,0x123c0e5,0x0,0x1c0e0,0x1c0e0,0x0,0x0,0x0,0x0,0x0,0x6000001,0x0,0x1,0x0,0x0,0x0,0x40000000,};
    }
    private static void jj_la1_init_2() {
-      jj_la1_2 = new int[] {0x0,0x0,0x0,0x1e084044,0x0,0x1e084044,0x1e084044,0x0,0x1e084044,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x400,0x10,0x0,0x4000000,0x0,0x0,0x10000010,0x10,0x10000000,0x0,0x10,0x10000000,0x40000,0x1e084044,0x0,0x4,0x1,0x1e084054,0x10000000,0x10,0x1,0x200100,0x1,0x1,0x200100,0x12000004,0x0,0x33410,0x0,0x0,0x33410,0x1e084044,0x1e084044,0x1e084044,0x1e084044,0x1e084044,0x33410,0x1000000,0x0,0x0,0x0,0x0,0x1e084044,0xc00,0x33000,0xc0000,0xc0000,0x300000,0x300000,0x1e084044,0x1e004044,0x14,0x14,0x0,0x10000000,0x1,0x1,0x0,0xc000000,0x0,0x1,0x4,0x33400,0x0,0x100,0x100,0x0,0x4,0x33404,0x100,0x4,0x100,0x33400,0x0,0x100,0x1e084044,0x1e084044,0x200000,0x0,0x1e084044,0x4040,0x0,0x4,0x1,0x14000000,0x100000,0x14000000,0x10000000,0x10040000,0x1,0x10000000,0x10,0xc00,0x33000,0x0,};
+      jj_la1_2 = new int[] {0x0,0x0,0x0,0x1e084044,0x0,0x1e084044,0x1e084044,0x0,0x1e084044,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x400,0x10,0x0,0x4000000,0x0,0x0,0x0,0x10000010,0x10,0x10000000,0x0,0x10,0x10000000,0x40000,0x1e084044,0x0,0x4,0x1,0x1e084054,0x10000000,0x10,0x1,0x200100,0x1,0x1,0x200100,0x12000004,0x0,0x33410,0x0,0x0,0x33410,0x1e084044,0x1e084044,0x1e084044,0x1e084044,0x1e084044,0x33410,0x1000000,0x0,0x0,0x0,0x0,0x1e084044,0xc00,0x33000,0xc0000,0xc0000,0x300000,0x300000,0x1e084044,0x1e004044,0x14,0x14,0x0,0x10000000,0x1,0x1,0x0,0xc000000,0x0,0x1,0x4,0x33400,0x0,0x100,0x100,0x0,0x4,0x33404,0x100,0x4,0x100,0x33400,0x0,0x100,0x1e084044,0x1e084044,0x200000,0x0,0x1e084044,0x4040,0x0,0x4,0x1,0x14000000,0x100000,0x14000000,0x10000000,0x10040000,0x1,0x10000000,0x10,0xc00,0x33000,0x0,};
    }
   static final private JJCalls[] jj_2_rtns = new JJCalls[18];
   static private boolean jj_rescan = false;
@@ -5513,7 +5523,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
     token = new Token();
     jj_ntk = -1;
     jj_gen = 0;
-    for (int i = 0; i < 112; i++) jj_la1[i] = -1;
+    for (int i = 0; i < 113; i++) jj_la1[i] = -1;
     for (int i = 0; i < jj_2_rtns.length; i++) jj_2_rtns[i] = new JJCalls();
   }
 
@@ -5528,7 +5538,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
     token = new Token();
     jj_ntk = -1;
     jj_gen = 0;
-    for (int i = 0; i < 112; i++) jj_la1[i] = -1;
+    for (int i = 0; i < 113; i++) jj_la1[i] = -1;
     for (int i = 0; i < jj_2_rtns.length; i++) jj_2_rtns[i] = new JJCalls();
   }
 
@@ -5546,7 +5556,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
     token = new Token();
     jj_ntk = -1;
     jj_gen = 0;
-    for (int i = 0; i < 112; i++) jj_la1[i] = -1;
+    for (int i = 0; i < 113; i++) jj_la1[i] = -1;
     for (int i = 0; i < jj_2_rtns.length; i++) jj_2_rtns[i] = new JJCalls();
   }
 
@@ -5557,7 +5567,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
     token = new Token();
     jj_ntk = -1;
     jj_gen = 0;
-    for (int i = 0; i < 112; i++) jj_la1[i] = -1;
+    for (int i = 0; i < 113; i++) jj_la1[i] = -1;
     for (int i = 0; i < jj_2_rtns.length; i++) jj_2_rtns[i] = new JJCalls();
   }
 
@@ -5574,7 +5584,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
     token = new Token();
     jj_ntk = -1;
     jj_gen = 0;
-    for (int i = 0; i < 112; i++) jj_la1[i] = -1;
+    for (int i = 0; i < 113; i++) jj_la1[i] = -1;
     for (int i = 0; i < jj_2_rtns.length; i++) jj_2_rtns[i] = new JJCalls();
   }
 
@@ -5584,7 +5594,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
     token = new Token();
     jj_ntk = -1;
     jj_gen = 0;
-    for (int i = 0; i < 112; i++) jj_la1[i] = -1;
+    for (int i = 0; i < 113; i++) jj_la1[i] = -1;
     for (int i = 0; i < jj_2_rtns.length; i++) jj_2_rtns[i] = new JJCalls();
   }
 
@@ -5704,7 +5714,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
       la1tokens[jj_kind] = true;
       jj_kind = -1;
     }
-    for (int i = 0; i < 112; i++) {
+    for (int i = 0; i < 113; i++) {
       if (jj_la1[i] == jj_gen) {
         for (int j = 0; j < 32; j++) {
           if ((jj_la1_0[i] & (1<<j)) != 0) {

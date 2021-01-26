@@ -43,6 +43,9 @@ import prism.PrismLangException;
  */
 public class DeclTypeIndexedSet extends DeclarationType
 {
+
+private static boolean DEBUG_DTIS = false;
+
 	// Size of array, in terms of the uppermost index position (assuming we always start at position 1).
 	protected Expression size;
 	// Type used for the elements of this Indexed Set (i.e. an Array, by a different name!)
@@ -109,9 +112,11 @@ public class DeclTypeIndexedSet extends DeclarationType
 	@Override
 	public ASTElement deepCopy()
 	{
-Exception e = new Exception();
-System.out.println("In DeclTypeIndexedSet.deepCopy, stack is: ");
-e.printStackTrace();
+if (DEBUG_DTIS) {
+  Exception e = new Exception();
+  System.out.println("In DeclTypeIndexedSet.deepCopy, stack is: ");
+  e.printStackTrace();
+}
 		Expression sizeCopied = (size == null) ? null : size.deepCopy();
 		DeclTypeIndexedSet ret = new DeclTypeIndexedSet(elementsType,sizeCopied);
 		ret.setPosition(this);

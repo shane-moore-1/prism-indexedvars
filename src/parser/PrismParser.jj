@@ -837,8 +837,11 @@ Declaration IndSetDecl(String name) :
 	Expression size;
 }
 {
-		// INDEXED-SET (Array) DECLARATION: Name, open square bracket, count, close square bracket colon type, and Never an INIT afterwards, but always finally Semicolon
-		//  NOTE:  You could always alter this definition (or give a third option) to allow an INIT followed by curly-braces with list of values in it. Not today though! For now, the individual elements will all initialise to 0.
+		// INDEXED-SET (Array) DECLARATION: Name, open square bracket, count, close square bracket colon type, optional INIT, 
+		// and always finally Semicolon
+		// As of Jan 2021, I allow an initial value to be specified. It will be used for ALL produced indexed variables of this set.
+		// if no init is specified, then the variables will all be set to the lower bound value.
+		// I do not yet allow you to set differing values for the different index positions.
 
 		(	
 			//{ begin = getToken(1); } // SHANE WONDERS IF parameter NEEDED TO BE CHANGED (but now it is common and BEFORE the above block's version)
@@ -850,6 +853,8 @@ Declaration IndSetDecl(String name) :
 			    // with names that include square brackets (and which each are distinct numbers).
 			    decl = new Declaration(name, new DeclTypeIndexedSet(declType,size)); 
 			}	
+			// Optional specification of an inital value to set ALL indexed vars to be. (Cannot yet allow different values for each).
+			( <INIT> init = Expression(false, false) { decl.setStart(init); } )?
 		)
 	{ return decl; }
 }
