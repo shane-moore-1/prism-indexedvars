@@ -68,7 +68,7 @@ public static boolean DEBUG_TransUpdIndivGroup = true;
 public static boolean DEBUG_TCFV = true;	// Show steps of 'TranslateCommandForValues'
 public static boolean DEBUG_UpdateCalcs = false;
 public static boolean DEBUG_AllocDDV = false ; //true && !DEBUG_SHANE_NOTHING;
-public static boolean DEBUG_CCN = true && !DEBUG_SHANE_NOTHING;			// Show detail of combineCommandsNondet()
+public static boolean DEBUG_CCN = true ;//&& !DEBUG_SHANE_NOTHING;			// Show detail of combineCommandsNondet()
 public static boolean DEBUG_SortRanges = false ; //true && !DEBUG_SHANE_NOTHING;
 public static boolean DEBUG_SUBSTITUTIONS = false;		// Show translation of a command for a specific substitution (or if only 1 possibility, then that possibility)
 public static boolean DEBUG_ChkRstr = true && !DEBUG_SHANE_NOTHING;			// Show the basic steps of CheckRestrictionLowerBound and CheckRestrictionUpperBound
@@ -84,6 +84,10 @@ private String DEBUG_CurSynch;	// The current Synch name, for help in DEBUG OUTP
 private ArrayList<Expression> cachedGuardExprs;		// SHANE ONLY - For debugging of large model with hundreds of enumerated substitutions.
 
 private int totalTranslatedCommands;
+
+
+
+ArrayList<Command> shaneCommandsDebug;
 
 	// Prism object
 	private Prism prism;
@@ -1432,6 +1436,8 @@ if (DEBUG_TSP) {
  System.out.println("In trSysFullPar: sys.getNumOperands() returns: " + sys.getNumOperands());
  System.out.println("In trSysFullPar: Invoking trSysDefRec for sys.getOperand(0 out of " + sys.getNumOperands() + ")");
 }
+ System.out.println("The class type of sys.getOperand(0) is: " + sys.getOperand(0).getClass().getName() );
+
 
 		// construct mtbdds for first operand
 		sysDDs = translateSystemDefnRec(sys.getOperand(0), synchMin);
@@ -3096,6 +3102,7 @@ DebugIndent++;
 	PrintDebugIndent();
 	System.out.println("(Module: " + module.getName() + " has " + numCommands + " commands).\n");
 }
+shaneCommandsDebug = new ArrayList<Command>();
 		// translate guard/updates for each command of the module
 		for (l = 0; l < numCommands; l++) {
 			originalCommand = module.getCommand(l);
@@ -3334,13 +3341,14 @@ System.out.println("</RECURSE_ON_VARS>\n\nBack in translateModules(), received "
 					}
 				}
 
-				if (substitutionCombins.size() == 0)
+				if (substitutionCombins.size() == 0) {
 					substitutionCombins.add(new Values());		// Ensure there is at least one Values -  in this case one with no substitutions.
-if (DEBUG_TransMod && substitutionCombins.size() == 0)
+if (DEBUG_TransMod)
 {
 	PrintDebugIndent();
-	System.out.println("There is actually no substitutions, but we added a blank Values() to allow the following loop code to run.\n");
+	System.out.println("There was actually no substitutions, but we added a blank Values() to allow the following loop code to run.\n");
 }
+				}
 				for (Values substitutions : substitutionCombins) {
 if (DEBUG_TransMod) {
 	PrintDebugIndent();
@@ -3367,7 +3375,7 @@ if (DEBUG_TransMod)
 }
 					if (!translatedCmd.guardDD.equals(JDD.ZERO))	// If the guard is never true, no point accumulating it
 					{
-
+shaneCommandsDebug.add(command);
 if (DEBUG_TransMod)
 {
 	PrintDebugIndent();
@@ -4169,7 +4177,10 @@ if (DEBUG_CCN) { PrintDebugIndent(); System.out.println("There are some cases th
 			
 			// go thru each command of the module...
 			for (j = 0; j < numCommands; j++) {
-if (DEBUG_CCN) { PrintDebugIndent(); System.out.println("Check if command " + (j+1) + " (of the current batch) matches criteria (of having " + i + " choices)."); }
+if (DEBUG_CCN) { 
+PrintDebugIndent(); System.out.println("Check if command " + (j+1) + " (of the current batch) matches criteria (of having " + i + " choices)."); 
+PrintDebugIndent(); System.out.println(" The command is: " + shaneCommandsDebug.get(j) );
+}
 				
 				// see if this command's guard overlaps with 'equalsi'
 				JDD.Ref(guardDDs[j]);
@@ -4197,7 +4208,7 @@ if (DEBUG_SHANE_ShowStepsInTM) ShaneReportDD(frees[k],"~About frees["+k+"]",true
 if (DEBUG_SHANE_ShowStepsInTM) ShaneReportDD(tmp3,"~About the AND of tmp2 and frees[k]",true);
 						// if some will fit in...
 						if (!tmp3.equals(JDD.ZERO)) {
-if (DEBUG_CCN) { PrintDebugIndent(); System.out.println("     Some will probably fit."); }
+if (DEBUG_CCN) { PrintDebugIndent(); System.out.println("     Some will probably fit, placing something into transDDbits[" + k + "]."); }
 							JDD.Ref(tmp3);
 							frees[k] = JDD.And(frees[k], JDD.Not(tmp3));
 frees[k].setPurpose("% frees["+k+"] set in CCN%");
@@ -4205,7 +4216,7 @@ frees[k].setPurpose("% frees["+k+"] set in CCN%");
 							JDD.Ref(upDDs[j]);
 
 // ORIGINAL, KEEP:					transDDbits[k] = JDD.Apply(JDD.PLUS, transDDbits[k], JDD.Apply(JDD.TIMES, tmp3, upDDs[j]));
-// TEMPORARY BREAK-UP OF THE ABOVE:
+// TEMPORARY BREAK-UP OF THE ABOVE ORIGINAL-LINE:
 JDDNode curItem = JDD.Apply(JDD.TIMES, tmp3,upDDs[j]);
 transDDbits[k] = JDD.Apply(JDD.PLUS, transDDbits[k], curItem);
 
@@ -4221,19 +4232,22 @@ transDDbits[k].setPurpose("% transDDbits["+k+"] set during CCN %");
 						tmp2 = JDD.And(tmp2, JDD.Not(tmp3));
 if (DEBUG_CCN && DEBUG_SHANE_ShowStepsInTM) ShaneReportDD(tmp2,"tmp2 after 'taking out the bit just put in this choice' is:",true);
 						if (tmp2.equals(JDD.ZERO)) {
+if (DEBUG_CCN) { PrintDebugIndent(); System.out.println("   Finished examining choice #" + (k+1) + " of command " + (j+1) + " (at the break because tmp2 is 0, so not doing rest of loop)"); }
 							break;
 						}
+if (DEBUG_CCN) { PrintDebugIndent(); System.out.println("   Finished examining choice #" + (k+1) + " of command " + (j+1) ); }
 					}
 					JDD.Deref(tmp2);
-if (DEBUG_CCN) { PrintDebugIndent(); System.out.println("   Finished examining choice #" + (k+1) + " of command " + (j+1) ); }
+if (DEBUG_CCN) { PrintDebugIndent(); System.out.println("   Should have finished splitting out the choices now." ); }
 				}
+else { if (DEBUG_CCN){ PrintDebugIndent(); System.out.println("   Nope (it does not)." ); } }
 				JDD.Deref(tmp);
 			}
-if (DEBUG_CCN) { PrintDebugIndent(); System.out.println("Finished checking all commands. Now 'add' the choices for i value " + i); }
+if (DEBUG_CCN) { PrintDebugIndent(); System.out.println("Finished checking all commands. Now 'add' the choices, iterating up to " + i + " (= number of choices)"); }
 			
 			// now add the nondet. choices for this value of i
 			for (j = 0; j < i; j++) {
-
+if (DEBUG_CCN) { PrintDebugIndent();  System.out.println("  doing for transDDbits[" + j + "]"); }
 				tmp = JDD.SetVectorElement(JDD.Constant(0), ddChoiceVarsUsed, j, 1);
 if (DEBUG_CCN && DEBUG_SHANE_ShowStepsInTM) ShaneReportDD(tmp,"After SetVectorElement for j="+j,true);
 				transDD = JDD.Apply(JDD.PLUS, transDD, JDD.Apply(JDD.TIMES, tmp, transDDbits[j]));

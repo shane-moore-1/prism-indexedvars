@@ -131,7 +131,7 @@ if (DEBUG_DTIS) {
 	@Override
 	public String toString()
 	{
-		return "indexed set [" + size  + "] of " + elementsType;
+		return "indexed set of size: [" + size  + "] and of type: " + elementsType;
 	}
 
 

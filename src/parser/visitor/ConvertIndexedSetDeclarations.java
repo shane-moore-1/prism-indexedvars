@@ -16,7 +16,7 @@ import prism.PrismLangException;
  */
 public class ConvertIndexedSetDeclarations extends ASTTraverseModify {
 
-  public static boolean DEBUG = false && ASTTraverseModify.DEBUG_SHOW_ENABLED;
+  public static boolean DEBUG = DEBUG_ISD_Const || (false && ASTTraverseModify.DEBUG_SHOW_ENABLED );
 
 	// Constants that have been defined, and can be used in specifying the size of the IndexedSet
 	private ConstantList constants;
@@ -72,7 +72,7 @@ public class ConvertIndexedSetDeclarations extends ASTTraverseModify {
 	public Object visit(Declaration e) throws PrismLangException
 	{
 if (DEBUG) {
-   System.out.println("<VISIT_DECL>\nConvertISA_visit(Decl) called for this declaration: " + e);
+   System.out.println("<VISIT_DECL>\nConvertISDec_visit(Decl) called for this declaration: " + e);
    if (e.getDeclType() instanceof DeclTypeIndexedSet)
      System.out.println(" It  IS  a DeclTypeIndexedSet - so we will process it further...\n");
    else
@@ -94,15 +94,13 @@ if (DEBUG) {
 				throw new PrismLangException("name given for indexed set is already being used for another identifier: " + indexedSetName);
 			
 			Expression size = dtInfo.getSize();
-			size.expandConstants(constants);	// Shane Hopes this will work! Otherwise, may need to insert:  size = (Expression) [the rest]
-			int count = size.evaluateInt();
 			
+			size = (Expression) size.expandConstants(constants);	// We store the returned value, as the visitor will replace any constants.
+			int count = size.evaluateInt();
 			DeclarationType elementsType =  dtInfo.getElementsType();
 			
 			if (currentModule != null)		// It was a local declaration within a specific module:
 			{
-if (DEBUG) System.out.println(" It is from within a module.");
-if (DEBUG) System.out.println(" About to replace IndexedSetDeclaration of " + indexedSetName + " with " + count + " individual declarations");
 				int posToInsert = currentModule.getDeclPosInArrayList(e);
 
 				// Using that count, we will now create that many declarations in the module
@@ -119,10 +117,8 @@ if (DEBUG) System.out.println(" About to replace IndexedSetDeclaration of " + in
 					if (i == 0) {
 						returnVal = d;		// to replace original Declaration upon returning
 						currentModule.addIndexedSetDecl(e);	// Needed for SemanticCheck visitor
-if (DEBUG) System.out.println("  Created 0th replacement declaration - this will be the returned thing.");
 					} else {
 						currentModule.insertDeclarationAt(d,posToInsert+i);	// It will be additional to what was there beforehand
-if (DEBUG) System.out.println("  Created replacement declaration for element " + i + ", inserted it, but cannot return it, and not sure if insert has worked.");
 					}
 
 				}
@@ -160,7 +156,7 @@ if (DEBUG) System.out.println(" It is from outside of any module. (No further de
 				throw new PrismLangException("Apparently found a declaration for an IndexedSet, but not whilst in an ModulesFile, nor a Module");
 
 		}
-if (DEBUG) System.out.println("ConvISA.visit(Decl) will return this value : " + returnVal+ "\n</VISIT_DECL>\n");
+if (DEBUG) System.out.println("ConvISDec.visit(Decl) will return this value : " + returnVal+ "\n</VISIT_DECL>\n");
 
 		return returnVal;
 	}
