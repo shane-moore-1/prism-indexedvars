@@ -16,7 +16,7 @@ import prism.PrismLangException;
  */
 public class ConvertIndexedSetDeclarations extends ASTTraverseModify {
 
-  public static boolean DEBUG = DEBUG_ISD_Const || (false && ASTTraverseModify.DEBUG_SHOW_ENABLED );
+  public static boolean DEBUG = false && ASTTraverseModify.DEBUG_SHOW_ENABLED;
 
 	// Constants that have been defined, and can be used in specifying the size of the IndexedSet
 	private ConstantList constants;
