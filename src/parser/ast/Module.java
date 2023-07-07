@@ -368,7 +368,6 @@ if (DEBUG) System.out.println("Removing declaration from Module " + this.getName
 	/**
 	 * Perform a deep copy.
 	 */
-// SHANE NOTE: Does not yet include indexedDecls.  HOWEVER, 
 	public ASTElement deepCopy()
 	{
 		int i, n;

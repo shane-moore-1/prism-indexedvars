@@ -59,6 +59,7 @@ public class Rename extends ASTTraverseModify
 	{
 		// Get new name for variable
 		String s = rm.getNewName(e.getName());
+
 		// No new name is an error
 		if (s != null) {
 			e.setName(s);
@@ -66,7 +67,7 @@ public class Rename extends ASTTraverseModify
 			throw new PrismLangException("Definition of module \"" + rm.getName() + "\" must rename variable \"" + e.getName() + "\"", rm);
 		}
 	}
-	
+
 	public void visitPost(parser.ast.Module e) throws PrismLangException
 	{
 		// New name for module is specied in RenamedModule
@@ -87,10 +88,25 @@ public class Rename extends ASTTraverseModify
 		// Rename variables in update
 		n = e.getNumElements();
 		for (i = 0; i < n; i++) {
-			if (e.getVarIdent(i) instanceof ExpressionIndexedSetAccess)
-				throw new PrismLangException("Cannot rename a module containined indexed-sets - not yet supported.");
-			s = rm.getNewName(e.getVar(i));
-			if (s != null) e.setVarIdent(i, new ExpressionIdent(s));
+			if (e.getVarIdent(i) instanceof ExpressionIndexedSetAccess) {		// The target of the update is an EISA.
+/*System.out.println("Encountered a need to apply renaming for an ExprIndSetAccess in an update's target. The update is:\n"+e);
+System.out.println("and i is value " + i + " in call to e.getVarIdent(i)");
+System.out.println("e.getVar(i) gives: " + e.getVar(i) + " (from the original module being copied)");
+System.out.println("a call of getNewName providing that, gives: " + rm.getNewName(e.getVar(i)) );
+*/
+				s = rm.getNewName(e.getVar(i));		// Should be the new name of the indexed set.
+				ExpressionIndexedSetAccess asEISA = (ExpressionIndexedSetAccess) e.getVarIdent(i);	// Convert the received reference
+//System.out.println("Need to convert this EISA: " + asEISA);
+				asEISA.setName(s);			// Should update the name of which indexed set is accessed.
+//System.out.println("Have updated the EISA to use: " +asEISA);
+				e.setVarIdent(i, asEISA);	
+//System.out.println("The Update is now:  " + e);
+//NO LONGER NEED EXCEP:		throw new PrismLangException("Cannot rename a module containing indexed-sets - not yet supported.");
+			}
+			else {
+				s = rm.getNewName(e.getVar(i));
+				if (s != null) e.setVarIdent(i, new ExpressionIdent(s));
+			}
 		}
 	}
 
