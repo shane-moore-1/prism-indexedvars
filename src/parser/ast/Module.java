@@ -77,8 +77,6 @@ MyInstanceNum = ++NextInstanceNum;
 	
 	public void setName(String n)
 	{
-Exception e = new Exception("CHANGING THE NAME OF MODULE TO BE " + n);
-e.printStackTrace(System.out);
 		name = n;
 	}
 	

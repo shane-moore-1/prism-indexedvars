@@ -81,6 +81,7 @@ public class Rename extends ASTTraverseModify
 		if (s != null) e.setSynch(s);
 	}
 	
+// MODIFIED BY SHANE: to account for cases where the target variable of an update (the LHS), is an element of an indexed set. 
 	public void visitPost(Update e) throws PrismLangException
 	{
 		int i, n;
@@ -89,25 +90,23 @@ public class Rename extends ASTTraverseModify
 		n = e.getNumElements();
 		for (i = 0; i < n; i++) {
 			if (e.getVarIdent(i) instanceof ExpressionIndexedSetAccess) {		// The target of the update is an EISA.
-/*System.out.println("Encountered a need to apply renaming for an ExprIndSetAccess in an update's target. The update is:\n"+e);
-System.out.println("and i is value " + i + " in call to e.getVarIdent(i)");
-System.out.println("e.getVar(i) gives: " + e.getVar(i) + " (from the original module being copied)");
-System.out.println("a call of getNewName providing that, gives: " + rm.getNewName(e.getVar(i)) );
-*/
-				s = rm.getNewName(e.getVar(i));		// Should be the new name of the indexed set.
+				// The name of the indexed set would already have changed during visitPost(EISA), but we just need
+				// to call setVarIdent to cause some housekeeping in the Update regarding it.
 				ExpressionIndexedSetAccess asEISA = (ExpressionIndexedSetAccess) e.getVarIdent(i);	// Convert the received reference
-//System.out.println("Need to convert this EISA: " + asEISA);
-				asEISA.setName(s);			// Should update the name of which indexed set is accessed.
-//System.out.println("Have updated the EISA to use: " +asEISA);
-				e.setVarIdent(i, asEISA);	
-//System.out.println("The Update is now:  " + e);
-//NO LONGER NEED EXCEP:		throw new PrismLangException("Cannot rename a module containing indexed-sets - not yet supported.");
+				e.setVarIdent(i, asEISA);	// sets the 'var' and 'varIdent' internally in the update element.
 			}
 			else {
 				s = rm.getNewName(e.getVar(i));
 				if (s != null) e.setVarIdent(i, new ExpressionIdent(s));
 			}
 		}
+	}
+
+// ADDED BY SHANE
+	public void visitPost(ExpressionIndexedSetAccess e) throws PrismLangException
+	{
+		String s = rm.getNewName(e.getName());		// Find the new name, corresponding to the current name.
+		e.setName(s);			// Should now (syntactically) update the name of which indexed set is to be accessed.
 	}
 
 	public void visitPost(ExpressionTemporal e) throws PrismLangException
