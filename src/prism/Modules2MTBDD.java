@@ -3218,16 +3218,16 @@ if (DEBUG_TransMod) {
 }
 
 				// Now to cycle over all versions of the command, translating them...
-int curVariant = 0;
+int curVersionNum = 0;
 			     for (Command command : commandVersions) {
-curVariant++;
+curVersionNum++;
 if (DEBUG_TransMod) {
 System.out.println();
 	PrintDebugIndent();
-	System.out.println("<DealWithCommandVariant forSynch='"+synch+"' variant='"+ curVariant+" of " + commandVersions.size() +"'>\n");
+	System.out.println("<DealWithCommandVersion forSynch='"+synch+"' version='"+ curVersionNum+" of " + commandVersions.size() +"'>\n");
 DebugIndent++;
 	PrintDebugIndent();
-	System.out.println("Now dealing with this variant of the command:\n" + command + "\n");
+	System.out.println("Now dealing with this version of the command:\n" + command + "\n");
 }
 
 
@@ -3242,7 +3242,7 @@ if (DEBUG_TransMod || Expression.DEBUG_VPEISA) {
 
 if (DEBUG_TransMod || Expression.DEBUG_VPEISA) {
 	PrintDebugIndent(); System.out.println("</FindInspecificAccessExpr>\n");
-	PrintDebugIndent(); System.out.println("in Mod2MTBDD.transMod: REMINDER - The current command variant is: " + command + "\n");	// Repeating from earlier, so it (re-)appears in view immediately when I search on the XML tag
+	PrintDebugIndent(); System.out.println("in Mod2MTBDD.transMod: REMINDER - The current command version is: " + command + "\n");	// Repeating from earlier, so it (re-)appears in view immediately when I search on the XML tag
 }
 				// See if there are any found. If so, get the index-expressions and place unique ones into another Set
 				if (EISAs.size() > 0) {
@@ -3308,7 +3308,7 @@ System.out.println("Having worked out all the variables that arise in the index 
 						substitutionCombins = getEnumeratedCombinations(list_varsForAccessingIndSet, new Values());
 System.out.println("</ENUMERATE_COMBINS>\n");
 
-System.out.println("There are a maximum of " + substitutionCombins.size() + " combinations that might be applicable, depending on the actual guard of the command, and actual access expressions.");
+System.out.println("There are a maximum of " + substitutionCombins.size() + " combinations (variants) that might be applicable, depending on the actual guard of the command, and actual access expressions.");
 
 System.out.println("About to perform elimination of combinations that lead to out-of-bounds index access attempts...\n<ELIMINATE_COMBINS>");
 
@@ -3367,15 +3367,19 @@ if (DEBUG_TransMod)
 }
 				}
 
-				if (!invalidVariant)				// If the variant is invalid, there is no translation of it. Otherwise, translate the variant for all the substitutions.
+int curVariantNum = 0;// Variants of the current Version of the command
+
+				if (!invalidVariant)				// If the variant of the current command version of the current command is invalid, there is no translation of it. Otherwise, translate the variant for all the substitutions.
 				for (Values substitutions : substitutionCombins) {
+curVariantNum++;
+
 if (DEBUG_TransMod) {
 	PrintDebugIndent();
-	System.out.println("[In TranslateModule for mod='"+ module.getName() + "', usingSynchOf='" + synch + "' variant='"+curVariant+"']:");
+	System.out.println("[In TranslateModule for mod='"+ module.getName() + "', usingSynchOf='" + synch + "' for version='"+curVersionNum+"']:");
 	PrintDebugIndent();
-	System.out.println("About to try the following combination of substitutions:\n" + substitutions + "\n");
+	System.out.println("About to try translating variant #" + curVariantNum + " (of "+substitutionCombins.size()+ ") using the following combination of substitutions:\n" + substitutions + "\n");
 	PrintDebugIndent();
-	System.out.println("<TrMod_DealWithSubstitution subs='"+substitutions+"'>");
+	System.out.println("<TrMod_DealWithSubstitution  variantNum='"+curVariantNum+"' subs='"+substitutions+"'>");
 DebugIndent++;
 }
 					// Generate 1 or more DD which is for a command where the current value substitutions are made
@@ -3383,9 +3387,9 @@ DebugIndent++;
 if (DEBUG_TransMod)
 {
 	PrintDebugIndent();
-	System.out.println("[Back In TranslateModule for mod='"+ module.getName() + "', usingSynchOf='" + synch + "' variant='"+curVariant+"']");
+	System.out.println("[Back In TranslateModule for mod='"+ module.getName() + "', usingSynchOf='" + synch + "' version='"+curVersionNum+"' variant='"+curVariantNum+"]");
 	PrintDebugIndent();
-	System.out.println("After translating command variant " + curVariant + " of command  " + command + "\n having used the following set of substitutions: '" + substitutions + "'");
+	System.out.println("After translating variant " + curVariantNum + " of command version number " + curVersionNum + " of this command version:\n " + command + "\n having used the following set of substitutions: '" + substitutions + "'");
 	PrintDebugIndent();
 	System.out.println("So far, translated " + totalTranslatedCommands + " commands");
 	PrintDebugIndent();
@@ -3398,8 +3402,8 @@ shaneCommandsDebug.add(command);
 if (DEBUG_TransMod)
 {
 	PrintDebugIndent();
-	System.out.println("\nIn TransMod: VERDICT: Since translatedCmd.guardDD is not zero, we WILL KEEP this command variant and substitution.\n");
-	System.out.println("\nKEEPING, WILL TRANSLATE: substitutions: [" + substitutions + "] for command variant:\n " + command + "\n");
+	System.out.println("\nIn TransMod: VERDICT: Since translatedCmd.guardDD is not zero, we WILL KEEP this command variant ("+curVariantNum+") substitutions.\n");
+	System.out.println("\nKEEPING, WILL TRANSLATE: substitutions: [" + substitutions + "] for command version " + curVersionNum + ":\n " + command + "\n");
 }
 						// Extract out the guardDD and the upDD, and append to this module's lists.
 						guardDDs.add( translatedCmd.guardDD );
@@ -3427,8 +3431,8 @@ cachedGuardExprs.add ( translatedCmd.guardExpr );	// Since the instantiation of 
 else if (DEBUG_TransMod)
 {
 	PrintDebugIndent();
-	System.out.println("\nIn TransMod: VERDICT: Since translatedCmd.guardDD for this command variant and substitution is empty, we will DISCARD THIS VARIANT and Substitution.\n");
-	System.out.println("\nDISCARDING: substitutions: [" + substitutions + "] for command variant:\n" + command);
+	System.out.println("\nIn TransMod: VERDICT: Since translatedCmd.guardDD for this command variant #" + curVariantNum + "'s substitution is empty, we will DISCARD THIS VARIANT and Substitution.\n");
+	System.out.println("\nDISCARDING: substitutions: [" + substitutions + "] for command variant #" + curVariantNum + " of this command version:\n" + command);
 //	System.out.println("\nIn TransMod: Since translatedCmd.guardDD equals JDD.ZERO (never able to be true), this translated JDD is being DISCARDED.\n");
 	PrintDebugIndent();
 	System.out.println("</GuardDDs_Add>\n");
@@ -3438,16 +3442,16 @@ else if (DEBUG_TransMod)
 if (DEBUG_TransMod) {
 DebugIndent--;
 	PrintDebugIndent();
-	System.out.println("</TrMod_DealWithSubstitution sub='"+substitutions+"'>\n");
+	System.out.println("</TrMod_DealWithSubstitution variantNum='"+curVariantNum+"' sub='"+substitutions+"'>\n");
 }
 				}  // End of loop dealing with each possible substitution for variables used in index-set access expressions.
 
 if (DEBUG_TransMod) {
 	PrintDebugIndent();
-	System.out.println("Completed dealing with this variant of the command:\n" + command + "\n");
+	System.out.println("Completed dealing with all "+curVariantNum+ " variants of this command version (#"+curVersionNum+" of " + commandVersions.size() + ":\n" + command + "\n");
 DebugIndent--;
 	PrintDebugIndent();
-	System.out.println("</DealWithCommandVariant forSynch='"+synch+"' variant='"+ curVariant+" of " + commandVersions.size() +"'>\n");
+	System.out.println("</DealWithCommandVersion forSynch='"+synch+"' version='"+ curVersionNum+" of " + commandVersions.size() +"'>\n");
 }
 
 			     } // End of loop which deals with each possible version of the command generated by resolving restriction scopes.
