@@ -72,7 +72,8 @@ public static boolean DEBUG_CCN = true ;//&& !DEBUG_SHANE_NOTHING;			// Show det
 public static boolean DEBUG_SortRanges = false ; //true && !DEBUG_SHANE_NOTHING;
 public static boolean DEBUG_SUBSTITUTIONS = false;		// Show translation of a command for a specific substitution (or if only 1 possibility, then that possibility)
 public static boolean DEBUG_ChkRstr = true && !DEBUG_SHANE_NOTHING;			// Show the basic steps of CheckRestrictionLowerBound and CheckRestrictionUpperBound
-public static boolean DEBUG_ChkRstr_ExtraDetail = true && DEBUG_ChkRstr && !DEBUG_SHANE_NOTHING;	// Show more-detailed steps of the check restriction methods.
+public static boolean DEBUG_ChkRstr_ExtraDetail = true;// && DEBUG_ChkRstr && !DEBUG_SHANE_NOTHING;	// Show more-detailed steps of the check restriction methods.
+public static boolean DEBUG_ChkRstr_KC = true;// DEBUG_ChkRstr && !DEBUG_SHANE_NOTHING;		// Whether to show reason for keeping/not keeping a combination
 public static boolean DEBUG_ShowDDReport = false;
 
 
@@ -2267,19 +2268,20 @@ System.out.println("</ConsidImpactOnVar var='"+varName+"'>\n");
 
 				if (keepCombination)			// If it hasn't been rejected by restrictions, let's now try substituting this combination
 				{				// in to see if the resultant value is a valid index position...
-if (DEBUG_ChkRstr){
+if (DEBUG_ChkRstr_KC){
    PrintDebugIndent(); System.out.println("It passed the restriction checks, doing further checks...");
 }
 				  try {
 				    // Evaluate the expression to find the definite index to retrieve
 				    indexToUse = accExpr.getIndexExpression().evaluateInt(constantValues, curSubValues);
 
-if (DEBUG_ChkRstr){
+if (DEBUG_ChkRstr_KC){
    PrintDebugIndent(); System.out.println("The accessExpression : " + accExpr + " with the current proposed substitutions of " + curSubValues + " evaluates as " + indexToUse );
 }
 				    if (indexToUse < 0)
 				    {
-if (DEBUG_ChkRstr){
+// PERHAPS I should remove this simple discard, and force the model authors to explicitly deal with this case
+if (DEBUG_ChkRstr_KC){
   PrintDebugIndent(); System.out.println("However, as the index is less than 0, this combination of values is being REMOVED from the set to return.");
 }
 					keepCombination = false;
@@ -2288,7 +2290,7 @@ if (DEBUG_ChkRstr){
 				    } else {
 					// construct the supposed name of the definitive variable to be accessed
 					String hopedName = accExpr.getName() + "[" + indexToUse + "]";
-if (DEBUG_ChkRstr){
+if (DEBUG_ChkRstr_KC){
 	PrintDebugIndent(); System.out.println("\t The resultant exact variable (if it exists) will be: " + hopedName);
 }
 
@@ -2312,11 +2314,11 @@ ple.printStackTrace(System.out);
 					keepCombination = false;		// If there was a problem, exclude that combination
 				  }
 				}
-else if (DEBUG_ChkRstr){
+else if (DEBUG_ChkRstr_KC){
    PrintDebugIndent(); System.out.println("It failed on account of the restriction checks.");
 }
 			}
-else System.out.println(" - no restrictions specified");
+else if (DEBUG_ChkRstr) System.out.println(" - no restrictions specified");
 
 if (DEBUG_ChkRstr) {
   System.out.println("\nFinished Considering access expression: " + accExpr + "\n for these values: " + curSubValues);
@@ -3174,7 +3176,7 @@ if (DEBUG_TransMod) System.out.println("  Need to consider impact of this: " + r
 // Doesn't work:							else if (varList.getType(vIndex) != parser.ast.type.TypeInt) 
 //								throw new PrismException("Variable \"" + varName + "\" not an integer type, cannot be used in a scope restriction expression");
 
-if (DEBUG_TransMod) System.out.println("\nAdding variable " + varName + " to the list of vars used for accessing indexed set (given to checkLowerBounds, etc.)\n");
+if (DEBUG_TransMod) System.out.println("\nAdding variable \'" + varName + "\' to the list of vars used for accessing indexed set (to be given to checkLowerBounds(), etc.)\n");
 
 							list_varsForRestrictingScope.add(vIndex);
 
@@ -3260,6 +3262,7 @@ if (DEBUG_TransMod || Expression.DEBUG_VPEISA) {
 // Now defined earlier:		Set<ExpressionVar> tmpExprVars;
 				List<Values> substitutionCombins;	// Will contain the permutations that we need to generate DDs for.
 				substitutionCombins = new ArrayList<Values>();
+				boolean invalidVariant = false;		// We assume the variant is valid, unless we find no combinations.
 				if (indexSpecifications.size() > 0) {
 if (DEBUG_TransMod || Expression.DEBUG_VPEISA) {
   System.out.println();
@@ -3314,12 +3317,18 @@ System.out.println(" <CheckAccessExpressions>");
 System.out.println(" </CheckAccessExpressions>");
 System.out.println("After filtering combinations on the basis of AccessExpressions, there are now a maximum of " + substitutionCombins.size() + " combinations that might be applicable.");
 
+						if (substitutionCombins.size() == 0) {		// No combination, but accessing by some variable based expression.
+System.out.println("This means that this variant IS NOT VALID and so we must NOT TRANSLATE it.");
+							invalidVariant = true;		// Set this flag, to eliminate the variant
+						}
+						else {
 		// ********************** UP  TO   HERE *******************
 		// Need to make some way of checking whether any guards are unable to be met by the already filtered combinations. And then, if no combinations remain, then the Command itself is never a possibility, which might be an error to the programmer.
 
 System.out.println(" <CheckGuardLimitations>");
-						substitutionCombins = filterCombinationsForGuard(substitutionCombins,command.getGuard());
+							substitutionCombins = filterCombinationsForGuard(substitutionCombins,command.getGuard());
 System.out.println(" </CheckGuardLimitations>");
+						}
 System.out.println("After further filtering combinations, now on the basis of Guards, there are now a maximum of " + substitutionCombins.size() + " combinations that might be applicable.\n<COMBINS_REMAIN>The combinations remaining are: " + substitutionCombins + "\n</COMBINS_REMAIN>\n");
 
 System.out.println("</ELIMINATE_COMBINS>");
@@ -3339,6 +3348,14 @@ System.out.println("</RECURSE_ON_VARS>\n\nBack in translateModules(), received "
 						//Set<Integer> indexVals = enumeratIndexValues(
 */
 					}
+
+/*Not all cases actually should fail: altern1.prism should fail, but not altern3.prism
+					if (varsForAccessingIndSet.size() > 0 && substitutionCombins.size() == 0)
+					{
+System.out.println("FATAL: There were variables used to access indexed sets, but NO combinations remain.");
+						throw new PrismException("Invalid command version generated - perhaps you need an access restriction?: " + command);
+					}
+*/
 				}
 
 				if (substitutionCombins.size() == 0) {
@@ -3349,6 +3366,8 @@ if (DEBUG_TransMod)
 	System.out.println("There was actually no substitutions, but we added a blank Values() to allow the following loop code to run.\n");
 }
 				}
+
+				if (!invalidVariant)				// If the variant is invalid, there is no translation of it. Otherwise, translate the variant for all the substitutions.
 				for (Values substitutions : substitutionCombins) {
 if (DEBUG_TransMod) {
 	PrintDebugIndent();
@@ -3366,7 +3385,7 @@ if (DEBUG_TransMod)
 	PrintDebugIndent();
 	System.out.println("[Back In TranslateModule for mod='"+ module.getName() + "', usingSynchOf='" + synch + "' variant='"+curVariant+"']");
 	PrintDebugIndent();
-	System.out.println("After translating command variant " + curVariant + " of command + " + command + "\n having used the following set of substitutions: '" + substitutions + "'");
+	System.out.println("After translating command variant " + curVariant + " of command  " + command + "\n having used the following set of substitutions: '" + substitutions + "'");
 	PrintDebugIndent();
 	System.out.println("So far, translated " + totalTranslatedCommands + " commands");
 	PrintDebugIndent();
@@ -3637,7 +3656,7 @@ if (DEBUG_SUBSTITUTIONS || DEBUG_TCFV) System.out.println("\nThe command with sy
 			// Exchange the known values of the current substitution into the original guard BUT ONLY where appearing inside Index-Specification expressions. 
 			curGuard = (Expression) curGuard.deepCopy();	// Use a copy, so the original can be used for next iteration.
 			curGuard.replaceIndexSpecifiers(substitutions);
-if (DEBUG_SUBSTITUTIONS || DEBUG_TCFV) System.out.println("\nThe command's interim guard (after substitutions into original guard, before the additional guards) is: " + curGuard);
+if (DEBUG_SUBSTITUTIONS || DEBUG_TCFV) System.out.println("\nThe command's interim guard (after substitutions into original guard, before the additional guards) is:\n" + curGuard + "\n");
 			// Include the constraints on this rule's applicability by appending as guards the substitutions
 			curGuard = new ExpressionBinaryOp(ExpressionBinaryOp.AND,
 				curGuard,			// and the new part, with the current/old part.
@@ -3645,7 +3664,7 @@ if (DEBUG_SUBSTITUTIONS || DEBUG_TCFV) System.out.println("\nThe command's inter
 				//new ExpressionUnaryOp(ExpressionUnaryOp.PARENTH,
 				extraGuard
 			);
-if (DEBUG_SUBSTITUTIONS || DEBUG_TCFV) System.out.println("\nThe command's final guard (i.e. after substitutions) is: " + curGuard + "\n");
+if (DEBUG_SUBSTITUTIONS || DEBUG_TCFV) System.out.println("\nThe command's final guard (i.e. after substitutions) is:\n" + curGuard + "\n");
 		}
 else if (DEBUG_SUBSTITUTIONS || DEBUG_TCFV) System.out.println("\nThe command's final guard is unaltered from original - no extra guards added");
 
