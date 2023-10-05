@@ -155,13 +155,14 @@ System.out.println("</GetVP_EISAs invokedOnCommand='" + synch + "'>");
 		return varPosEISAs;
 	}
 
-	/** Request a Set of all the RestrictedScopeExpressions that are included inside the command.
-	 *  Currently only considers the GUARD of commands.
+	/** Request a Set of all the RestrictedScopeExpressions (now named Alternative Applicability Expr) that are included inside the command.
+	 *  Currently only considers the GUARD of commands and only allows one such (cannot put on inside another one recursively).
+             A file named altern4.prism has been created which could be used to test the UPDATES for containing an RSE, if that makes any sense to do.
 	 */
-	public Set<RestrictedScopeExpression> getRestrictedScopeExpressions()
+	public Set<RestrictedScopeExpression> getAlternApplicExpressions()
 	{
 		Set<RestrictedScopeExpression> setOfExprs = new TreeSet<RestrictedScopeExpression>();
-		FindRestrictedScopeExprs frse = new FindRestrictedScopeExprs();
+		FindAlternApplicExprs frse = new FindAlternApplicExprs();
 		try {
 			if (guard instanceof ExpressionUnaryOp) 
 				frse.visit((ExpressionUnaryOp) guard);
