@@ -36,12 +36,12 @@ import java.util.List;
  * Find all RestrictedScopeExpressions during a visitor traversal, gathering them into a List that can be obtained afterwards.
  */
 
-public class FindRestrictedScopeExprs extends ASTTraverse
+public class FindAlternApplicExprs extends ASTTraverse
 {
 public static boolean DEBUG = false;
 	private ArrayList<RestrictedScopeExpression> rseList = new ArrayList<RestrictedScopeExpression>();
 
-	public FindRestrictedScopeExprs ()
+	public FindAlternApplicExprs()
 	{
 	}
 
