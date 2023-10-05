@@ -2675,7 +2675,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
 // Modified by SHANE - to allow use as a scoping for a restricted circumstances of applicability, with a default value when outside of circumstances
   static final public Expression ExpressionParenth(boolean prop, boolean pathprop) throws ParseException {
         Expression restrExpr, ret, underlying, otherwise;
-        RestrictedScopeExpression rse;
+        AlternativeApplicExpr rse;
         Token begin = null;
     begin = jj_consume_token(LPARENTH);
     underlying = Expression(prop, pathprop);
@@ -2684,7 +2684,7 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
     case TILDE:
       jj_consume_token(TILDE);
-      ret = RestrictedScopeExpression(prop,pathprop,ret);
+      ret = AlternativeApplicExpr(prop,pathprop,ret);
       break;
     default:
       jj_la1[77] = jj_gen;
@@ -2694,13 +2694,13 @@ e.printStackTrace();    //SHANE ADDED FOR DEBUGGING PURPOSES
     throw new Error("Missing return statement in function");
   }
 
-  static final public Expression RestrictedScopeExpression(boolean prop, boolean pathprop, Expression underlying) throws ParseException {
+  static final public Expression AlternativeApplicExpr(boolean prop, boolean pathprop, Expression underlying) throws ParseException {
         Expression restrExpr, ret, otherwise;
-        RestrictedScopeExpression rse;
+        AlternativeApplicExpr rse;
         Token begin = null;
     begin = jj_consume_token(LBRACKET);
     restrExpr = ExpressionRelop(prop,pathprop);
-                        ret = rse = new RestrictedScopeExpression(underlying);  // Put the usual parenthesised expression into the RestrictredScopeExpression.
+                        ret = rse = new AlternativeApplicExpr(underlying);      // Put the usual parenthesised expression into the RestrictredScopeExpression.
                         rse.addRestrictionExpression(restrExpr);                // Establish the first/only restriction
 
     label_28:

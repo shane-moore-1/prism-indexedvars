@@ -33,28 +33,28 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Find all RestrictedScopeExpressions during a visitor traversal, gathering them into a List that can be obtained afterwards.
+ * Find all AlternativeApplicExpr during a visitor traversal, gathering them into a List that can be obtained afterwards.
  */
 
 public class FindAlternApplicExprs extends ASTTraverse
 {
 public static boolean DEBUG = false;
-	private ArrayList<RestrictedScopeExpression> rseList = new ArrayList<RestrictedScopeExpression>();
+	private ArrayList<AlternativeApplicExpr> rseList = new ArrayList<AlternativeApplicExpr>();
 
 	public FindAlternApplicExprs()
 	{
 	}
 
-	public List<RestrictedScopeExpression> getExpressions()
+	public List<AlternativeApplicExpr> getExpressions()
 	{
 		return rseList;
 	}
 
 	@Override
-	public Object visit(RestrictedScopeExpression e) throws PrismLangException
+	public Object visit(AlternativeApplicExpr e) throws PrismLangException
 	{
-if (DEBUG) System.out.println("FindRstrScpExpr.visit(RSE) has found this RestrictedScope Expression: \'"+ e );
-		// Currently, we do not allow nested RestrictedScopeExpressions. So we won't delve into the compartments of this.
+if (DEBUG) System.out.println("FindRstrScpExpr.visit(RSE) has found this AlternativeApplicExpr Expression: \'"+ e );
+		// Currently, we do not allow nested AlternativeApplicExpr . So we won't delve into the compartments of this.
 		// We will just note it.
 		rseList.add(e);
 

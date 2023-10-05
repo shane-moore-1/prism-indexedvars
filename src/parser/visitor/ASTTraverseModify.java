@@ -686,8 +686,8 @@ if (DEBUG_ExpIndSetAcc) System.out.println("The " + this.getClass().getName() + 
 	}
 	public void visitPost(ExpressionIndexedSetAccess e) throws PrismLangException { defaultVisitPost(e); }
 // ALSO ADDED BY SHANE
-	public void visitPre(RestrictedScopeExpression e) throws PrismLangException { defaultVisitPre(e); }
-	public Object visit(RestrictedScopeExpression e) throws PrismLangException
+	public void visitPre(AlternativeApplicExpr e) throws PrismLangException { defaultVisitPre(e); }
+	public Object visit(AlternativeApplicExpr e) throws PrismLangException
 	{
 		visitPre(e);
 		// Consider first the restriction expressions (if any) that apply to this scoping expressioni...
@@ -702,14 +702,14 @@ if (DEBUG_RSE) System.out.println(" The " + this.getClass().getName() + " visito
 		if (e.getDefaultExpression() != null) e.setDefaultExpression( (Expression) e.getDefaultExpression().accept(this));
 
 if (DEBUG_RSE) System.out.println(" The " + this.getClass().getName() + " visitor in ASTTraverseMod.visit(RSE) will call accept() on the underlying expression: " + e.getUnderlyingExpression() );
-		// And finally, consider the underlying actaul expression that is being restricted by this RestrictedScope...
+		// And finally, consider the underlying actaul expression that is being restricted by this AlternativeApplicExpr ...
 		if (e.getUnderlyingExpression() != null) e.setUnderlyingExpression( (Expression) e.getUnderlyingExpression().accept(this));
 
 if (DEBUG_RSE) System.out.println(" Ending ASTTraverseMod.visit(RSE) [" + this.getClass().getName() + "] for expression: " + e);
 		visitPost(e);
 		return e;
 	}
-	public void visitPost(RestrictedScopeExpression e) throws PrismLangException { defaultVisitPost(e); }
+	public void visitPost(AlternativeApplicExpr e) throws PrismLangException { defaultVisitPost(e); }
 
 // END of ADDED BY SHANE
 // END of ADDED BY SHANE

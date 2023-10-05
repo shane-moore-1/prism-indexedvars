@@ -73,7 +73,7 @@ public Object visit(DeclTypeIndexedSet e) throws PrismLangException;          //
 	public Object visit(ExpressionFormula e) throws PrismLangException;
 	public Object visit(ExpressionVar e) throws PrismLangException;
 public Object visit(ExpressionIndexedSetAccess eisa) throws PrismLangException;		// ADDED BY SHANE
-public Object visit(RestrictedScopeExpression e) throws PrismLangException;		// ADDED BY SHANE
+public Object visit(AlternativeApplicExpr e) throws PrismLangException;		// ADDED BY SHANE
 	public Object visit(ExpressionProb e) throws PrismLangException;
 	public Object visit(ExpressionReward e) throws PrismLangException;
 	public Object visit(ExpressionSS e) throws PrismLangException;

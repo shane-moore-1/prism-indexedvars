@@ -9,7 +9,7 @@ import parser.Values;
 import parser.VarList;
 
 /**
- * Class which searches for RestrictedScopeExpressions, and will perform an on-the-spot evaluation of the restriction 
+ * Class which searches for AlternativeApplicExprs, and will perform an on-the-spot evaluation of the restriction 
  * expressions using the suppled Values for substitution, to determine how to resolve the Expression - either the underlying
  * expression ANDed with the substitution values, or else the default by itself.
  * It will also ensure that the substitutions are added as restrictions to any IndexedSetAccessExpressions that occur WITHIN the Scope,
@@ -18,7 +18,7 @@ import parser.VarList;
  * @author Shane Moore
  *
  */
-public class ResolveRestrictedScopes extends ASTTraverseModify {
+public class ResolveApplicability extends ASTTraverseModify {
 
   public static boolean DEBUG = true;// && ASTTraverseModify.DEBUG_SHOW_ENABLED;
 
@@ -29,7 +29,7 @@ public class ResolveRestrictedScopes extends ASTTraverseModify {
 
 	private VarList varList;
 
-	public ResolveRestrictedScopes(Values constants, VarList theVarList)
+	public ResolveApplicability(Values constants, VarList theVarList)
 	{
 		this.constants = constants;
 		this.varList = theVarList;
@@ -43,10 +43,10 @@ public class ResolveRestrictedScopes extends ASTTraverseModify {
 	
 	
 	@Override
-	public Object visit(RestrictedScopeExpression rse) throws PrismLangException
+	public Object visit(AlternativeApplicExpr rse) throws PrismLangException
 	{
 if (DEBUG) {
-   System.out.println("<ResolveRestrictedScope>\nThe ResolveRestrictedScopes.visit(RSE) method has been invoked for: " + rse + "\nusing the following values: " + substitutions +" and " + constants);
+   System.out.println("<ResolveRestrictedScope>\nThe ResolveRestrictedScopes.visit(AAE) [actually ResolveApplicability] method has been invoked for: " + rse + "\nusing the following values: " + substitutions +" and " + constants);
 }
 		ExpressionUnaryOp versionToReturn = null;
 		Expression resultExpr = null;

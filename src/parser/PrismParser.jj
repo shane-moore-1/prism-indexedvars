@@ -1677,25 +1677,25 @@ Expression ExpressionLiteral(boolean prop, boolean pathprop) :
 Expression ExpressionParenth(boolean prop, boolean pathprop) : 
 {
 	Expression restrExpr, ret, underlying, otherwise;
-	RestrictedScopeExpression rse;
+	AlternativeApplicExpr rse;
 	Token begin = null;
 }
 {
 	begin = <LPARENTH> underlying = Expression(prop, pathprop) <RPARENTH>
 	{ ret = new ExpressionUnaryOp(ExpressionUnaryOp.PARENTH, underlying); ret.setPosition(begin, getToken(0)); }
-        ( <TILDE> ret = RestrictedScopeExpression(prop,pathprop,ret) ) ?// optional restriction-expression (with default) can follow the parenthesised expression:
+        ( <TILDE> ret = AlternativeApplicExpr(prop,pathprop,ret) ) ?// optional restriction-expression (with default) can follow the parenthesised expression:
 	{ return ret; }
 }
 
-Expression RestrictedScopeExpression(boolean prop, boolean pathprop, Expression underlying) :
+Expression AlternativeApplicExpr(boolean prop, boolean pathprop, Expression underlying) :
 {
 	Expression restrExpr, ret, otherwise;
-	RestrictedScopeExpression rse;
+	AlternativeApplicExpr rse;
 	Token begin = null;
 }
 {
 	begin = <LBRACKET> restrExpr = ExpressionRelop(prop,pathprop) { 
-			ret = rse = new RestrictedScopeExpression(underlying);	// Put the usual parenthesised expression into the RestrictredScopeExpression.
+			ret = rse = new AlternativeApplicExpr(underlying);	// Put the usual parenthesised expression into the RestrictredScopeExpression.
 			rse.addRestrictionExpression(restrExpr); 		// Establish the first/only restriction
 		} 
                 ( 	// Optional 2nd and subsequent restrictions are separated by commas..

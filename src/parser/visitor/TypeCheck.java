@@ -54,9 +54,9 @@ public static boolean DEBUG_ExpBinOp = false;
 	}
 
 
-	public void visitPost(RestrictedScopeExpression e) throws PrismLangException
+	public void visitPost(AlternativeApplicExpr e) throws PrismLangException
 	{
-if (DEBUG_RSE) System.out.println("\nIn TypeCheck.visitPost(RSE) for this RestrScopeExpr: " + e);
+if (DEBUG_RSE) System.out.println("\nIn TypeCheck.visitPost(RSE) for this AlternApplicExpr: " + e);
 		Type t1 = e.getUnderlyingExpression().getType();
 		Type t2 = e.getDefaultExpression().getType();
 if (DEBUG_RSE) System.out.println("The type of the UnderlyingExpression is: " + t1);
@@ -69,7 +69,7 @@ if (DEBUG_RSE) System.out.println("and the type of the DefaultExpression is: " +
 		else if (t1 instanceof TypeDouble && t2 instanceof TypeDouble)
 			e.setType(TypeDouble.getInstance());
 		else {
-			throw new PrismLangException("Type Error: the Default expression must have same type as the Underlying expression in a Restricted Scope Expression.");
+			throw new PrismLangException("Type Error: the Default expression must have same type as the Underlying expression in a Alternative Applic Expression.");
 		}
 
 		Type t3;

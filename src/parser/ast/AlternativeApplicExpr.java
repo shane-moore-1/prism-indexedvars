@@ -9,20 +9,22 @@ import java.util.*;
 
 // ADDED BY SHANE
 /**
- * The purpose of this class is to represent a scoping mechanism, particularly for expressions which will involve accessing indexed-sets by
+ * The purpose of this class is to represent a mechanism for deciding whether to include an expression, or an alternative expression,
+ * on the basis of an applicability test conduct at command version generation time.
+ * particularly useful for expressions which will involve accessing indexed-sets by
  * variable positions, so that in formulas or other expression you can specify some 'default' value for evaluation in the cases where
  * the values of variables used in the access expression is deemed to be out of range. Typical examples of defaults are 'true' or 'false' 
  * or numeric literals. The key is the need to specify a restriction expression, which specifies the criteria for inclusion or exclusion of
  * a possible value for a variable used in the access expressions.   E.g. for a restriction expression of "x > 5" where x's domain is 0 to 10,
  * the valuations where the restriction expression is satisfied will result in substitutions (into access expressions, e.g. mySet[x])
  * would generate explicit accesses to set[6], set[7], etc., but for cases where the restriction expression are not satisfied or less, the 
- * 'default' value will replace the entire RestrictedScopedExpression's placement in some bigger expression.
+ * 'default' value will replace the entire AlternativeApplicExpr's placement in some bigger expression.
  * It is therefore similar to an ITE, but is evaluated at model-building time, rather than model-checking time, because it is used to build
  * separate versions of the Command with particular assignments of the variables used in the restriction expression (and the particular 
  * assignments become part of the guard of the Command.)
  *
  */
-public class RestrictedScopeExpression extends Expression implements Comparable<Expression>
+public class AlternativeApplicExpr extends Expression implements Comparable<Expression>
 {	
 																	
 
@@ -37,12 +39,12 @@ public static boolean DEBUG_Eval = true;
 
 	// Constructors
 	
-	public RestrictedScopeExpression()
+	public AlternativeApplicExpr()
 	{
 	}
 	
-	/** The parameter should be the Expression which is the normal expression to be included at the point this RestrictedScopeExpression appears in a command or formula. */
-	public RestrictedScopeExpression(Expression underlyingExpr)
+	/** The parameter should be the Expression which is the normal expression to be included at the point this AlternativeApplicExpr appears in a command or formula. */
+	public AlternativeApplicExpr(Expression underlyingExpr)
 	{
 		underlyingExpression = underlyingExpr;
 		restrictionExpressions = new ArrayList<Expression>();
@@ -158,8 +160,8 @@ if (DEBUG_Eval) {
 		else
 		   return underlyingExpression.evaluate(ec);
 
-//System.out.println("RestrictedScopeExpression.evaluate(EvaluateContext) has been called.");
-//throw new PrismLangException("Evaluation of a RestrictedScopeExpression is NOT YET IMPLEMENTED.");
+//System.out.println("AlternativeApplicExpr.evaluate(EvaluateContext) has been called.");
+//throw new PrismLangException("Evaluation of a AlternativeApplicExpr is NOT YET IMPLEMENTED.");
 
 //		return underlyingExpression.evaluate(ec);		// Possibly sufficient for now; but likely will need to code up the more complex semantics of checking all restrictions, otherwise, return the default's evaluation.
 		// return defaultExpression.evaluate(ec);
@@ -169,8 +171,8 @@ if (DEBUG_Eval) {
 	@Override
 	public BigRational evaluateExact(EvaluateContext ec) throws PrismLangException
         {
-System.out.println("RestrictedScopeExpression.evaluateExact(EvaluateContext) has been called.");
-throw new PrismLangException("Evaluation of a RestrictedScopeExpression is NOT YET IMPLEMENTED.");
+System.out.println("AlternativeApplicExpr.evaluateExact(EvaluateContext) has been called.");
+throw new PrismLangException("Evaluation of a AlternativeApplicExpr is NOT YET IMPLEMENTED.");
 
 //		return underlyingExpression.evaluateExact(ec);		// Possibly sufficient for now; but likely will need to code up the more complex semantics of checking all restrictions, otherwise, return the default's evaluation.
 		// return defaultExpression.evaluateExact(ec);
@@ -191,7 +193,7 @@ throw new PrismLangException("Evaluation of a RestrictedScopeExpression is NOT Y
 	@Override
 	public Object accept(ASTVisitor v) throws PrismLangException
 	{
-if (DEBUG_VISITOR) System.out.println("The " + v.getClass().getName() + " visitor has invoked accept() in RestrictedScopeExpression on this instance: " + toString());
+if (DEBUG_VISITOR) System.out.println("The " + v.getClass().getName() + " visitor has invoked accept() in AlternativeApplicExpr on this instance: " + toString());
 		return v.visit(this);
 	}
 	
@@ -226,7 +228,7 @@ if (DEBUG_VISITOR) System.out.println("The " + v.getClass().getName() + " visito
 	@Override
 	public Expression deepCopy()
 	{
-		RestrictedScopeExpression copiedExpr = new RestrictedScopeExpression(underlyingExpression.deepCopy());
+		AlternativeApplicExpr copiedExpr = new AlternativeApplicExpr(underlyingExpression.deepCopy());
 		for (Expression curRestr : restrictionExpressions)
 		{
 			copiedExpr.addRestrictionExpression(curRestr.deepCopy());

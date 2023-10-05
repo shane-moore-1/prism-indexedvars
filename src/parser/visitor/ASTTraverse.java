@@ -593,8 +593,8 @@ if (DEBUG_ExpIndSetAcc) System.out.println(" Ending ASTTraverse[ONLY].visit(Expr
 	}
 	public void visitPost(ExpressionIndexedSetAccess e) throws PrismLangException { defaultVisitPost(e); }
 // ALSO ADDED BY SHANE
-	public void visitPre(RestrictedScopeExpression e) throws PrismLangException { defaultVisitPre(e); }
-	public Object visit(RestrictedScopeExpression e) throws PrismLangException
+	public void visitPre(AlternativeApplicExpr e) throws PrismLangException { defaultVisitPre(e); }
+	public Object visit(AlternativeApplicExpr e) throws PrismLangException
 	{
 		visitPre(e);
 		// Consider first the restriction expressions (if any) that apply to this scoping expressioni...
@@ -616,7 +616,7 @@ if (DEBUG_RSE) System.out.println(" Ending ASTTraverse[ONLY].visit(RSE) [" + thi
 		visitPost(e);
 		return null;
 	}
-	public void visitPost(RestrictedScopeExpression e) throws PrismLangException { defaultVisitPost(e); }
+	public void visitPost(AlternativeApplicExpr e) throws PrismLangException { defaultVisitPost(e); }
 
 // END of ADDED BY SHANE
 // -----------------------------------------------------------------------------------
